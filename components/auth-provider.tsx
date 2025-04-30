@@ -39,6 +39,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setLoading(true)
 
+        // If supabase client is not available, skip auth check
+        if (!supabase) {
+          console.warn("Supabase client not available, skipping auth check")
+          setLoading(false)
+          return
+        }
+
         // Get session
         const {
           data: { session: currentSession },
@@ -97,44 +104,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth()
 
     // Set up auth state change listener
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      setSession(newSession)
-      setUser(newSession?.user ?? null)
+    if (supabase) {
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+        setSession(newSession)
+        setUser(newSession?.user ?? null)
 
-      if (newSession?.user) {
-        // Fetch user profile on auth change
-        const { data: profileData, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", newSession.user.id)
-          .single()
+        if (newSession?.user) {
+          // Fetch user profile on auth change
+          const { data: profileData, error } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", newSession.user.id)
+            .single()
 
-        if (error || !profileData) {
-          // Handle case where profile doesn't exist yet
-          console.log("Profile not found, will be created on next page load")
-        } else {
-          // Ensure balance is never undefined
-          if (profileData) {
-            profileData.balance = profileData.balance || 0
+          if (error || !profileData) {
+            // Handle case where profile doesn't exist yet
+            console.log("Profile not found, will be created on next page load")
+          } else {
+            // Ensure balance is never undefined
+            if (profileData) {
+              profileData.balance = profileData.balance || 0
+            }
+            setProfile(profileData)
           }
-          setProfile(profileData)
+        } else {
+          setProfile(null)
         }
-      } else {
-        setProfile(null)
+
+        setLoading(false)
+      })
+
+      return () => {
+        subscription.unsubscribe()
       }
-
-      setLoading(false)
-    })
-
-    return () => {
-      subscription.unsubscribe()
     }
   }, [supabase])
 
   // Update the signInWithGoogle function to use the correct redirect URL
   const signInWithGoogle = async () => {
+    if (!supabase) {
+      toast({
+        title: "Error",
+        description: "Authentication service is not available",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -155,6 +173,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithTwitter = async () => {
+    if (!supabase) {
+      toast({
+        title: "Error",
+        description: "Authentication service is not available",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "twitter",
@@ -171,6 +198,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
+    if (!supabase) return
+
     try {
       await supabase.auth.signOut()
       router.push("/")
@@ -180,7 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateProfile = async (updates: Partial<Profile>) => {
-    if (!user) return
+    if (!user || !supabase) return
 
     try {
       const { error } = await supabase.from("profiles").update(updates).eq("id", user.id)
@@ -205,7 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateBalance = async (newBalance: number) => {
-    if (!user || !profile) return
+    if (!user || !profile || !supabase) return
 
     try {
       const { error } = await supabase
@@ -227,6 +256,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signUpWithEmail = async (email: string, password: string, name: string) => {
+    if (!supabase) {
+      toast({
+        title: "Error",
+        description: "Authentication service is not available",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -259,6 +297,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithEmail = async (email: string, password: string) => {
+    if (!supabase) {
+      toast({
+        title: "Error",
+        description: "Authentication service is not available",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email: email,
@@ -272,6 +319,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
         throw error
       }
+      // Remove any success toast here if it exists
       router.push("/")
     } catch (error: any) {
       console.error("Error signing in:", error)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { formatDistanceToNow } from "date-fns"
@@ -16,6 +16,7 @@ import { formatSatsValue } from "@/lib/utils"
 import { BitcoinLogo } from "@/components/bitcoin-logo"
 import { getSupabaseClient } from "@/lib/supabase"
 import type { Post } from "@/lib/types"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [post, setPost] = useState<Post | null>(null)
@@ -26,10 +27,14 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [showCamera, setShowCamera] = useState(false)
   const [showBeforeAfter, setShowBeforeAfter] = useState(false)
   const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
+  const [animateSats, setAnimateSats] = useState(false)
+  const [oldBalance, setOldBalance] = useState(0)
+  const [newBalance, setNewBalance] = useState(0)
   const { toast } = useToast()
   const router = useRouter()
   const { user, updateBalance } = useAuth()
   const supabase = getSupabaseClient()
+  const balanceRef = useRef<HTMLDivElement>(null)
 
   // Force hide bottom nav when camera is shown
   useEffect(() => {
@@ -114,6 +119,41 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     return () => window.removeEventListener("storage", handleStorageChange)
   }, [])
 
+  // Animation effect for balance update
+  useEffect(() => {
+    if (animateSats && balanceRef.current) {
+      const animationDuration = 2000 // 2 seconds
+      const startTime = Date.now()
+      const startValue = oldBalance
+      const endValue = newBalance
+      const difference = endValue - startValue
+
+      const animateValue = () => {
+        const currentTime = Date.now()
+        const elapsed = currentTime - startTime
+        const progress = Math.min(elapsed / animationDuration, 1)
+
+        // Easing function for smoother animation
+        const easeOutQuad = (t: number) => t * (2 - t)
+        const easedProgress = easeOutQuad(progress)
+
+        const currentValue = Math.floor(startValue + difference * easedProgress)
+
+        if (user) {
+          updateBalance(currentValue)
+        }
+
+        if (progress < 1) {
+          requestAnimationFrame(animateValue)
+        } else {
+          setAnimateSats(false)
+        }
+      }
+
+      requestAnimationFrame(animateValue)
+    }
+  }, [animateSats, oldBalance, newBalance, updateBalance, user])
+
   const handleClaimPost = async () => {
     if (!user) {
       toast({
@@ -192,7 +232,10 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   }
 
   const handleSubmitFix = async () => {
+    setSubmittingFix(true)
+
     if (!fixImage) {
+      setSubmittingFix(false)
       toast({
         title: "Image required",
         description: "Please take a photo of the fixed issue",
@@ -200,8 +243,6 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
       })
       return
     }
-
-    setSubmittingFix(true)
 
     try {
       // In a real app, this would be an API call to verify the fix with AI
@@ -246,9 +287,37 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         setPost(updatedPost)
 
         // Update user balance if the user is not the poster
-        if (post.user_id !== user.id && post.userId !== user.id) {
-          updateBalance(user.balance + post.reward)
+        // Update user balance - always give reward to whoever fixes the issue
+        const newBalance = user.balance + post.reward
+
+        // Update balance in Supabase
+        if (supabase) {
+          const { error: balanceError } = await supabase
+            .from("profiles")
+            .update({
+              balance: newBalance,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", user.id)
+
+          if (balanceError) {
+            console.error("Error updating balance:", balanceError)
+            throw new Error("Failed to update balance")
+          }
         }
+
+        // Set up animation values
+        setOldBalance(user.balance)
+        setNewBalance(newBalance)
+        setAnimateSats(true)
+
+        // Add debug logging
+        console.log("Reward distributed:", {
+          userId: user.id,
+          oldBalance: user.balance,
+          reward: post.reward,
+          newBalance: newBalance,
+        })
 
         // Trigger storage event to update other components
         window.dispatchEvent(new Event("storage"))
@@ -260,25 +329,22 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         variant: "success",
       })
 
-      // Navigate back to dashboard after successful fix
+      // Navigate immediately to dashboard after successful fix
       router.push("/dashboard")
+      return // Exit the function early to prevent setting submittingFix to false
     } catch (error) {
       toast({
         title: "Error",
         description: "Could not verify the fix",
         variant: "destructive",
       })
+      setSubmittingFix(false) // Only reset on error
     } finally {
-      setSubmittingFix(false)
     }
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">Loading...</div>
-      </div>
-    )
+    return <LoadingSpinner />
   }
 
   if (!post) {
@@ -346,10 +412,10 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           <h1 className="text-2xl font-bold">Before & After</h1>
         </div>
 
-        <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <h2 className="text-lg font-medium mb-2">Before</h2>
-            <div className="relative w-full h-64 overflow-hidden rounded-lg">
+            <div className="relative w-full h-40 overflow-hidden rounded-lg">
               <Image
                 src={post.imageUrl || post.image_url || "/placeholder.svg"}
                 alt="Before"
@@ -361,38 +427,38 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
 
           <div>
             <h2 className="text-lg font-medium mb-2">After</h2>
-            <div className="relative w-full h-64 overflow-hidden rounded-lg">
+            <div className="relative w-full h-40 overflow-hidden rounded-lg">
               <Image src={fixImage || "/placeholder.svg"} alt="After" fill className="object-cover" />
             </div>
           </div>
-
-          <Button
-            onClick={handleSubmitFix}
-            disabled={submittingFix}
-            className="w-full bg-amber-600 hover:bg-amber-700 text-white"
-          >
-            {submittingFix ? (
-              <div className="flex items-center">
-                <svg
-                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Verifying...
-              </div>
-            ) : (
-              "Submit Fix"
-            )}
-          </Button>
         </div>
+
+        <Button
+          onClick={handleSubmitFix}
+          disabled={submittingFix}
+          className="w-full mt-6 bg-amber-600 hover:bg-amber-700 text-white"
+        >
+          {submittingFix ? (
+            <div className="flex items-center">
+              <svg
+                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              Verifying...
+            </div>
+          ) : (
+            "Submit Fix"
+          )}
+        </Button>
       </div>
     )
   }
@@ -424,26 +490,63 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      <div className="relative w-full h-64 mb-4 overflow-hidden rounded-lg">
-        <Image
-          src={post.imageUrl || post.image_url || "/placeholder.svg"}
-          alt={post.title}
-          fill
-          className="object-cover"
-        />
-        <div className="absolute top-2 right-2">
-          <Badge
-            variant={post.claimed ? "secondary" : post.fixed ? "outline" : "default"}
-            className={
-              post.fixed
-                ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-100 dark:hover:bg-emerald-900"
-                : ""
-            }
-          >
-            {post.fixed ? "Fixed" : post.claimed ? "In Progress" : formatSatsValue(post.reward)}
-          </Badge>
+      {post.fixed ? (
+        // Show before and after images side by side if the post is fixed
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="relative w-full h-40 overflow-hidden rounded-lg">
+            <div className="absolute top-0 left-0 bg-black/50 text-white text-xs px-2 py-1 rounded-br-lg z-10">
+              Before
+            </div>
+            <Image
+              src={post.imageUrl || post.image_url || "/placeholder.svg"}
+              alt="Before"
+              fill
+              className="object-cover"
+            />
+          </div>
+          <div className="relative w-full h-40 overflow-hidden rounded-lg">
+            <div className="absolute top-0 left-0 bg-black/50 text-white text-xs px-2 py-1 rounded-br-lg z-10">
+              After
+            </div>
+            <Image
+              src={post.fixedImageUrl || post.fixed_image_url || "/placeholder.svg"}
+              alt="After"
+              fill
+              className="object-cover"
+            />
+            <div className="absolute top-2 right-2">
+              <Badge
+                variant="outline"
+                className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-100 dark:hover:bg-emerald-900"
+              >
+                Fixed
+              </Badge>
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        // Show only the before image if the post is not fixed
+        <div className="relative w-full h-64 mb-4 overflow-hidden rounded-lg">
+          <Image
+            src={post.imageUrl || post.image_url || "/placeholder.svg"}
+            alt={post.title}
+            fill
+            className="object-cover"
+          />
+          <div className="absolute top-2 right-2">
+            <Badge
+              variant={post.claimed ? "secondary" : post.fixed ? "outline" : "default"}
+              className={
+                post.fixed
+                  ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-100 dark:hover:bg-emerald-900"
+                  : ""
+              }
+            >
+              {post.fixed ? "Fixed" : post.claimed ? "In Progress" : formatSatsValue(post.reward)}
+            </Badge>
+          </div>
+        </div>
+      )}
 
       <div className="mb-6">
         <h2 className="text-xl font-bold">{post.title}</h2>
@@ -488,12 +591,17 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className="p-2 mr-3 bg-amber-100 rounded-full dark:bg-amber-950/50">
+              <div
+                className={`p-2 mr-3 bg-amber-100 rounded-full dark:bg-amber-950/50 ${animateSats ? "animate-pulse" : ""}`}
+                ref={balanceRef}
+              >
                 <BitcoinLogo size={20} />
               </div>
               <div>
                 <p className="font-medium">Reward</p>
-                <p className="text-2xl font-bold">{formatSatsValue(post.reward)}</p>
+                <p className={`text-2xl font-bold ${animateSats ? "text-amber-500 dark:text-amber-400" : ""}`}>
+                  {formatSatsValue(post.reward)}
+                </p>
               </div>
             </div>
 

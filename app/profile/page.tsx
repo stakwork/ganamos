@@ -18,15 +18,8 @@ import { mockPosts } from "@/lib/mock-data"
 import { getSupabaseClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import type { Post } from "@/lib/types"
-
-type ActivityItem = {
-  id: string
-  type: "post" | "claim" | "fix" | "reward"
-  postId: string
-  postTitle: string
-  timestamp: Date
-  amount?: number
-}
+import { LoadingSpinner } from "@/components/loading-spinner"
+import { AvatarSelector } from "@/components/avatar-selector"
 
 export default function ProfilePage() {
   const { user, profile, loading, signOut } = useAuth()
@@ -165,11 +158,7 @@ export default function ProfilePage() {
   }
 
   if (loading || !user || !profile) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">Loading...</div>
-      </div>
-    )
+    return <LoadingSpinner />
   }
 
   const postedIssues = posts.filter((post) => post.userId === user.id || post.user_id === user.id)
@@ -268,7 +257,7 @@ export default function ProfilePage() {
       <Tabs defaultValue="posted" className="w-full" onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3 mb-4 dark:bg-gray-800/50">
           <TabsTrigger value="posted">Posted</TabsTrigger>
-          <TabsTrigger value="fixing">Fixing</TabsTrigger>
+          <TabsTrigger value="fixed">Fixed</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
@@ -285,12 +274,12 @@ export default function ProfilePage() {
           )}
         </TabsContent>
 
-        <TabsContent value="fixing" className="space-y-4">
-          {inProgressIssues.length > 0 ? (
-            inProgressIssues.map((post) => <PostCard key={post.id} post={post} />)
+        <TabsContent value="fixed" className="space-y-4">
+          {fixedIssues.length > 0 ? (
+            fixedIssues.map((post) => <PostCard key={post.id} post={post} />)
           ) : (
             <div className="p-8 text-center">
-              <p className="text-muted-foreground">You're not fixing any issues right now</p>
+              <p className="text-muted-foreground">You haven't fixed any issues yet</p>
               <Button className="mt-4" onClick={() => router.push("/dashboard")}>
                 Find issues to fix
               </Button>
@@ -316,8 +305,19 @@ export default function ProfilePage() {
           Log Out
         </Button>
       </div>
+
+      <AvatarSelector isOpen={showAvatarSelector} onOpenChange={setShowAvatarSelector} />
     </div>
   )
+}
+
+type ActivityItem = {
+  id: string
+  type: "post" | "claim" | "fix" | "reward"
+  postId: string
+  postTitle: string
+  timestamp: Date
+  amount?: number
 }
 
 function ActivityCard({ activity }: { activity: ActivityItem }) {

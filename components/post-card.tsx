@@ -108,9 +108,8 @@ export function PostCard({ post }: { post: Post }) {
         <div className="flex flex-col space-y-1">
           <div>
             <h3 className="font-medium cursor-pointer hover:underline" onClick={handleClick}>
-              {post.title}
+              {post.description}
             </h3>
-            <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{post.description}</p>
           </div>
           <div className="flex items-center text-xs text-muted-foreground mt-1">
             <svg

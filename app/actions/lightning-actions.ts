@@ -3,6 +3,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { createInvoice, checkInvoice, payInvoice } from "@/lib/lightning"
 import { revalidatePath } from "next/cache"
+import { cookies } from "next/headers"
 
 /**
  * Check if the Lightning configuration is valid
@@ -56,19 +57,26 @@ async function checkLightningConfig() {
  * Create a deposit invoice for a user
  */
 export async function createDepositInvoice(amount: number) {
+  // Get the current cookies to pass to the server client
+  const cookieStore = cookies()
+
   const supabase = createServerSupabaseClient()
 
   // Get the current user
   const {
     data: { session },
   } = await supabase.auth.getSession()
+
   if (!session) {
+    console.error("No session found in createDepositInvoice")
     return { success: false, error: "Not authenticated" }
   }
 
   const userId = session.user.id
 
   try {
+    console.log("Creating deposit invoice for user:", userId, "amount:", amount)
+
     // Check Lightning configuration
     const configCheck = await checkLightningConfig()
     if (!configCheck.valid) {
@@ -134,7 +142,7 @@ export async function createDepositInvoice(amount: number) {
       rHash: rHashStr,
     }
   } catch (error) {
-    console.error("Unexpected error:", error)
+    console.error("Unexpected error in createDepositInvoice:", error)
     return { success: false, error: "An unexpected error occurred" }
   }
 }
@@ -149,7 +157,9 @@ export async function checkDepositStatus(rHash: string) {
   const {
     data: { session },
   } = await supabase.auth.getSession()
+
   if (!session) {
+    console.error("No session found in checkDepositStatus")
     return { success: false, error: "Not authenticated" }
   }
 
@@ -233,7 +243,9 @@ export async function processWithdrawal(formData: FormData) {
   const {
     data: { session },
   } = await supabase.auth.getSession()
+
   if (!session) {
+    console.error("No session found in processWithdrawal")
     return { success: false, error: "Not authenticated" }
   }
 

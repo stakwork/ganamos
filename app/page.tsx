@@ -1,10 +1,19 @@
 import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { LandingHero } from "@/components/landing-hero"
-import { getCurrentUser } from "@/lib/auth"
+import { createServerSupabaseClient } from "@/lib/supabase"
 
 export default async function Home() {
-  const user = await getCurrentUser()
+  let user = null
+
+  try {
+    const supabase = createServerSupabaseClient()
+    const { data } = await supabase.auth.getUser()
+    user = data?.user
+  } catch (error) {
+    console.error("Error checking authentication:", error)
+    // Continue without redirecting if auth check fails
+  }
 
   if (user) {
     redirect("/dashboard")
