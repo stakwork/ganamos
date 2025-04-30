@@ -288,36 +288,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
 
         // Update user balance if the user is not the poster
         // Update user balance - always give reward to whoever fixes the issue
-        const newBalance = user.balance + post.reward
-
-        // Update balance in Supabase
-        if (supabase) {
-          const { error: balanceError } = await supabase
-            .from("profiles")
-            .update({
-              balance: newBalance,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", user.id)
-
-          if (balanceError) {
-            console.error("Error updating balance:", balanceError)
-            throw new Error("Failed to update balance")
-          }
-        }
-
-        // Set up animation values
         setOldBalance(user.balance)
-        setNewBalance(newBalance)
+        setNewBalance(user.balance + post.reward)
         setAnimateSats(true)
-
-        // Add debug logging
-        console.log("Reward distributed:", {
-          userId: user.id,
-          oldBalance: user.balance,
-          reward: post.reward,
-          newBalance: newBalance,
-        })
 
         // Trigger storage event to update other components
         window.dispatchEvent(new Event("storage"))

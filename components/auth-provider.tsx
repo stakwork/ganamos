@@ -34,12 +34,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast()
 
   useEffect(() => {
-    // Skip auth check if window is not defined (SSR)
-    if (typeof window === "undefined") {
-      setLoading(false)
-      return
-    }
-
     // Check for existing session
     const checkAuth = async () => {
       try {

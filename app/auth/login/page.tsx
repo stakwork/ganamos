@@ -3,17 +3,15 @@ import { useState } from "react"
 import type React from "react"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Suspense } from "react"
 
-// Create a client component that uses useSearchParams
-function LoginPageContent() {
+export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -21,20 +19,8 @@ function LoginPageContent() {
   const { signInWithGoogle, signInWithEmail } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
-
-  // Move this to a separate component with Suspense
-  const LoginErrorAlert = () => {
-    const searchParams = new URLSearchParams(window.location.search)
-    const error = searchParams.get("error")
-
-    if (!error) return null
-
-    return (
-      <Alert variant="destructive">
-        <AlertDescription>{decodeURIComponent(error)}</AlertDescription>
-      </Alert>
-    )
-  }
+  const searchParams = useSearchParams()
+  const error = searchParams.get("error")
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
@@ -89,7 +75,11 @@ function LoginPageContent() {
             <p className="text-muted-foreground">Sign in to access your account</p>
           </div>
 
-          <LoginErrorAlert />
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{decodeURIComponent(error)}</AlertDescription>
+            </Alert>
+          )}
 
           {showEmailForm ? (
             <form onSubmit={handleEmailSignIn} className="space-y-4">
@@ -185,13 +175,5 @@ function LoginPageContent() {
         </div>
       </div>
     </div>
-  )
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
-      <LoginPageContent />
-    </Suspense>
   )
 }
