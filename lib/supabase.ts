@@ -3,6 +3,16 @@ import type { Database } from "@/lib/database.types"
 
 // Create a single supabase client for interacting with your database
 const createSupabaseClient = () => {
+  // Skip if running on server during static rendering
+  if (typeof window === "undefined") {
+    // Check if we're in a static rendering context
+    const isStaticRendering = process.env.NODE_ENV === "production" && !process.env.NEXT_PUBLIC_SUPABASE_URL
+
+    if (isStaticRendering) {
+      return null
+    }
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -31,7 +41,7 @@ const createSupabaseClient = () => {
       } as any
     }
 
-    throw new Error("Supabase URL and anon key are required")
+    return null
   }
 
   return createClient<Database>(supabaseUrl, supabaseAnonKey, {
@@ -66,6 +76,6 @@ export const createServerSupabaseClient = () => {
     return createSupabaseClient()
   } catch (error) {
     console.error("Failed to initialize server Supabase client:", error)
-    throw error
+    return null
   }
 }

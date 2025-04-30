@@ -1,8 +1,23 @@
-export default function NotFound() {
+"use client"
+
+import { useEffect } from "react"
+
+export default function GlobalError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string }
+  reset: () => void
+}) {
+  useEffect(() => {
+    // Log the error to an error reporting service
+    console.error("Global error:", error)
+  }, [error])
+
   return (
     <html>
       <head>
-        <title>404 - Page Not Found</title>
+        <title>Something went wrong!</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <style
           dangerouslySetInnerHTML={{
@@ -24,13 +39,8 @@ export default function NotFound() {
             max-width: 28rem;
           }
           h1 {
-            font-size: 3.75rem;
+            font-size: 2rem;
             font-weight: 700;
-            margin-bottom: 1rem;
-          }
-          h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
             margin-bottom: 1rem;
           }
           p {
@@ -46,6 +56,8 @@ export default function NotFound() {
             border-radius: 0.375rem;
             text-decoration: none;
             transition: background-color 0.2s;
+            border: none;
+            cursor: pointer;
           }
           .button:hover {
             background-color: #059669;
@@ -65,12 +77,11 @@ export default function NotFound() {
       </head>
       <body>
         <div className="container">
-          <h1>404</h1>
-          <h2>Page Not Found</h2>
-          <p>The page you are looking for doesn't exist or has been moved.</p>
-          <a href="/dashboard" className="button">
-            Return to Home
-          </a>
+          <h1>Something went wrong!</h1>
+          <p>We've encountered an unexpected error. Please try again later.</p>
+          <button onClick={() => reset()} className="button">
+            Try again
+          </button>
         </div>
       </body>
     </html>
