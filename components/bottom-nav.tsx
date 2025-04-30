@@ -4,8 +4,10 @@ import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { Home, PlusCircle, User } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Suspense } from "react"
 
-export function BottomNav() {
+// Create a client component that uses useSearchParams
+function BottomNavContent() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
@@ -97,5 +99,14 @@ export function BottomNav() {
         </Link>
       </div>
     </div>
+  )
+}
+
+// Export a component that wraps the content in a Suspense boundary
+export function BottomNav() {
+  return (
+    <Suspense fallback={<div className="h-16" />}>
+      <BottomNavContent />
+    </Suspense>
   )
 }

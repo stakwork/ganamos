@@ -3,15 +3,17 @@ import { useState } from "react"
 import type React from "react"
 
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Suspense } from "react"
 
-export default function LoginPage() {
+// Create a client component that uses useSearchParams
+function LoginPageContent() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -19,8 +21,20 @@ export default function LoginPage() {
   const { signInWithGoogle, signInWithEmail } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const error = searchParams.get("error")
+
+  // Move this to a separate component with Suspense
+  const LoginErrorAlert = () => {
+    const searchParams = new URLSearchParams(window.location.search)
+    const error = searchParams.get("error")
+
+    if (!error) return null
+
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{decodeURIComponent(error)}</AlertDescription>
+      </Alert>
+    )
+  }
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
@@ -75,11 +89,7 @@ export default function LoginPage() {
             <p className="text-muted-foreground">Sign in to access your account</p>
           </div>
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{decodeURIComponent(error)}</AlertDescription>
-            </Alert>
-          )}
+          <LoginErrorAlert />
 
           {showEmailForm ? (
             <form onSubmit={handleEmailSignIn} className="space-y-4">
@@ -175,5 +185,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+      <LoginPageContent />
+    </Suspense>
   )
 }
