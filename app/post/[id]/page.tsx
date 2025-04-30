@@ -287,10 +287,12 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         setPost(updatedPost)
 
         // Update user balance if the user is not the poster
-        // Update user balance - always give reward to whoever fixes the issue
-        setOldBalance(user.balance)
-        setNewBalance(user.balance + post.reward)
-        setAnimateSats(true)
+        if (post.user_id !== user.id && post.userId !== user.id) {
+          // Set up animation values
+          setOldBalance(user.balance)
+          setNewBalance(user.balance + post.reward)
+          setAnimateSats(true)
+        }
 
         // Trigger storage event to update other components
         window.dispatchEvent(new Event("storage"))
