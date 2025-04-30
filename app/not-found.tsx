@@ -1,6 +1,6 @@
 export default function NotFound() {
   return (
-    <html>
+    <html lang="en">
       <head>
         <title>404 - Page Not Found</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -68,7 +68,7 @@ export default function NotFound() {
           <h1>404</h1>
           <h2>Page Not Found</h2>
           <p>The page you are looking for doesn't exist or has been moved.</p>
-          <a href="/dashboard" className="button">
+          <a href="/" className="button">
             Return to Home
           </a>
         </div>
