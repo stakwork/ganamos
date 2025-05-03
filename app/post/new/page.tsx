@@ -5,8 +5,6 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -49,7 +47,6 @@ const DynamicCameraCapture = dynamic(
 )
 
 export default function NewPostPage() {
-  const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [reward, setReward] = useState(2000)
   const [image, setImage] = useState<string | null>(null)
@@ -74,6 +71,23 @@ export default function NewPostPage() {
     return () => window.removeEventListener("storage", handleStorageChange)
   }, [])
 
+  // Hide navigation bar
+  useEffect(() => {
+    // Hide the navigation bar when on details step
+    const bottomNav = document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16") as HTMLElement
+    if (bottomNav && step === "details") {
+      bottomNav.style.display = "none"
+    }
+
+    return () => {
+      // Show the navigation bar again when component unmounts
+      const bottomNav = document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16") as HTMLElement
+      if (bottomNav) {
+        bottomNav.style.display = "grid"
+      }
+    }
+  }, [step])
+
   const handleCapture = (imageSrc: string) => {
     setImage(imageSrc)
     setStep("details")
@@ -91,10 +105,10 @@ export default function NewPostPage() {
       return
     }
 
-    if (!title || !description) {
+    if (!description) {
       toast({
         title: "Missing information",
-        description: "Please fill out all fields",
+        description: "Please describe the issue",
         variant: "destructive",
       })
       return
@@ -121,7 +135,7 @@ export default function NewPostPage() {
         id: postId,
         userId: user.id,
         user_id: user.id, // Add both formats for compatibility
-        title,
+        title: description.substring(0, 50), // Use first part of description as title for compatibility
         description,
         imageUrl: image,
         image_url: image, // Add both formats for compatibility
@@ -139,7 +153,7 @@ export default function NewPostPage() {
           await supabase.from("posts").insert({
             id: postId,
             user_id: user.id,
-            title,
+            title: description.substring(0, 50), // Use first part of description as title for compatibility
             description,
             image_url: image,
             location: currentLocation.name,
@@ -162,12 +176,18 @@ export default function NewPostPage() {
         updateBalance(profile.balance - reward)
       }
 
-      // Show success message
-      toast({
+      // Show success message with shorter duration
+      const successToast = toast({
         title: "🎉 Post created!",
         description: "Your issue has been posted successfully ✅",
-        variant: "success", // We'll create this variant
+        variant: "success",
+        duration: 3000, // 3 seconds
       })
+
+      // Automatically dismiss the toast after 3 seconds
+      setTimeout(() => {
+        successToast.dismiss()
+      }, 3000)
 
       // Navigate to dashboard immediately
       router.push("/dashboard")
@@ -200,6 +220,7 @@ export default function NewPostPage() {
       toast({
         title: "Sats added",
         description: `${formatSatsValue(satsToAdd)} have been added to your balance`,
+        duration: 3000, // 3 seconds
       })
 
       setShowAddSatsDialog(false)
@@ -303,34 +324,20 @@ export default function NewPostPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
-            <Input
-              id="title"
-              placeholder="What needs to be fixed?"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
             <Textarea
-              id="description"
-              placeholder="Describe the issue in detail..."
+              placeholder="Describe the issue..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
               required
+              className="resize-none"
             />
           </div>
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <Label htmlFor="reward" className="mr-2">
-                  Reward
-                </Label>
+                <div className="mr-2">Reward</div>
                 <div className="w-4 h-4 mr-1 relative">
                   <Image
                     src="/images/bitcoin-logo.png"
@@ -425,7 +432,6 @@ export default function NewPostPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sats-amount">Amount to add</Label>
               <div className="flex items-center gap-2">
                 <Button
                   type="button"

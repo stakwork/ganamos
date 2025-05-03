@@ -66,7 +66,7 @@ export function PostCard({ post }: { post: Post }) {
         ) : (
           <img
             src={getImageUrl() || "/placeholder.svg"}
-            alt={post.title}
+            alt={post.description}
             className="object-cover w-full h-full"
             onError={() => setImageError(true)}
           />
@@ -107,10 +107,9 @@ export function PostCard({ post }: { post: Post }) {
       <CardContent className="p-4">
         <div className="flex flex-col space-y-1">
           <div>
-            <h3 className="font-medium cursor-pointer hover:underline" onClick={handleClick}>
-              {post.title}
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{post.description}</p>
+            <p className="mt-1 text-sm line-clamp-3" onClick={handleClick}>
+              {post.description}
+            </p>
           </div>
           <div className="flex items-center text-xs text-muted-foreground mt-1">
             <svg

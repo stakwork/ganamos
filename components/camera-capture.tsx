@@ -21,6 +21,12 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
         url.searchParams.set("camera", "active")
         window.history.replaceState({}, "", url.toString())
       }
+
+      // Hide the navigation bar when camera is active
+      const bottomNav = document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16") as HTMLElement
+      if (bottomNav) {
+        bottomNav.style.display = "none"
+      }
     }
 
     const startCamera = async () => {
@@ -66,6 +72,12 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
           url.searchParams.delete("camera")
           window.history.replaceState({}, "", url.toString())
         }
+
+        // Show the navigation bar again when camera is inactive
+        const bottomNav = document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16") as HTMLElement
+        if (bottomNav) {
+          bottomNav.style.display = "grid"
+        }
       }
     }
   }, [facingMode])
@@ -98,7 +110,7 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
   return (
     <div className="space-y-4">
       <Card className="overflow-hidden border dark:border-gray-800">
-        <CardContent className="p-0">
+        <CardContent className="p-0 relative">
           {error ? (
             <div className="flex items-center justify-center p-8 text-center">
               <div>
@@ -125,53 +137,66 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
             </div>
           ) : (
             <div className="relative">
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-[70vh] object-cover" />
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-[85vh] object-cover" />
               <div className="absolute inset-0 pointer-events-none border-4 border-white border-opacity-50 rounded-lg m-4"></div>
+
+              {/* Overlay controls on the camera view */}
+              <div className="absolute bottom-6 inset-x-0 flex justify-center items-center gap-4">
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={takePhoto}
+                  className="rounded-full w-16 h-16 p-0 bg-green-500 hover:bg-green-600 shadow-lg"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                  </svg>
+                  <span className="sr-only">Take Photo</span>
+                </Button>
+              </div>
+
+              {/* Switch camera button positioned at the top-right */}
+              {isMobile && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={switchCamera}
+                  className="absolute top-4 right-4 bg-black/30 border-0 hover:bg-black/40 text-white"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                  </svg>
+                  <span className="sr-only">Switch Camera</span>
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
 
       <canvas ref={canvasRef} className="hidden" />
-
-      <div className="flex justify-center gap-4">
-        {isMobile && (
-          <Button type="button" variant="outline" size="icon" onClick={switchCamera} className="dark:border-gray-700">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-              <path d="M3 3v5h5" />
-            </svg>
-            <span className="sr-only">Switch Camera</span>
-          </Button>
-        )}
-
-        <Button type="button" size="lg" onClick={takePhoto} className="rounded-full w-16 h-16 p-0">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="10" />
-          </svg>
-          <span className="sr-only">Take Photo</span>
-        </Button>
-      </div>
 
       <p className="text-center text-sm text-muted-foreground">Take a clear photo of the issue</p>
     </div>

@@ -18,6 +18,14 @@ export default function ProfileCameraPage() {
   const { updateProfile } = useAuth()
 
   useEffect(() => {
+    // Hide the navigation bar when camera is active
+    if (typeof window !== "undefined") {
+      const bottomNav = document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16") as HTMLElement
+      if (bottomNav) {
+        bottomNav.style.display = "none"
+      }
+    }
+
     const startCamera = async () => {
       try {
         const constraints = {
@@ -52,6 +60,14 @@ export default function ProfileCameraPage() {
     return () => {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop())
+      }
+
+      // Show the navigation bar again when camera is inactive
+      if (typeof window !== "undefined") {
+        const bottomNav = document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16") as HTMLElement
+        if (bottomNav) {
+          bottomNav.style.display = "grid"
+        }
       }
     }
   }, [facingMode])
@@ -127,7 +143,7 @@ export default function ProfileCameraPage() {
       </div>
 
       <div className="space-y-4">
-        <div className="overflow-hidden border rounded-lg dark:border-gray-800">
+        <div className="overflow-hidden border rounded-lg dark:border-gray-800 relative">
           {error ? (
             <div className="flex items-center justify-center p-8 text-center">
               <div>
@@ -154,67 +170,87 @@ export default function ProfileCameraPage() {
             </div>
           ) : (
             <div className="relative">
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-[70vh] object-cover" />
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-[80vh] object-cover" />
               <div className="absolute inset-0 pointer-events-none border-4 border-white border-opacity-50 rounded-full m-4"></div>
+
+              {/* Overlay controls on the camera view */}
+              <div className="absolute bottom-6 inset-x-0 flex justify-center items-center gap-4">
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={takePhoto}
+                  className="rounded-full w-16 h-16 p-0 bg-green-500 hover:bg-green-600 shadow-lg"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <svg
+                      className="animate-spin h-8 w-8"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                    </svg>
+                  )}
+                  <span className="sr-only">Take Photo</span>
+                </Button>
+              </div>
+
+              {/* Switch camera button positioned at the top-right */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={switchCamera}
+                className="absolute top-4 right-4 bg-black/30 border-0 hover:bg-black/40 text-white"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+                <span className="sr-only">Switch Camera</span>
+              </Button>
             </div>
           )}
         </div>
 
         <canvas ref={canvasRef} className="hidden" />
-
-        <div className="flex justify-center gap-4">
-          <Button type="button" variant="outline" size="icon" onClick={switchCamera} className="dark:border-gray-700">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-              <path d="M3 3v5h5" />
-            </svg>
-            <span className="sr-only">Switch Camera</span>
-          </Button>
-
-          <Button
-            type="button"
-            size="lg"
-            onClick={takePhoto}
-            className="rounded-full w-16 h-16 p-0"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <svg className="animate-spin h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-            ) : (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-              </svg>
-            )}
-            <span className="sr-only">Take Photo</span>
-          </Button>
-        </div>
 
         <p className="text-center text-sm text-muted-foreground">Center your face in the circle and take a photo</p>
       </div>
