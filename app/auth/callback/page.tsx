@@ -5,15 +5,20 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { getSupabaseClient } from "@/lib/supabase"
 import { LoadingSpinner } from "@/components/loading-spinner"
 
+// Get the Supabase client once
+const supabase = typeof window !== "undefined" ? getSupabaseClient() : null
+
 export default function AuthCallbackPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = getSupabaseClient()
   const [error, setError] = useState<string | null>(null)
   const [debugInfo, setDebugInfo] = useState<any>({})
   const [redirecting, setRedirecting] = useState(false)
 
   useEffect(() => {
+    // Skip if supabase is not available (server-side rendering)
+    if (!supabase) return
+
     // Handle the OAuth callback
     const handleAuthCallback = async () => {
       try {
@@ -156,7 +161,7 @@ export default function AuthCallbackPage() {
     }
 
     handleAuthCallback()
-  }, [router, supabase, searchParams])
+  }, [router, searchParams])
 
   if (error) {
     return (

@@ -11,8 +11,8 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
-  // Disable static generation
-  staticPageGenerationTimeout: 0,
+  // Set a reasonable timeout instead of disabling it completely
+  staticPageGenerationTimeout: 60,
   eslint: {
     ignoreDuringBuilds: true,
   },

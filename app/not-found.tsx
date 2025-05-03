@@ -1,9 +1,28 @@
 export default function NotFound() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-      <h1 className="text-4xl font-bold mb-4">404 - Page Not Found</h1>
-      <p className="mb-8">Sorry, the page you are looking for does not exist.</p>
-      <a href="/" className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "100vh",
+        padding: "1rem",
+        textAlign: "center",
+      }}
+    >
+      <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "1rem" }}>404 - Page Not Found</h1>
+      <p style={{ marginBottom: "2rem" }}>Sorry, the page you are looking for does not exist.</p>
+      <a
+        href="/"
+        style={{
+          padding: "0.5rem 1rem",
+          backgroundColor: "#059669",
+          color: "white",
+          borderRadius: "0.375rem",
+          textDecoration: "none",
+        }}
+      >
         Return Home
       </a>
     </div>

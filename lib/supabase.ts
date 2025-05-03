@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js"
 import type { Database } from "@/lib/database.types"
 
 // Create a single supabase client for interacting with your database
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null
+
 const createSupabaseClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -46,10 +48,14 @@ const createSupabaseClient = () => {
 }
 
 // Client-side singleton to avoid multiple instances
-let supabaseInstance: ReturnType<typeof createSupabaseClient> | null = null
-
 export const getSupabaseClient = () => {
-  if (!supabaseInstance && typeof window !== "undefined") {
+  if (typeof window === "undefined") {
+    // Server-side - always create a new instance
+    return createSupabaseClient()
+  }
+
+  // Client-side - use singleton pattern
+  if (!supabaseInstance) {
     try {
       supabaseInstance = createSupabaseClient()
     } catch (error) {

@@ -24,13 +24,15 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// Get the Supabase client once at the module level
+const supabase = typeof window !== "undefined" ? getSupabaseClient() : null
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = getSupabaseClient()
   const { toast } = useToast()
 
   useEffect(() => {
@@ -140,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         subscription.unsubscribe()
       }
     }
-  }, [supabase])
+  }, [])
 
   // Update the signInWithGoogle function to use the correct redirect URL
   const signInWithGoogle = async () => {
