@@ -165,7 +165,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {posts.length > 0 ? (
+            {posts && posts.length > 0 ? (
               posts.map((post) => <PostCard key={post.id} post={post} />)
             ) : (
               <div className="p-8 text-center border rounded-lg dark:border-gray-800 bg-white/90 dark:bg-gray-900/90">
@@ -296,16 +296,17 @@ function SearchPage({ onClose }: { onClose: () => void }) {
             <label className="text-sm font-medium">Reward Range</label>
             <div className="mt-4">
               <div className="flex h-24 items-end space-x-1 mb-2">
-                {postsByReward.map((range, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 bg-emerald-200 dark:bg-emerald-900/50 rounded-t"
-                    style={{
-                      height: `${range.count ? (range.count / maxCount) * 100 : 0}%`,
-                      opacity: rewardRange[0] <= range.min && range.max <= rewardRange[1] ? 1 : 0.3,
-                    }}
-                  />
-                ))}
+                {postsByReward &&
+                  postsByReward.map((range, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 bg-emerald-200 dark:bg-emerald-900/50 rounded-t"
+                      style={{
+                        height: `${range.count ? (range.count / maxCount) * 100 : 0}%`,
+                        opacity: rewardRange[0] <= range.min && range.max <= rewardRange[1] ? 1 : 0.3,
+                      }}
+                    />
+                  ))}
               </div>
               <input
                 type="range"

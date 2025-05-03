@@ -43,18 +43,19 @@ export function LocationPrompt({ onPermissionGranted }: { onPermissionGranted: (
           </div>
 
           <RadioGroup value={selectedLocation} onValueChange={setSelectedLocation} className="space-y-3">
-            {mockLocations.map((location) => (
-              <div key={location.id} className="flex items-start space-x-2 border p-3 rounded-md">
-                <RadioGroupItem value={location.id} id={location.id} className="mt-1" />
-                <div className="grid gap-1.5">
-                  <Label htmlFor={location.id} className="font-medium">
-                    {location.name}
-                  </Label>
-                  <p className="text-sm text-muted-foreground">{location.description}</p>
-                  <p className="text-xs text-muted-foreground">{location.distance}</p>
+            {mockLocations &&
+              mockLocations.map((location) => (
+                <div key={location.id} className="flex items-start space-x-2 border p-3 rounded-md">
+                  <RadioGroupItem value={location.id} id={location.id} className="mt-1" />
+                  <div className="grid gap-1.5">
+                    <Label htmlFor={location.id} className="font-medium">
+                      {location.name}
+                    </Label>
+                    <p className="text-sm text-muted-foreground">{location.description}</p>
+                    <p className="text-xs text-muted-foreground">{location.distance}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </RadioGroup>
         </CardContent>
         <CardFooter>

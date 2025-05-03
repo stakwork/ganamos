@@ -67,55 +67,53 @@ function TransactionHistory() {
     )
   }
 
-  if (transactions.length === 0) {
-    return (
-      <div className="text-center py-6 text-muted-foreground">
-        <p>No transactions yet</p>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-3">
-      {transactions.map((tx) => (
-        <div
-          key={tx.id}
-          className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0"
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className={`p-2 rounded-full ${
-                tx.type === "deposit" ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30"
-              }`}
-            >
-              {tx.type === "deposit" ? (
-                <ArrowDownIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
-              ) : (
-                <ArrowUpIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
-              )}
+      {transactions && transactions.length > 0 ? (
+        transactions.map((tx) => (
+          <div
+            key={tx.id}
+            className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0"
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className={`p-2 rounded-full ${
+                  tx.type === "deposit" ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30"
+                }`}
+              >
+                {tx.type === "deposit" ? (
+                  <ArrowDownIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
+                ) : (
+                  <ArrowUpIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
+                )}
+              </div>
+              <div>
+                <p className="font-medium">{tx.type === "deposit" ? "Deposit" : "Withdrawal"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {tx.created_at && formatDistanceToNow(new Date(tx.created_at), { addSuffix: true })}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium">{tx.type === "deposit" ? "Deposit" : "Withdrawal"}</p>
+            <div className="text-right">
+              <p
+                className={`font-medium ${
+                  tx.type === "deposit" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                }`}
+              >
+                {tx.type === "deposit" ? "+" : "-"}
+                {formatSatsValue(tx.amount)}
+              </p>
               <p className="text-xs text-muted-foreground">
-                {tx.created_at && formatDistanceToNow(new Date(tx.created_at), { addSuffix: true })}
+                {tx.status === "completed" ? "Completed" : tx.status === "pending" ? "Pending" : "Failed"}
               </p>
             </div>
           </div>
-          <div className="text-right">
-            <p
-              className={`font-medium ${
-                tx.type === "deposit" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-              }`}
-            >
-              {tx.type === "deposit" ? "+" : "-"}
-              {formatSatsValue(tx.amount)}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {tx.status === "completed" ? "Completed" : tx.status === "pending" ? "Pending" : "Failed"}
-            </p>
-          </div>
+        ))
+      ) : (
+        <div className="text-center py-6 text-muted-foreground">
+          <p>No transactions yet</p>
         </div>
-      ))}
+      )}
     </div>
   )
 }

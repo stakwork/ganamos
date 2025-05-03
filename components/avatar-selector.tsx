@@ -110,20 +110,21 @@ export function AvatarSelector({ isOpen, onOpenChange }: AvatarSelectorProps) {
 
           <TabsContent value="gallery" className="mt-4">
             <div className="grid grid-cols-4 gap-2">
-              {animeAvatars.map((avatar, index) => (
-                <div
-                  key={index}
-                  className="relative w-16 h-16 overflow-hidden rounded-full cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => handleSelectAvatar(avatar)}
-                >
-                  <Image
-                    src={avatar || "/placeholder.svg"}
-                    alt={`Avatar option ${index + 1}`}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-              ))}
+              {animeAvatars &&
+                animeAvatars.map((avatar, index) => (
+                  <div
+                    key={index}
+                    className="relative w-16 h-16 overflow-hidden rounded-full cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => handleSelectAvatar(avatar)}
+                  >
+                    <Image
+                      src={avatar || "/placeholder.svg"}
+                      alt={`Avatar option ${index + 1}`}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                ))}
             </div>
           </TabsContent>
 

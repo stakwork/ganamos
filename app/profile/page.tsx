@@ -262,7 +262,7 @@ export default function ProfilePage() {
         </TabsList>
 
         <TabsContent value="posted" className="space-y-4">
-          {postedIssues.length > 0 ? (
+          {postedIssues && postedIssues.length > 0 ? (
             postedIssues.map((post) => <PostCard key={post.id} post={post} />)
           ) : (
             <div className="p-8 text-center">
@@ -275,7 +275,7 @@ export default function ProfilePage() {
         </TabsContent>
 
         <TabsContent value="fixed" className="space-y-4">
-          {fixedIssues.length > 0 ? (
+          {fixedIssues && fixedIssues.length > 0 ? (
             fixedIssues.map((post) => <PostCard key={post.id} post={post} />)
           ) : (
             <div className="p-8 text-center">
@@ -288,7 +288,7 @@ export default function ProfilePage() {
         </TabsContent>
 
         <TabsContent value="activity" className="space-y-4">
-          {activities.length > 0 ? (
+          {activities && activities.length > 0 ? (
             activities.map((activity) => <ActivityCard key={activity.id} activity={activity} />)
           ) : (
             <div className="p-8 text-center">
