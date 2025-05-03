@@ -1,15 +1,22 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { Home, PlusCircle, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function BottomNav() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
 
-  // Don't show bottom nav on home page or auth pages
-  if (pathname === "/" || pathname.startsWith("/auth")) {
+  // Don't show bottom nav on home page, auth pages, or when camera is active
+  if (
+    pathname === "/" ||
+    pathname.startsWith("/auth") ||
+    pathname === "/post/new" || // Hide on post creation page
+    searchParams.has("camera") || // Hide when camera is active
+    searchParams.has("comparison") // Hide when before/after comparison is active
+  ) {
     return null
   }
 

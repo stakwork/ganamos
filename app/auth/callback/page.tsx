@@ -45,11 +45,13 @@ export default function AuthCallbackPage() {
             // Force a delay to ensure the session is properly set
             await new Promise((resolve) => setTimeout(resolve, 1000))
 
-            console.log("Adding meta refresh tag to redirect to dashboard")
+            console.log("Redirecting to dashboard using router")
             setRedirecting(true)
-            document.head.innerHTML += `
-              <meta http-equiv="refresh" content="2;url=/dashboard">
-            `
+
+            // Use router.push instead of meta refresh
+            setTimeout(() => {
+              router.push("/dashboard")
+            }, 500)
             return
           }
         }
@@ -95,11 +97,13 @@ export default function AuthCallbackPage() {
               // Force a delay to ensure the session is properly set
               await new Promise((resolve) => setTimeout(resolve, 1000))
 
-              console.log("Adding meta refresh tag to redirect to dashboard")
+              console.log("Redirecting to dashboard using router")
               setRedirecting(true)
-              document.head.innerHTML += `
-                <meta http-equiv="refresh" content="2;url=/dashboard">
-              `
+
+              // Use router.push instead of meta refresh
+              setTimeout(() => {
+                router.push("/dashboard")
+              }, 500)
               return
             }
           }
@@ -126,11 +130,13 @@ export default function AuthCallbackPage() {
           // Force a delay to ensure the session is properly set
           await new Promise((resolve) => setTimeout(resolve, 1000))
 
-          console.log("Adding meta refresh tag to redirect to dashboard")
+          console.log("Redirecting to dashboard using router")
           setRedirecting(true)
-          document.head.innerHTML += `
-            <meta http-equiv="refresh" content="2;url=/dashboard">
-          `
+
+          // Use router.push instead of meta refresh
+          setTimeout(() => {
+            router.push("/dashboard")
+          }, 500)
           return
         }
 
@@ -138,19 +144,19 @@ export default function AuthCallbackPage() {
         console.error("No session established after authentication")
         setDebugInfo((prev) => ({ ...prev, noSessionEstablished: true }))
         setError("Authentication failed. Please try again.")
+
+        // Use router.push instead of meta refresh for error case
         setTimeout(() => {
-          document.head.innerHTML += `
-            <meta http-equiv="refresh" content="3;url=/auth/login?error=No%20session%20established">
-          `
+          router.push("/auth/login?error=No%20session%20established")
         }, 3000)
       } catch (error: any) {
         console.error("Authentication error:", error)
         setDebugInfo((prev) => ({ ...prev, catchError: error.message }))
         setError(`Authentication failed: ${error.message}`)
+
+        // Use router.push instead of meta refresh for error case
         setTimeout(() => {
-          document.head.innerHTML += `
-            <meta http-equiv="refresh" content="3;url=/auth/login?error=${encodeURIComponent(error.message)}">
-          `
+          router.push(`/auth/login?error=${encodeURIComponent(error.message)}`)
         }, 3000)
       }
     }

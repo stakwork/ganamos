@@ -319,6 +319,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
         throw error
       }
+      // Remove any success toast here if it exists
       router.push("/")
     } catch (error: any) {
       console.error("Error signing in:", error)

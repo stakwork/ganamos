@@ -5,7 +5,6 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
@@ -49,7 +48,6 @@ const DynamicCameraCapture = dynamic(
 )
 
 export default function NewPostPage() {
-  const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [reward, setReward] = useState(2000)
   const [image, setImage] = useState<string | null>(null)
@@ -63,6 +61,54 @@ export default function NewPostPage() {
   const router = useRouter()
   const { user, profile, updateBalance } = useAuth()
   const supabase = getSupabaseClient()
+
+  // Update URL parameters based on current step to help with navigation bar hiding
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+
+      // Always add a parameter to indicate we're in the post creation flow
+      if (!url.searchParams.has("posting")) {
+        url.searchParams.set("posting", "true")
+      }
+
+      // Add specific parameter for camera step
+      if (step === "photo") {
+        if (!url.searchParams.has("camera")) {
+          url.searchParams.set("camera", "active")
+        }
+        if (url.searchParams.has("details")) {
+          url.searchParams.delete("details")
+        }
+      } else {
+        if (!url.searchParams.has("details")) {
+          url.searchParams.set("details", "active")
+        }
+        if (url.searchParams.has("camera")) {
+          url.searchParams.delete("camera")
+        }
+      }
+
+      window.history.replaceState({}, "", url.toString())
+    }
+
+    return () => {
+      // Clean up URL parameters when component unmounts
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href)
+        if (url.searchParams.has("posting")) {
+          url.searchParams.delete("posting")
+        }
+        if (url.searchParams.has("camera")) {
+          url.searchParams.delete("camera")
+        }
+        if (url.searchParams.has("details")) {
+          url.searchParams.delete("details")
+        }
+        window.history.replaceState({}, "", url.toString())
+      }
+    }
+  }, [step])
 
   // Update location when it changes
   useEffect(() => {
@@ -91,10 +137,10 @@ export default function NewPostPage() {
       return
     }
 
-    if (!title || !description) {
+    if (!description) {
       toast({
         title: "Missing information",
-        description: "Please fill out all fields",
+        description: "Please provide a description of the issue",
         variant: "destructive",
       })
       return
@@ -121,8 +167,8 @@ export default function NewPostPage() {
         id: postId,
         userId: user.id,
         user_id: user.id, // Add both formats for compatibility
-        title,
-        description,
+        title: description, // Use description as title
+        description: description,
         imageUrl: image,
         image_url: image, // Add both formats for compatibility
         location: currentLocation.name,
@@ -139,8 +185,8 @@ export default function NewPostPage() {
           await supabase.from("posts").insert({
             id: postId,
             user_id: user.id,
-            title,
-            description,
+            title: description, // Use description as title
+            description: description,
             image_url: image,
             location: currentLocation.name,
             reward,
@@ -303,21 +349,10 @@ export default function NewPostPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
-            <Input
-              id="title"
-              placeholder="What needs to be fixed?"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              placeholder="Describe the issue in detail..."
+              placeholder="Describe what needs to be fixed..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
