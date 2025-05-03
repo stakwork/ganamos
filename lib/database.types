@@ -77,6 +77,7 @@ export interface Database {
           claimed_by?: string | null
           claimed_at?: string | null
           fixed?: boolean
+          fixed_at?: string | null
           fixed_image_url?: string | null
           created_at?: string
         }

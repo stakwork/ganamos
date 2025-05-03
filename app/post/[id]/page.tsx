@@ -17,6 +17,7 @@ import { BitcoinLogo } from "@/components/bitcoin-logo"
 import { getSupabaseClient } from "@/lib/supabase"
 import type { Post } from "@/lib/types"
 import { LoadingSpinner } from "@/components/loading-spinner"
+import { isBrowser, safeWindow } from "@/lib/browser-utils"
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [post, setPost] = useState<Post | null>(null)
@@ -26,55 +27,67 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [fixImage, setFixImage] = useState<string | null>(null)
   const [showCamera, setShowCamera] = useState(false)
   const [showBeforeAfter, setShowBeforeAfter] = useState(false)
-  const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
+  const [currentLocation, setCurrentLocation] = useState<any>(null)
   const [animateSats, setAnimateSats] = useState(false)
   const [oldBalance, setOldBalance] = useState(0)
   const [newBalance, setNewBalance] = useState(0)
+  const [isClient, setIsClient] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
   const { user, updateBalance } = useAuth()
   const supabase = getSupabaseClient()
   const balanceRef = useRef<HTMLDivElement>(null)
 
+  // Mark when component is mounted on client
+  useEffect(() => {
+    setIsClient(true)
+    if (isBrowser) {
+      setCurrentLocation(getCurrentLocation())
+    }
+  }, [])
+
   // Force hide bottom nav when camera is shown
   useEffect(() => {
+    if (!isBrowser) return
+
     if (showCamera || showBeforeAfter) {
       // Add a class to the body to help with styling
       document.body.classList.add("camera-active")
 
       // Add a URL parameter to help with navigation detection
-      if (typeof window !== "undefined") {
-        const url = new URL(window.location.href)
-        if (showCamera) {
-          url.searchParams.set("camera", "active")
-        }
-        if (showBeforeAfter) {
-          url.searchParams.set("comparison", "active")
-        }
-        window.history.replaceState({}, "", url.toString())
+      const url = new URL(window.location.href)
+      if (showCamera) {
+        url.searchParams.set("camera", "active")
       }
+      if (showBeforeAfter) {
+        url.searchParams.set("comparison", "active")
+      }
+      safeWindow.history.replaceState({}, "", url.toString())
     } else {
       document.body.classList.remove("camera-active")
 
       // Remove the URL parameters
-      if (typeof window !== "undefined") {
-        const url = new URL(window.location.href)
-        if (url.searchParams.has("camera")) {
-          url.searchParams.delete("camera")
-        }
-        if (url.searchParams.has("comparison")) {
-          url.searchParams.delete("comparison")
-        }
-        window.history.replaceState({}, "", url.toString())
+      const url = new URL(window.location.href)
+      if (url.searchParams.has("camera")) {
+        url.searchParams.delete("camera")
       }
+      if (url.searchParams.has("comparison")) {
+        url.searchParams.delete("comparison")
+      }
+      safeWindow.history.replaceState({}, "", url.toString())
     }
 
     return () => {
-      document.body.classList.remove("camera-active")
+      if (isBrowser) {
+        document.body.classList.remove("camera-active")
+      }
     }
   }, [showCamera, showBeforeAfter])
 
   useEffect(() => {
+    // Skip data fetching during SSR
+    if (!isClient) return
+
     // In a real app, this would be an API call
     const fetchPost = async () => {
       try {
@@ -90,9 +103,11 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         }
 
         // Fall back to mock data
-        const foundPost = mockPosts.find((p) => p.id === params.id)
-        if (foundPost) {
-          setPost(foundPost)
+        if (Array.isArray(mockPosts)) {
+          const foundPost = mockPosts.find((p) => p.id === params.id)
+          if (foundPost) {
+            setPost(foundPost)
+          }
         }
       } catch (error) {
         console.error("Error fetching post:", error)
@@ -107,10 +122,12 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     }
 
     fetchPost()
-  }, [params.id, toast, supabase])
+  }, [params.id, toast, supabase, isClient])
 
   // Update location when it changes
   useEffect(() => {
+    if (!isBrowser) return
+
     const handleStorageChange = () => {
       setCurrentLocation(getCurrentLocation())
     }
@@ -121,6 +138,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
 
   // Animation effect for balance update
   useEffect(() => {
+    if (!isBrowser) return
+
     if (animateSats && balanceRef.current) {
       const animationDuration = 2000 // 2 seconds
       const startTime = Date.now()
@@ -198,15 +217,19 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         }
 
         // Update the post in the mockPosts array
-        const postIndex = mockPosts.findIndex((p) => p.id === post.id)
-        if (postIndex !== -1) {
-          mockPosts[postIndex] = updatedPost
+        if (Array.isArray(mockPosts)) {
+          const postIndex = mockPosts.findIndex((p) => p.id === post.id)
+          if (postIndex !== -1) {
+            mockPosts[postIndex] = updatedPost
+          }
         }
 
         setPost(updatedPost)
 
         // Trigger storage event to update other components
-        window.dispatchEvent(new Event("storage"))
+        if (isBrowser) {
+          window.dispatchEvent(new Event("storage"))
+        }
       }
 
       toast({
@@ -279,9 +302,11 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         }
 
         // Update the post in the mockPosts array
-        const postIndex = mockPosts.findIndex((p) => p.id === post.id)
-        if (postIndex !== -1) {
-          mockPosts[postIndex] = updatedPost
+        if (Array.isArray(mockPosts)) {
+          const postIndex = mockPosts.findIndex((p) => p.id === post.id)
+          if (postIndex !== -1) {
+            mockPosts[postIndex] = updatedPost
+          }
         }
 
         setPost(updatedPost)
@@ -295,7 +320,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         }
 
         // Trigger storage event to update other components
-        window.dispatchEvent(new Event("storage"))
+        if (isBrowser) {
+          window.dispatchEvent(new Event("storage"))
+        }
       }
 
       toast({
@@ -314,11 +341,11 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         variant: "destructive",
       })
       setSubmittingFix(false) // Only reset on error
-    } finally {
     }
   }
 
-  if (loading) {
+  // Show a loading state during SSR and initial client-side data fetching
+  if (!isClient || loading) {
     return <LoadingSpinner />
   }
 

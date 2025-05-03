@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { mockLocations, getCurrentLocation, saveSelectedLocation, type MockLocation } from "@/lib/mock-location"
+import { isBrowser } from "@/lib/browser-utils"
 
 interface LocationSelectorProps {
   isOpen: boolean
@@ -13,9 +14,13 @@ interface LocationSelectorProps {
 }
 
 export function LocationSelector({ isOpen, onOpenChange }: LocationSelectorProps) {
-  const [selectedLocation, setSelectedLocation] = useState<MockLocation>(getCurrentLocation())
+  // Initialize with a default location for SSR
+  const [selectedLocation, setSelectedLocation] = useState<MockLocation>(mockLocations[0])
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
+    // Mark that we're now client-side
+    setIsClient(true)
     // Initialize with stored location on mount
     setSelectedLocation(getCurrentLocation())
   }, [])
@@ -24,13 +29,22 @@ export function LocationSelector({ isOpen, onOpenChange }: LocationSelectorProps
     const location = mockLocations.find((loc) => loc.id === locationId)
     if (location) {
       setSelectedLocation(location)
-      saveSelectedLocation(locationId)
+      if (isBrowser) {
+        saveSelectedLocation(locationId)
+      }
     }
   }
 
   const handleSave = () => {
-    saveSelectedLocation(selectedLocation.id)
+    if (isBrowser) {
+      saveSelectedLocation(selectedLocation.id)
+    }
     onOpenChange(false)
+  }
+
+  // Only render the full component on the client side
+  if (!isClient) {
+    return null // Return null or a loading state during SSR
   }
 
   return (
@@ -41,7 +55,7 @@ export function LocationSelector({ isOpen, onOpenChange }: LocationSelectorProps
         </DialogHeader>
         <div className="py-4">
           <RadioGroup value={selectedLocation.id} onValueChange={handleLocationChange} className="space-y-3">
-            {mockLocations &&
+            {Array.isArray(mockLocations) && mockLocations.length > 0 ? (
               mockLocations.map((location) => (
                 <div key={location.id} className="flex items-start space-x-2 border p-3 rounded-md">
                   <RadioGroupItem value={location.id} id={location.id} className="mt-1" />
@@ -53,7 +67,10 @@ export function LocationSelector({ isOpen, onOpenChange }: LocationSelectorProps
                     <p className="text-xs text-muted-foreground">{location.distance}</p>
                   </div>
                 </div>
-              ))}
+              ))
+            ) : (
+              <div className="text-center py-4">No locations available</div>
+            )}
           </RadioGroup>
         </div>
         <Button onClick={handleSave} className="w-full">
