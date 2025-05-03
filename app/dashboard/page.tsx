@@ -12,7 +12,6 @@ import { getCurrentLocation } from "@/lib/mock-location"
 import { formatSatsValue } from "@/lib/utils"
 import { getSupabaseClient } from "@/lib/supabase"
 import type { Post } from "@/lib/types"
-import { LoadingSpinner } from "@/components/loading-spinner"
 
 export default function DashboardPage() {
   const { user, profile, loading } = useAuth()
@@ -99,7 +98,11 @@ export default function DashboardPage() {
   }
 
   if (loading || !user) {
-    return <LoadingSpinner />
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">Loading...</div>
+      </div>
+    )
   }
 
   if (showLocationPrompt) {
@@ -148,24 +151,21 @@ export default function DashboardPage() {
 
       <div className="container px-4 pb-6 mx-auto max-w-md">
         {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <svg
-              className="animate-spin h-10 w-10 text-primary"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
+          <div className="space-y-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="border rounded-lg dark:border-gray-800 overflow-hidden">
+                <div className="w-full h-48 bg-gray-200 dark:bg-gray-800 animate-pulse"></div>
+                <div className="p-4">
+                  <div className="h-5 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mb-2 animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full mb-1 animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-2/3 animate-pulse"></div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="space-y-6">
-            {posts && posts.length > 0 ? (
+            {posts.length > 0 ? (
               posts.map((post) => <PostCard key={post.id} post={post} />)
             ) : (
               <div className="p-8 text-center border rounded-lg dark:border-gray-800 bg-white/90 dark:bg-gray-900/90">
@@ -296,17 +296,16 @@ function SearchPage({ onClose }: { onClose: () => void }) {
             <label className="text-sm font-medium">Reward Range</label>
             <div className="mt-4">
               <div className="flex h-24 items-end space-x-1 mb-2">
-                {postsByReward &&
-                  postsByReward.map((range, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 bg-emerald-200 dark:bg-emerald-900/50 rounded-t"
-                      style={{
-                        height: `${range.count ? (range.count / maxCount) * 100 : 0}%`,
-                        opacity: rewardRange[0] <= range.min && range.max <= rewardRange[1] ? 1 : 0.3,
-                      }}
-                    />
-                  ))}
+                {postsByReward.map((range, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 bg-emerald-200 dark:bg-emerald-900/50 rounded-t"
+                    style={{
+                      height: `${range.count ? (range.count / maxCount) * 100 : 0}%`,
+                      opacity: rewardRange[0] <= range.min && range.max <= rewardRange[1] ? 1 : 0.3,
+                    }}
+                  />
+                ))}
               </div>
               <input
                 type="range"

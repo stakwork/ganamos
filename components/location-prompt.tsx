@@ -4,46 +4,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { mockLocations, saveSelectedLocation } from "@/lib/mock-location"
-import { isBrowser } from "@/lib/browser-utils"
 
 export function LocationPrompt({ onPermissionGranted }: { onPermissionGranted: () => void }) {
-  // Initialize with a default value for SSR
-  const [selectedLocation, setSelectedLocation] = useState("")
-  const [isClient, setIsClient] = useState(false)
-
-  useEffect(() => {
-    // Mark that we're now client-side
-    setIsClient(true)
-    // Set initial location after component mounts
-    if (Array.isArray(mockLocations) && mockLocations.length > 0) {
-      setSelectedLocation(mockLocations[0].id)
-    }
-  }, [])
+  const [selectedLocation, setSelectedLocation] = useState(mockLocations[0].id)
 
   const handleContinue = () => {
     // Save the selected mock location
-    if (isBrowser && selectedLocation) {
-      saveSelectedLocation(selectedLocation)
-    }
+    saveSelectedLocation(selectedLocation)
     onPermissionGranted()
-  }
-
-  // Only render the full component on the client side
-  if (!isClient) {
-    return (
-      <div className="container flex items-center justify-center h-screen max-w-md px-4 mx-auto">
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle>Loading...</CardTitle>
-          </CardHeader>
-          <CardContent className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
-          </CardContent>
-        </Card>
-      </div>
-    )
   }
 
   return (
@@ -73,26 +43,22 @@ export function LocationPrompt({ onPermissionGranted }: { onPermissionGranted: (
           </div>
 
           <RadioGroup value={selectedLocation} onValueChange={setSelectedLocation} className="space-y-3">
-            {Array.isArray(mockLocations) && mockLocations.length > 0 ? (
-              mockLocations.map((location) => (
-                <div key={location.id} className="flex items-start space-x-2 border p-3 rounded-md">
-                  <RadioGroupItem value={location.id} id={location.id} className="mt-1" />
-                  <div className="grid gap-1.5">
-                    <Label htmlFor={location.id} className="font-medium">
-                      {location.name}
-                    </Label>
-                    <p className="text-sm text-muted-foreground">{location.description}</p>
-                    <p className="text-xs text-muted-foreground">{location.distance}</p>
-                  </div>
+            {mockLocations.map((location) => (
+              <div key={location.id} className="flex items-start space-x-2 border p-3 rounded-md">
+                <RadioGroupItem value={location.id} id={location.id} className="mt-1" />
+                <div className="grid gap-1.5">
+                  <Label htmlFor={location.id} className="font-medium">
+                    {location.name}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">{location.description}</p>
+                  <p className="text-xs text-muted-foreground">{location.distance}</p>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-4">No locations available</div>
-            )}
+              </div>
+            ))}
           </RadioGroup>
         </CardContent>
         <CardFooter>
-          <Button className="w-full" onClick={handleContinue} disabled={!selectedLocation}>
+          <Button className="w-full" onClick={handleContinue}>
             Continue with Selected Location
           </Button>
         </CardFooter>

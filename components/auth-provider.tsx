@@ -24,15 +24,13 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Get the Supabase client once at the module level
-const supabase = typeof window !== "undefined" ? getSupabaseClient() : null
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const supabase = getSupabaseClient()
   const { toast } = useToast()
 
   useEffect(() => {
@@ -40,13 +38,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const checkAuth = async () => {
       try {
         setLoading(true)
-
-        // If supabase client is not available, skip auth check
-        if (!supabase) {
-          console.warn("Supabase client not available, skipping auth check")
-          setLoading(false)
-          return
-        }
 
         // Get session
         const {
@@ -106,55 +97,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth()
 
     // Set up auth state change listener
-    if (supabase) {
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-        setSession(newSession)
-        setUser(newSession?.user ?? null)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      setSession(newSession)
+      setUser(newSession?.user ?? null)
 
-        if (newSession?.user) {
-          // Fetch user profile on auth change
-          const { data: profileData, error } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", newSession.user.id)
-            .single()
+      if (newSession?.user) {
+        // Fetch user profile on auth change
+        const { data: profileData, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", newSession.user.id)
+          .single()
 
-          if (error || !profileData) {
-            // Handle case where profile doesn't exist yet
-            console.log("Profile not found, will be created on next page load")
-          } else {
-            // Ensure balance is never undefined
-            if (profileData) {
-              profileData.balance = profileData.balance || 0
-            }
-            setProfile(profileData)
-          }
+        if (error || !profileData) {
+          // Handle case where profile doesn't exist yet
+          console.log("Profile not found, will be created on next page load")
         } else {
-          setProfile(null)
+          // Ensure balance is never undefined
+          if (profileData) {
+            profileData.balance = profileData.balance || 0
+          }
+          setProfile(profileData)
         }
-
-        setLoading(false)
-      })
-
-      return () => {
-        subscription.unsubscribe()
+      } else {
+        setProfile(null)
       }
+
+      setLoading(false)
+    })
+
+    return () => {
+      subscription.unsubscribe()
     }
-  }, [])
+  }, [supabase])
 
   // Update the signInWithGoogle function to use the correct redirect URL
   const signInWithGoogle = async () => {
-    if (!supabase) {
-      toast({
-        title: "Error",
-        description: "Authentication service is not available",
-        variant: "destructive",
-      })
-      return
-    }
-
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -175,15 +155,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithTwitter = async () => {
-    if (!supabase) {
-      toast({
-        title: "Error",
-        description: "Authentication service is not available",
-        variant: "destructive",
-      })
-      return
-    }
-
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "twitter",
@@ -200,8 +171,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
-    if (!supabase) return
-
     try {
       await supabase.auth.signOut()
       router.push("/")
@@ -211,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateProfile = async (updates: Partial<Profile>) => {
-    if (!user || !supabase) return
+    if (!user) return
 
     try {
       const { error } = await supabase.from("profiles").update(updates).eq("id", user.id)
@@ -236,7 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateBalance = async (newBalance: number) => {
-    if (!user || !profile || !supabase) return
+    if (!user || !profile) return
 
     try {
       const { error } = await supabase
@@ -258,15 +227,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signUpWithEmail = async (email: string, password: string, name: string) => {
-    if (!supabase) {
-      toast({
-        title: "Error",
-        description: "Authentication service is not available",
-        variant: "destructive",
-      })
-      return
-    }
-
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -299,15 +259,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithEmail = async (email: string, password: string) => {
-    if (!supabase) {
-      toast({
-        title: "Error",
-        description: "Authentication service is not available",
-        variant: "destructive",
-      })
-      return
-    }
-
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email: email,

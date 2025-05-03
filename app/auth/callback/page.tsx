@@ -5,25 +5,19 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { getSupabaseClient } from "@/lib/supabase"
 import { LoadingSpinner } from "@/components/loading-spinner"
 
-// Get the Supabase client once
-const supabase = typeof window !== "undefined" ? getSupabaseClient() : null
-
 export default function AuthCallbackPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const supabase = getSupabaseClient()
   const [error, setError] = useState<string | null>(null)
   const [debugInfo, setDebugInfo] = useState<any>({})
-  const [redirecting, setRedirecting] = useState(false)
 
   useEffect(() => {
-    // Skip if supabase is not available (server-side rendering)
-    if (!supabase) return
-
     // Handle the OAuth callback
     const handleAuthCallback = async () => {
       try {
         console.log("Auth callback page loaded")
-        setDebugInfo((prev) => ({ ...prev, callbackTriggered: true, url: window.location.href }))
+        setDebugInfo((prev) => ({ ...prev, callbackTriggered: true }))
 
         // Check if we have a code in the URL (for PKCE flow)
         const code = searchParams.get("code")
@@ -46,15 +40,7 @@ export default function AuthCallbackPage() {
               sessionEstablished: true,
               user: data.session.user.email,
             }))
-
-            // Force a delay to ensure the session is properly set
-            await new Promise((resolve) => setTimeout(resolve, 1000))
-
-            console.log("Adding meta refresh tag to redirect to dashboard")
-            setRedirecting(true)
-            document.head.innerHTML += `
-              <meta http-equiv="refresh" content="2;url=/dashboard">
-            `
+            router.push("/dashboard")
             return
           }
         }
@@ -62,7 +48,7 @@ export default function AuthCallbackPage() {
         // Check for hash fragment in URL (for implicit flow)
         if (typeof window !== "undefined" && window.location.hash) {
           console.log("Found hash in URL, parsing tokens")
-          setDebugInfo((prev) => ({ ...prev, hashFound: true, hash: window.location.hash }))
+          setDebugInfo((prev) => ({ ...prev, hashFound: true }))
 
           // Extract access_token from the URL hash
           const hashParams = new URLSearchParams(window.location.hash.substring(1))
@@ -96,15 +82,7 @@ export default function AuthCallbackPage() {
                 sessionEstablished: true,
                 user: data.session.user.email,
               }))
-
-              // Force a delay to ensure the session is properly set
-              await new Promise((resolve) => setTimeout(resolve, 1000))
-
-              console.log("Adding meta refresh tag to redirect to dashboard")
-              setRedirecting(true)
-              document.head.innerHTML += `
-                <meta http-equiv="refresh" content="2;url=/dashboard">
-              `
+              router.push("/dashboard")
               return
             }
           }
@@ -127,15 +105,7 @@ export default function AuthCallbackPage() {
             existingSession: true,
             user: data.session.user.email,
           }))
-
-          // Force a delay to ensure the session is properly set
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-
-          console.log("Adding meta refresh tag to redirect to dashboard")
-          setRedirecting(true)
-          document.head.innerHTML += `
-            <meta http-equiv="refresh" content="2;url=/dashboard">
-          `
+          router.push("/dashboard")
           return
         }
 
@@ -143,25 +113,17 @@ export default function AuthCallbackPage() {
         console.error("No session established after authentication")
         setDebugInfo((prev) => ({ ...prev, noSessionEstablished: true }))
         setError("Authentication failed. Please try again.")
-        setTimeout(() => {
-          document.head.innerHTML += `
-            <meta http-equiv="refresh" content="3;url=/auth/login?error=No%20session%20established">
-          `
-        }, 3000)
+        setTimeout(() => router.push("/auth/login?error=No%20session%20established"), 3000)
       } catch (error: any) {
         console.error("Authentication error:", error)
         setDebugInfo((prev) => ({ ...prev, catchError: error.message }))
         setError(`Authentication failed: ${error.message}`)
-        setTimeout(() => {
-          document.head.innerHTML += `
-            <meta http-equiv="refresh" content="3;url=/auth/login?error=${encodeURIComponent(error.message)}">
-          `
-        }, 3000)
+        setTimeout(() => router.push("/auth/login?error=" + encodeURIComponent(error.message)), 3000)
       }
     }
 
     handleAuthCallback()
-  }, [router, searchParams])
+  }, [router, supabase, searchParams])
 
   if (error) {
     return (
@@ -171,12 +133,14 @@ export default function AuthCallbackPage() {
           <p className="text-muted-foreground mb-4">{error}</p>
           <p className="text-sm">Redirecting you back to login...</p>
 
-          <details className="mt-8 text-left text-xs text-muted-foreground">
-            <summary className="cursor-pointer">Debug Information</summary>
-            <pre className="mt-2 p-4 bg-gray-100 dark:bg-gray-800 rounded overflow-auto">
-              {JSON.stringify(debugInfo, null, 2)}
-            </pre>
-          </details>
+          {process.env.NODE_ENV !== "production" && (
+            <details className="mt-8 text-left text-xs text-muted-foreground">
+              <summary className="cursor-pointer">Debug Information</summary>
+              <pre className="mt-2 p-4 bg-gray-100 dark:bg-gray-800 rounded overflow-auto">
+                {JSON.stringify(debugInfo, null, 2)}
+              </pre>
+            </details>
+          )}
         </div>
       </div>
     )
@@ -186,17 +150,17 @@ export default function AuthCallbackPage() {
     <div className="flex flex-col items-center justify-center h-screen">
       <div className="text-center max-w-md px-4">
         <h2 className="text-xl font-semibold mb-2">Completing login...</h2>
-        <p className="text-muted-foreground mb-4">
-          {redirecting ? "Session established! Redirecting to dashboard..." : "Please wait while we authenticate you."}
-        </p>
+        <p className="text-muted-foreground mb-4">Please wait while we authenticate you.</p>
         <LoadingSpinner />
 
-        <details className="mt-8 text-left text-xs text-muted-foreground">
-          <summary className="cursor-pointer">Debug Information</summary>
-          <pre className="mt-2 p-4 bg-gray-100 dark:bg-gray-800 rounded overflow-auto">
-            {JSON.stringify(debugInfo, null, 2)}
-          </pre>
-        </details>
+        {process.env.NODE_ENV !== "production" && (
+          <details className="mt-8 text-left text-xs text-muted-foreground">
+            <summary className="cursor-pointer">Debug Information</summary>
+            <pre className="mt-2 p-4 bg-gray-100 dark:bg-gray-800 rounded overflow-auto">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </details>
+        )}
       </div>
     </div>
   )

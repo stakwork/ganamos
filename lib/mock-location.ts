@@ -1,10 +1,9 @@
-import { safeLocalStorage } from "./browser-utils"
-
-export interface MockLocation {
+// Mock location data for the prototype
+export type MockLocation = {
   id: string
   name: string
   description: string
-  distance: string
+  distance: string // e.g. "0.5 miles away"
   lat: number
   lng: number
 }
@@ -13,53 +12,53 @@ export const mockLocations: MockLocation[] = [
   {
     id: "downtown",
     name: "Downtown",
-    description: "City center with many reported issues",
-    distance: "0.5 miles away",
+    description: "City center with shops and restaurants",
+    distance: "0.3 miles away",
     lat: 37.7749,
     lng: -122.4194,
   },
   {
-    id: "mission",
-    name: "Mission District",
-    description: "Vibrant neighborhood with active community",
-    distance: "1.2 miles away",
-    lat: 37.7599,
-    lng: -122.4148,
-  },
-  {
-    id: "soma",
-    name: "SoMa",
-    description: "South of Market area with tech companies",
+    id: "park",
+    name: "Central Park",
+    description: "Large public park with walking trails",
     distance: "0.8 miles away",
-    lat: 37.7785,
-    lng: -122.3995,
+    lat: 37.7694,
+    lng: -122.4862,
   },
   {
-    id: "richmond",
-    name: "Richmond District",
-    description: "Residential area near Golden Gate Park",
-    distance: "3.5 miles away",
-    lat: 37.7802,
-    lng: -122.4828,
+    id: "beach",
+    name: "Ocean Beach",
+    description: "Sandy beach with ocean views",
+    distance: "1.2 miles away",
+    lat: 37.7691,
+    lng: -122.5107,
   },
 ]
 
-const LOCATION_STORAGE_KEY = "ganamos_selected_location"
+// Default location to use when none is selected
+export const defaultLocation = mockLocations[0]
 
-export function saveSelectedLocation(locationId: string): void {
-  safeLocalStorage.setItem(LOCATION_STORAGE_KEY, locationId)
-}
+// Local storage key for saving selected location
+export const LOCATION_STORAGE_KEY = "motc_selected_location"
 
+// Get the currently selected location from storage or use default
 export function getCurrentLocation(): MockLocation {
-  const savedLocationId = safeLocalStorage.getItem(LOCATION_STORAGE_KEY)
-
-  if (savedLocationId) {
-    const foundLocation = mockLocations.find((loc) => loc.id === savedLocationId)
-    if (foundLocation) {
-      return foundLocation
-    }
+  if (typeof window === "undefined") {
+    return defaultLocation
   }
 
-  // Default to first location if none is saved or found
-  return mockLocations[0]
+  const storedLocationId = localStorage.getItem(LOCATION_STORAGE_KEY)
+  if (!storedLocationId) {
+    return defaultLocation
+  }
+
+  const foundLocation = mockLocations.find((loc) => loc.id === storedLocationId)
+  return foundLocation || defaultLocation
+}
+
+// Save selected location to storage
+export function saveSelectedLocation(locationId: string): void {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(LOCATION_STORAGE_KEY, locationId)
+  }
 }

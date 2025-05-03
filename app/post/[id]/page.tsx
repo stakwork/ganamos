@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { formatDistanceToNow } from "date-fns"
@@ -16,8 +16,6 @@ import { formatSatsValue } from "@/lib/utils"
 import { BitcoinLogo } from "@/components/bitcoin-logo"
 import { getSupabaseClient } from "@/lib/supabase"
 import type { Post } from "@/lib/types"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { isBrowser, safeWindow } from "@/lib/browser-utils"
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [post, setPost] = useState<Post | null>(null)
@@ -27,67 +25,51 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [fixImage, setFixImage] = useState<string | null>(null)
   const [showCamera, setShowCamera] = useState(false)
   const [showBeforeAfter, setShowBeforeAfter] = useState(false)
-  const [currentLocation, setCurrentLocation] = useState<any>(null)
-  const [animateSats, setAnimateSats] = useState(false)
-  const [oldBalance, setOldBalance] = useState(0)
-  const [newBalance, setNewBalance] = useState(0)
-  const [isClient, setIsClient] = useState(false)
+  const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
   const { toast } = useToast()
   const router = useRouter()
   const { user, updateBalance } = useAuth()
   const supabase = getSupabaseClient()
-  const balanceRef = useRef<HTMLDivElement>(null)
-
-  // Mark when component is mounted on client
-  useEffect(() => {
-    setIsClient(true)
-    if (isBrowser) {
-      setCurrentLocation(getCurrentLocation())
-    }
-  }, [])
 
   // Force hide bottom nav when camera is shown
   useEffect(() => {
-    if (!isBrowser) return
-
     if (showCamera || showBeforeAfter) {
       // Add a class to the body to help with styling
       document.body.classList.add("camera-active")
 
       // Add a URL parameter to help with navigation detection
-      const url = new URL(window.location.href)
-      if (showCamera) {
-        url.searchParams.set("camera", "active")
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href)
+        if (showCamera) {
+          url.searchParams.set("camera", "active")
+        }
+        if (showBeforeAfter) {
+          url.searchParams.set("comparison", "active")
+        }
+        window.history.replaceState({}, "", url.toString())
       }
-      if (showBeforeAfter) {
-        url.searchParams.set("comparison", "active")
-      }
-      safeWindow.history.replaceState({}, "", url.toString())
     } else {
       document.body.classList.remove("camera-active")
 
       // Remove the URL parameters
-      const url = new URL(window.location.href)
-      if (url.searchParams.has("camera")) {
-        url.searchParams.delete("camera")
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href)
+        if (url.searchParams.has("camera")) {
+          url.searchParams.delete("camera")
+        }
+        if (url.searchParams.has("comparison")) {
+          url.searchParams.delete("comparison")
+        }
+        window.history.replaceState({}, "", url.toString())
       }
-      if (url.searchParams.has("comparison")) {
-        url.searchParams.delete("comparison")
-      }
-      safeWindow.history.replaceState({}, "", url.toString())
     }
 
     return () => {
-      if (isBrowser) {
-        document.body.classList.remove("camera-active")
-      }
+      document.body.classList.remove("camera-active")
     }
   }, [showCamera, showBeforeAfter])
 
   useEffect(() => {
-    // Skip data fetching during SSR
-    if (!isClient) return
-
     // In a real app, this would be an API call
     const fetchPost = async () => {
       try {
@@ -103,11 +85,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         }
 
         // Fall back to mock data
-        if (Array.isArray(mockPosts)) {
-          const foundPost = mockPosts.find((p) => p.id === params.id)
-          if (foundPost) {
-            setPost(foundPost)
-          }
+        const foundPost = mockPosts.find((p) => p.id === params.id)
+        if (foundPost) {
+          setPost(foundPost)
         }
       } catch (error) {
         console.error("Error fetching post:", error)
@@ -122,12 +102,10 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     }
 
     fetchPost()
-  }, [params.id, toast, supabase, isClient])
+  }, [params.id, toast, supabase])
 
   // Update location when it changes
   useEffect(() => {
-    if (!isBrowser) return
-
     const handleStorageChange = () => {
       setCurrentLocation(getCurrentLocation())
     }
@@ -135,43 +113,6 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     window.addEventListener("storage", handleStorageChange)
     return () => window.removeEventListener("storage", handleStorageChange)
   }, [])
-
-  // Animation effect for balance update
-  useEffect(() => {
-    if (!isBrowser) return
-
-    if (animateSats && balanceRef.current) {
-      const animationDuration = 2000 // 2 seconds
-      const startTime = Date.now()
-      const startValue = oldBalance
-      const endValue = newBalance
-      const difference = endValue - startValue
-
-      const animateValue = () => {
-        const currentTime = Date.now()
-        const elapsed = currentTime - startTime
-        const progress = Math.min(elapsed / animationDuration, 1)
-
-        // Easing function for smoother animation
-        const easeOutQuad = (t: number) => t * (2 - t)
-        const easedProgress = easeOutQuad(progress)
-
-        const currentValue = Math.floor(startValue + difference * easedProgress)
-
-        if (user) {
-          updateBalance(currentValue)
-        }
-
-        if (progress < 1) {
-          requestAnimationFrame(animateValue)
-        } else {
-          setAnimateSats(false)
-        }
-      }
-
-      requestAnimationFrame(animateValue)
-    }
-  }, [animateSats, oldBalance, newBalance, updateBalance, user])
 
   const handleClaimPost = async () => {
     if (!user) {
@@ -217,19 +158,15 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         }
 
         // Update the post in the mockPosts array
-        if (Array.isArray(mockPosts)) {
-          const postIndex = mockPosts.findIndex((p) => p.id === post.id)
-          if (postIndex !== -1) {
-            mockPosts[postIndex] = updatedPost
-          }
+        const postIndex = mockPosts.findIndex((p) => p.id === post.id)
+        if (postIndex !== -1) {
+          mockPosts[postIndex] = updatedPost
         }
 
         setPost(updatedPost)
 
         // Trigger storage event to update other components
-        if (isBrowser) {
-          window.dispatchEvent(new Event("storage"))
-        }
+        window.dispatchEvent(new Event("storage"))
       }
 
       toast({
@@ -255,10 +192,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   }
 
   const handleSubmitFix = async () => {
-    setSubmittingFix(true)
-
     if (!fixImage) {
-      setSubmittingFix(false)
       toast({
         title: "Image required",
         description: "Please take a photo of the fixed issue",
@@ -266,6 +200,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
       })
       return
     }
+
+    setSubmittingFix(true)
 
     try {
       // In a real app, this would be an API call to verify the fix with AI
@@ -302,27 +238,20 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         }
 
         // Update the post in the mockPosts array
-        if (Array.isArray(mockPosts)) {
-          const postIndex = mockPosts.findIndex((p) => p.id === post.id)
-          if (postIndex !== -1) {
-            mockPosts[postIndex] = updatedPost
-          }
+        const postIndex = mockPosts.findIndex((p) => p.id === post.id)
+        if (postIndex !== -1) {
+          mockPosts[postIndex] = updatedPost
         }
 
         setPost(updatedPost)
 
         // Update user balance if the user is not the poster
         if (post.user_id !== user.id && post.userId !== user.id) {
-          // Set up animation values
-          setOldBalance(user.balance)
-          setNewBalance(user.balance + post.reward)
-          setAnimateSats(true)
+          updateBalance(user.balance + post.reward)
         }
 
         // Trigger storage event to update other components
-        if (isBrowser) {
-          window.dispatchEvent(new Event("storage"))
-        }
+        window.dispatchEvent(new Event("storage"))
       }
 
       toast({
@@ -331,22 +260,25 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         variant: "success",
       })
 
-      // Navigate immediately to dashboard after successful fix
+      // Navigate back to dashboard after successful fix
       router.push("/dashboard")
-      return // Exit the function early to prevent setting submittingFix to false
     } catch (error) {
       toast({
         title: "Error",
         description: "Could not verify the fix",
         variant: "destructive",
       })
-      setSubmittingFix(false) // Only reset on error
+    } finally {
+      setSubmittingFix(false)
     }
   }
 
-  // Show a loading state during SSR and initial client-side data fetching
-  if (!isClient || loading) {
-    return <LoadingSpinner />
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">Loading...</div>
+      </div>
+    )
   }
 
   if (!post) {
@@ -414,10 +346,10 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           <h1 className="text-2xl font-bold">Before & After</h1>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-6">
           <div>
             <h2 className="text-lg font-medium mb-2">Before</h2>
-            <div className="relative w-full h-40 overflow-hidden rounded-lg">
+            <div className="relative w-full h-64 overflow-hidden rounded-lg">
               <Image
                 src={post.imageUrl || post.image_url || "/placeholder.svg"}
                 alt="Before"
@@ -429,38 +361,38 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
 
           <div>
             <h2 className="text-lg font-medium mb-2">After</h2>
-            <div className="relative w-full h-40 overflow-hidden rounded-lg">
+            <div className="relative w-full h-64 overflow-hidden rounded-lg">
               <Image src={fixImage || "/placeholder.svg"} alt="After" fill className="object-cover" />
             </div>
           </div>
-        </div>
 
-        <Button
-          onClick={handleSubmitFix}
-          disabled={submittingFix}
-          className="w-full mt-6 bg-amber-600 hover:bg-amber-700 text-white"
-        >
-          {submittingFix ? (
-            <div className="flex items-center">
-              <svg
-                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Verifying...
-            </div>
-          ) : (
-            "Submit Fix"
-          )}
-        </Button>
+          <Button
+            onClick={handleSubmitFix}
+            disabled={submittingFix}
+            className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            {submittingFix ? (
+              <div className="flex items-center">
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Verifying...
+              </div>
+            ) : (
+              "Submit Fix"
+            )}
+          </Button>
+        </div>
       </div>
     )
   }
@@ -492,63 +424,26 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      {post.fixed ? (
-        // Show before and after images side by side if the post is fixed
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="relative w-full h-40 overflow-hidden rounded-lg">
-            <div className="absolute top-0 left-0 bg-black/50 text-white text-xs px-2 py-1 rounded-br-lg z-10">
-              Before
-            </div>
-            <Image
-              src={post.imageUrl || post.image_url || "/placeholder.svg"}
-              alt="Before"
-              fill
-              className="object-cover"
-            />
-          </div>
-          <div className="relative w-full h-40 overflow-hidden rounded-lg">
-            <div className="absolute top-0 left-0 bg-black/50 text-white text-xs px-2 py-1 rounded-br-lg z-10">
-              After
-            </div>
-            <Image
-              src={post.fixedImageUrl || post.fixed_image_url || "/placeholder.svg"}
-              alt="After"
-              fill
-              className="object-cover"
-            />
-            <div className="absolute top-2 right-2">
-              <Badge
-                variant="outline"
-                className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-100 dark:hover:bg-emerald-900"
-              >
-                Fixed
-              </Badge>
-            </div>
-          </div>
+      <div className="relative w-full h-64 mb-4 overflow-hidden rounded-lg">
+        <Image
+          src={post.imageUrl || post.image_url || "/placeholder.svg"}
+          alt={post.title}
+          fill
+          className="object-cover"
+        />
+        <div className="absolute top-2 right-2">
+          <Badge
+            variant={post.claimed ? "secondary" : post.fixed ? "outline" : "default"}
+            className={
+              post.fixed
+                ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-100 dark:hover:bg-emerald-900"
+                : ""
+            }
+          >
+            {post.fixed ? "Fixed" : post.claimed ? "In Progress" : formatSatsValue(post.reward)}
+          </Badge>
         </div>
-      ) : (
-        // Show only the before image if the post is not fixed
-        <div className="relative w-full h-64 mb-4 overflow-hidden rounded-lg">
-          <Image
-            src={post.imageUrl || post.image_url || "/placeholder.svg"}
-            alt={post.title}
-            fill
-            className="object-cover"
-          />
-          <div className="absolute top-2 right-2">
-            <Badge
-              variant={post.claimed ? "secondary" : post.fixed ? "outline" : "default"}
-              className={
-                post.fixed
-                  ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-100 dark:hover:bg-emerald-900"
-                  : ""
-              }
-            >
-              {post.fixed ? "Fixed" : post.claimed ? "In Progress" : formatSatsValue(post.reward)}
-            </Badge>
-          </div>
-        </div>
-      )}
+      </div>
 
       <div className="mb-6">
         <h2 className="text-xl font-bold">{post.title}</h2>
@@ -593,17 +488,12 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div
-                className={`p-2 mr-3 bg-amber-100 rounded-full dark:bg-amber-950/50 ${animateSats ? "animate-pulse" : ""}`}
-                ref={balanceRef}
-              >
+              <div className="p-2 mr-3 bg-amber-100 rounded-full dark:bg-amber-950/50">
                 <BitcoinLogo size={20} />
               </div>
               <div>
                 <p className="font-medium">Reward</p>
-                <p className={`text-2xl font-bold ${animateSats ? "text-amber-500 dark:text-amber-400" : ""}`}>
-                  {formatSatsValue(post.reward)}
-                </p>
+                <p className="text-2xl font-bold">{formatSatsValue(post.reward)}</p>
               </div>
             </div>
 
