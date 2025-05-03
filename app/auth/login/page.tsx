@@ -42,6 +42,10 @@ export default function LoginPage() {
 
     try {
       await signInWithEmail(email, password)
+      toast({
+        title: "Login successful",
+        description: "Welcome back to Ganamos!",
+      })
       router.push("/dashboard")
     } catch (error) {
       toast({
