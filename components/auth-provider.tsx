@@ -13,9 +13,9 @@ type AuthContextType = {
   profile: Profile | null
   session: Session | null
   loading: boolean
-  signInWithGoogle: () => Promise<void>
+  signInWithGoogle: (redirectPath?: string) => Promise<void>
   signInWithTwitter: () => Promise<void>
-  signInWithEmail: (email: string, password: string) => Promise<void>
+  signInWithEmail: (email: string, password: string) => Promise<{ success: boolean }>
   signUpWithEmail: (email: string, password: string, name: string) => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<Profile>) => Promise<void>
@@ -100,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log("Auth state changed:", event, newSession?.user?.email)
       setSession(newSession)
       setUser(newSession?.user ?? null)
 
@@ -134,12 +135,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase])
 
   // Update the signInWithGoogle function to use the correct redirect URL
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (redirectPath?: string) => {
     try {
+      const finalRedirectTo = `${window.location.origin}/auth/callback${redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : ""}`
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: finalRedirectTo,
           queryParams: {
             access_type: "offline",
             prompt: "consent",
@@ -260,10 +263,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log("Signing in with email:", email)
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email,
         password: password,
       })
+
       if (error) {
         toast({
           title: "Error signing in",
@@ -272,9 +277,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
         throw error
       }
-      router.push("/")
+
+      console.log("Sign in successful, session:", data.session?.user?.email)
+
+      // Update local state immediately
+      if (data.session) {
+        setSession(data.session)
+        setUser(data.session.user)
+      }
+
+      // Check for redirect in URL
+      const urlParams = new URLSearchParams(window.location.search)
+      const redirect = urlParams.get("redirect")
+
+      // Return success status
+      return { success: true }
     } catch (error: any) {
       console.error("Error signing in:", error)
+      return { success: false }
     }
   }
 

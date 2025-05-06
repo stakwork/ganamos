@@ -11,6 +11,7 @@ export default function AuthCallbackPage() {
   const supabase = getSupabaseClient()
   const [error, setError] = useState<string | null>(null)
   const [debugInfo, setDebugInfo] = useState<any>({})
+  const redirect = searchParams.get("redirect") || "/dashboard"
 
   useEffect(() => {
     // Handle the OAuth callback
@@ -40,7 +41,9 @@ export default function AuthCallbackPage() {
               sessionEstablished: true,
               user: data.session.user.email,
             }))
-            router.push("/dashboard")
+
+            // Redirect to dashboard or specified redirect path
+            router.push(redirect || "/dashboard")
             return
           }
         }
@@ -82,7 +85,9 @@ export default function AuthCallbackPage() {
                 sessionEstablished: true,
                 user: data.session.user.email,
               }))
-              router.push("/dashboard")
+
+              // Redirect to dashboard or specified redirect path
+              router.push(redirect || "/dashboard")
               return
             }
           }
@@ -105,7 +110,9 @@ export default function AuthCallbackPage() {
             existingSession: true,
             user: data.session.user.email,
           }))
-          router.push("/dashboard")
+
+          // Redirect to dashboard or specified redirect path
+          router.push(redirect || "/dashboard")
           return
         }
 
@@ -123,7 +130,7 @@ export default function AuthCallbackPage() {
     }
 
     handleAuthCallback()
-  }, [router, supabase, searchParams])
+  }, [router, supabase, searchParams, redirect])
 
   if (error) {
     return (

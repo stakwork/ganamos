@@ -1,5 +1,6 @@
 "use server"
 
+import { cookies } from "next/headers"
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { createInvoice, checkInvoice, payInvoice } from "@/lib/lightning"
 import { revalidatePath } from "next/cache"
@@ -56,14 +57,29 @@ async function checkLightningConfig() {
  * Create a deposit invoice for a user
  */
 export async function createDepositInvoice(amount: number) {
+  // Create a Supabase client with the user's session
+  const cookieStore = cookies()
   const supabase = createServerSupabaseClient()
 
   // Get the current user
   const {
     data: { session },
+    error: sessionError,
   } = await supabase.auth.getSession()
+
+  if (sessionError) {
+    console.error("Session error:", sessionError)
+    return { success: false, error: "Authentication error", details: sessionError.message }
+  }
+
   if (!session) {
+    console.error("No active session found")
     return { success: false, error: "Not authenticated" }
+  }
+
+  if (!session.user || !session.user.id) {
+    console.error("Session exists but no user ID found", session)
+    return { success: false, error: "Invalid user session" }
   }
 
   const userId = session.user.id
@@ -109,8 +125,13 @@ export async function createDepositInvoice(amount: number) {
       rHashStr = Buffer.from(rHashStr).toString("hex")
     }
 
+    // Use service role key for admin access to bypass RLS
+    const adminSupabase = createServerSupabaseClient({
+      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    })
+
     // Store the invoice in the database with explicit data types
-    const { data, error } = await supabase
+    const { data, error } = await adminSupabase
       .from("transactions")
       .insert({
         user_id: userId,
@@ -162,8 +183,13 @@ export async function checkDepositStatus(rHash: string) {
 
   // If the invoice is settled, update the transaction and user balance
   if (invoiceStatus.settled && invoiceStatus.settled === true) {
+    // Use service role key for admin access to bypass RLS
+    const adminSupabase = createServerSupabaseClient({
+      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    })
+
     // Get the transaction to verify amount
-    const { data: transaction } = await supabase
+    const { data: transaction } = await adminSupabase
       .from("transactions")
       .select("*")
       .eq("r_hash_str", rHash)
@@ -175,7 +201,7 @@ export async function checkDepositStatus(rHash: string) {
     }
 
     // Start a transaction to update both the transaction status and user balance
-    const { data: profile } = await supabase.from("profiles").select("balance").eq("id", session.user.id).single()
+    const { data: profile } = await adminSupabase.from("profiles").select("balance").eq("id", session.user.id).single()
 
     if (!profile) {
       return { success: false, error: "User profile not found" }
@@ -184,7 +210,7 @@ export async function checkDepositStatus(rHash: string) {
     const newBalance = profile.balance + transaction.amount
 
     // Update transaction status
-    const { error: txError } = await supabase
+    const { error: txError } = await adminSupabase
       .from("transactions")
       .update({ status: "completed", updated_at: new Date().toISOString() })
       .eq("id", transaction.id)
@@ -195,7 +221,7 @@ export async function checkDepositStatus(rHash: string) {
     }
 
     // Update user balance
-    const { error: balanceError } = await supabase
+    const { error: balanceError } = await adminSupabase
       .from("profiles")
       .update({ balance: newBalance, updated_at: new Date().toISOString() })
       .eq("id", session.user.id)
@@ -247,8 +273,13 @@ export async function processWithdrawal(formData: FormData) {
     return { success: false, error: "Invalid payment request or amount" }
   }
 
+  // Use service role key for admin access to bypass RLS
+  const adminSupabase = createServerSupabaseClient({
+    supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  })
+
   // Check if the user has enough balance
-  const { data: profile } = await supabase.from("profiles").select("balance").eq("id", userId).single()
+  const { data: profile } = await adminSupabase.from("profiles").select("balance").eq("id", userId).single()
 
   if (!profile) {
     return { success: false, error: "User profile not found" }
@@ -259,7 +290,7 @@ export async function processWithdrawal(formData: FormData) {
   }
 
   // Create a transaction record
-  const { data: transaction, error: txError } = await supabase
+  const { data: transaction, error: txError } = await adminSupabase
     .from("transactions")
     .insert({
       user_id: userId,
@@ -282,7 +313,7 @@ export async function processWithdrawal(formData: FormData) {
 
   if (!paymentResult.success) {
     // Update transaction to failed
-    await supabase
+    await adminSupabase
       .from("transactions")
       .update({
         status: "failed",
@@ -294,7 +325,7 @@ export async function processWithdrawal(formData: FormData) {
   }
 
   // Update transaction with payment hash and status
-  await supabase
+  await adminSupabase
     .from("transactions")
     .update({
       status: "completed",
@@ -305,7 +336,7 @@ export async function processWithdrawal(formData: FormData) {
 
   // Update user balance
   const newBalance = profile.balance - amount
-  await supabase
+  await adminSupabase
     .from("profiles")
     .update({
       balance: newBalance,

@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type React from "react"
 
 import Link from "next/link"
@@ -16,11 +16,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
-  const { signInWithGoogle, signInWithEmail } = useAuth()
+  const { signInWithGoogle, signInWithEmail, session } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
   const error = searchParams.get("error")
+  const redirect = searchParams.get("redirect") || "/dashboard"
+
+  // Check if user is already logged in
+  useEffect(() => {
+    if (session) {
+      router.push("/dashboard")
+    }
+  }, [session, router])
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
@@ -41,13 +49,11 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      await signInWithEmail(email, password)
-      // Remove this toast message:
-      // toast({
-      //   title: "Login successful",
-      //   description: "Welcome back to Ganamos!",
-      // })
-      router.push("/dashboard")
+      const result = await signInWithEmail(email, password)
+      if (result?.success) {
+        // Explicitly redirect to dashboard after successful login
+        router.push("/dashboard")
+      }
     } catch (error) {
       toast({
         title: "Login failed",

@@ -1,12 +1,17 @@
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "@/lib/database.types"
 
-// Create a single supabase client for interacting with your database
-const createSupabaseClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+interface SupabaseOptions {
+  supabaseUrl?: string
+  supabaseKey?: string
+}
 
-  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+// Create a single supabase client for interacting with your database
+const createSupabaseClient = (options?: SupabaseOptions) => {
+  const supabaseUrl = options?.supabaseUrl || (process.env.NEXT_PUBLIC_SUPABASE_URL as string)
+  const supabaseKey = options?.supabaseKey || (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string)
+
+  return createClient<Database>(supabaseUrl, supabaseKey, {
     auth: {
       persistSession: true,
       storageKey: "ganamos-auth",
@@ -28,6 +33,6 @@ export const getSupabaseClient = () => {
 }
 
 // Server-side client (creates a new instance each time)
-export const createServerSupabaseClient = () => {
-  return createSupabaseClient()
+export const createServerSupabaseClient = (options?: SupabaseOptions) => {
+  return createSupabaseClient(options)
 }

@@ -1,16 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createDepositInvoice, checkDepositStatus } from "@/app/actions/lightning-actions"
 import QRCode from "@/components/qr-code"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ArrowLeftIcon } from "lucide-react"
+import { useAuth } from "@/components/auth-provider"
 
 export default function DepositPage() {
   const router = useRouter()
@@ -23,8 +24,32 @@ export default function DepositPage() {
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
 
+  const { user, loading: authLoading } = useAuth()
+
+  // Check if user is authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to access this feature",
+        variant: "destructive",
+      })
+      router.push("/auth/login?redirect=/wallet/deposit")
+    }
+  }, [user, authLoading, router, toast])
+
   // Generate a new invoice
   const handleCreateInvoice = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to create an invoice",
+        variant: "destructive",
+      })
+      router.push("/auth/login?redirect=/wallet/deposit")
+      return
+    }
+
     if (amount < 100) {
       toast({
         title: "Invalid amount",
@@ -169,7 +194,6 @@ export default function DepositPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Deposit Bitcoin</CardTitle>
           <CardDescription>Add funds to your Ganamos! account using Lightning Network</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
