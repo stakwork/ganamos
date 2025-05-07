@@ -24,7 +24,7 @@ export interface Database {
         }
         Update: {
           id?: string
-          email?: string | null
+          email?: string
           name?: string | null
           avatar_url?: string | null
           balance?: number
@@ -128,4 +128,5 @@ export interface Database {
 }
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
+export type Post = Database["public"]["Tables"]["posts"]["Row"]
 export type Transaction = Database["public"]["Tables"]["transactions"]["Row"]

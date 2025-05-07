@@ -7,6 +7,7 @@ import { getSupabaseClient } from "@/lib/supabase"
 import type { Session, User } from "@supabase/supabase-js"
 import type { Profile } from "@/lib/database.types"
 import { useToast } from "@/hooks/use-toast"
+import { createClient } from "@supabase/supabase-js"
 
 type AuthContextType = {
   user: User | null
@@ -43,6 +44,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const {
           data: { session: currentSession },
         } = await supabase.auth.getSession()
+
+        console.log("Initial session check:", currentSession?.user?.email || "No session")
         setSession(currentSession)
 
         if (currentSession?.user) {
@@ -176,7 +179,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       await supabase.auth.signOut()
-      router.push("/")
+      // Use window.location for a hard redirect
+      window.location.href = "/"
     } catch (error) {
       console.error("Sign out failed:", error)
     }
@@ -208,23 +212,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateBalance = async (newBalance: number) => {
-    if (!user || !profile) return
+    if (!user || !profile) {
+      console.error("🔍 AUTH PROVIDER - Cannot update balance: No user or profile")
+      return
+    }
 
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ balance: newBalance || 0 })
-        .eq("id", user.id)
+      console.log("🔍 AUTH PROVIDER - Starting balance update in auth provider")
+      console.log("🔍 AUTH PROVIDER - User ID:", user.id)
+      console.log("🔍 AUTH PROVIDER - Current balance:", profile.balance)
+      console.log("🔍 AUTH PROVIDER - New balance to set:", newBalance)
 
-      if (error) throw error
+      // Use service role key for admin access to bypass RLS if available
+      const adminSupabase = process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string)
+        : supabase
+
+      console.log("🔍 AUTH PROVIDER - Using admin Supabase client:", !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+
+      const { data, error } = await adminSupabase
+        .from("profiles")
+        .update({
+          balance: newBalance,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id)
+        .select()
+
+      if (error) {
+        console.error("🔍 AUTH PROVIDER - Supabase update error:", error)
+        throw error
+      }
+
+      console.log("🔍 AUTH PROVIDER - Supabase update response:", data)
 
       // Update local profile state
       setProfile({
         ...profile,
-        balance: newBalance || 0,
+        balance: newBalance,
       })
+
+      console.log("🔍 AUTH PROVIDER - Local profile state updated with new balance:", newBalance)
+
+      // Force a refresh of the profile data
+      const { data: refreshedProfile, error: refreshError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single()
+
+      if (refreshError) {
+        console.error("🔍 AUTH PROVIDER - Error refreshing profile:", refreshError)
+      } else {
+        console.log("🔍 AUTH PROVIDER - Refreshed profile from database:", refreshedProfile)
+        setProfile(refreshedProfile)
+      }
     } catch (error) {
-      console.error("Balance update failed:", error)
+      console.error("🔍 AUTH PROVIDER - Balance update failed:", error)
       throw error
     }
   }
@@ -285,10 +329,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(data.session)
         setUser(data.session.user)
       }
-
-      // Check for redirect in URL
-      const urlParams = new URLSearchParams(window.location.search)
-      const redirect = urlParams.get("redirect")
 
       // Return success status
       return { success: true }

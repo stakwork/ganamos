@@ -26,9 +26,11 @@ export default function LoginPage() {
   // Check if user is already logged in
   useEffect(() => {
     if (session) {
-      router.push("/dashboard")
+      console.log("User is already logged in, redirecting to dashboard")
+      // Use window.location for a hard redirect to avoid client-side routing issues
+      window.location.href = redirect
     }
-  }, [session, router])
+  }, [session, redirect])
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
@@ -51,8 +53,9 @@ export default function LoginPage() {
     try {
       const result = await signInWithEmail(email, password)
       if (result?.success) {
-        // Explicitly redirect to dashboard after successful login
-        router.push("/dashboard")
+        console.log("Login successful, redirecting to:", redirect)
+        // Use window.location for a hard redirect to avoid client-side routing issues
+        window.location.href = redirect
       }
     } catch (error) {
       toast({

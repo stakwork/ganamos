@@ -57,6 +57,13 @@ export default function ProfilePage() {
     return () => window.removeEventListener("storage", handleStorageChange)
   }, [user, loading, router])
 
+  useEffect(() => {
+    if (profile) {
+      console.log("🔍 PROFILE PAGE - Profile data loaded:", profile)
+      console.log("🔍 PROFILE PAGE - Current balance:", profile.balance)
+    }
+  }, [profile])
+
   const fetchPosts = async () => {
     if (!user) return
 
@@ -268,7 +275,7 @@ export default function ProfilePage() {
       <Tabs defaultValue="posted" className="w-full" onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3 mb-4 dark:bg-gray-800/50">
           <TabsTrigger value="posted">Posted</TabsTrigger>
-          <TabsTrigger value="fixing">Fixing</TabsTrigger>
+          <TabsTrigger value="fixing">Fixed</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
@@ -286,11 +293,11 @@ export default function ProfilePage() {
         </TabsContent>
 
         <TabsContent value="fixing" className="space-y-4">
-          {inProgressIssues.length > 0 ? (
-            inProgressIssues.map((post) => <PostCard key={post.id} post={post} />)
+          {fixedIssues.length > 0 ? (
+            fixedIssues.map((post) => <PostCard key={post.id} post={post} />)
           ) : (
             <div className="p-8 text-center">
-              <p className="text-muted-foreground">You're not fixing any issues right now</p>
+              <p className="text-muted-foreground">You haven't fixed any issues yet</p>
               <Button className="mt-4" onClick={() => router.push("/dashboard")}>
                 Find issues to fix
               </Button>

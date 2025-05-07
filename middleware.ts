@@ -22,12 +22,15 @@ export async function middleware(req: NextRequest) {
   }
 
   // If accessing login/register while logged in, redirect to dashboard
+  // Commenting this out to prevent redirect loops
+  /*
   const authRoutes = ["/auth/login", "/auth/register"]
   const isAuthRoute = authRoutes.some((route) => req.nextUrl.pathname === route)
 
   if (isAuthRoute && session) {
     return NextResponse.redirect(new URL("/dashboard", req.url))
   }
+  */
 
   return res
 }

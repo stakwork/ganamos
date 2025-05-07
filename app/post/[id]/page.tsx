@@ -28,8 +28,10 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
   const { toast } = useToast()
   const router = useRouter()
-  const { user, updateBalance } = useAuth()
+  const { user, profile, updateBalance } = useAuth()
   const supabase = getSupabaseClient()
+
+  // Force hide bottom nav
 
   // Force hide bottom nav when camera is shown
   useEffect(() => {
@@ -208,7 +210,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
       // Update the local state
-      if (post && user) {
+      if (post && user && profile) {
         const now = new Date()
         const nowIso = now.toISOString()
 
@@ -245,9 +247,37 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
 
         setPost(updatedPost)
 
-        // Update user balance if the user is not the poster
-        if (post.user_id !== user.id && post.userId !== user.id) {
-          updateBalance(user.balance + post.reward)
+        // Update user balance - ALWAYS reward the user who fixed the issue
+        const currentBalance = profile.balance || 0
+        console.log("🔍 BALANCE UPDATE - Starting balance update process")
+        console.log("🔍 BALANCE UPDATE - Current balance:", currentBalance)
+        console.log("🔍 BALANCE UPDATE - Reward amount:", post.reward)
+
+        const newBalance = currentBalance + post.reward
+        console.log("🔍 BALANCE UPDATE - New calculated balance:", newBalance)
+
+        try {
+          // Update the balance
+          console.log("🔍 BALANCE UPDATE - Calling updateBalance with new balance:", newBalance)
+          await updateBalance(newBalance)
+          console.log("🔍 BALANCE UPDATE - updateBalance function completed")
+
+          // Verify the balance was updated
+          if (supabase) {
+            const { data: updatedProfile, error } = await supabase
+              .from("profiles")
+              .select("balance")
+              .eq("id", user.id)
+              .single()
+
+            if (error) {
+              console.error("🔍 BALANCE UPDATE - Error verifying balance update:", error)
+            } else {
+              console.log("🔍 BALANCE UPDATE - Verified balance in database:", updatedProfile?.balance)
+            }
+          }
+        } catch (error) {
+          console.error("🔍 BALANCE UPDATE - Error updating balance:", error)
         }
 
         // Trigger storage event to update other components

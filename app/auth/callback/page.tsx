@@ -42,8 +42,8 @@ export default function AuthCallbackPage() {
               user: data.session.user.email,
             }))
 
-            // Redirect to dashboard or specified redirect path
-            router.push(redirect || "/dashboard")
+            // Use window.location for a hard redirect
+            window.location.href = redirect
             return
           }
         }
@@ -86,8 +86,8 @@ export default function AuthCallbackPage() {
                 user: data.session.user.email,
               }))
 
-              // Redirect to dashboard or specified redirect path
-              router.push(redirect || "/dashboard")
+              // Use window.location for a hard redirect
+              window.location.href = redirect
               return
             }
           }
@@ -111,8 +111,8 @@ export default function AuthCallbackPage() {
             user: data.session.user.email,
           }))
 
-          // Redirect to dashboard or specified redirect path
-          router.push(redirect || "/dashboard")
+          // Use window.location for a hard redirect
+          window.location.href = redirect
           return
         }
 
@@ -120,12 +120,16 @@ export default function AuthCallbackPage() {
         console.error("No session established after authentication")
         setDebugInfo((prev) => ({ ...prev, noSessionEstablished: true }))
         setError("Authentication failed. Please try again.")
-        setTimeout(() => router.push("/auth/login?error=No%20session%20established"), 3000)
+        setTimeout(() => {
+          window.location.href = "/auth/login?error=No%20session%20established"
+        }, 3000)
       } catch (error: any) {
         console.error("Authentication error:", error)
         setDebugInfo((prev) => ({ ...prev, catchError: error.message }))
         setError(`Authentication failed: ${error.message}`)
-        setTimeout(() => router.push("/auth/login?error=" + encodeURIComponent(error.message)), 3000)
+        setTimeout(() => {
+          window.location.href = "/auth/login?error=" + encodeURIComponent(error.message)
+        }, 3000)
       }
     }
 
