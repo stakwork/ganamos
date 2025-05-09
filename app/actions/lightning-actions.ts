@@ -57,34 +57,35 @@ async function checkLightningConfig() {
  * Create a deposit invoice for a user
  */
 export async function createDepositInvoice(amount: number) {
-  // Create a Supabase client with the user's session
-  const cookieStore = cookies()
-  const supabase = createServerSupabaseClient()
-
-  // Get the current user
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession()
-
-  if (sessionError) {
-    console.error("Session error:", sessionError)
-    return { success: false, error: "Authentication error", details: sessionError.message }
-  }
-
-  if (!session) {
-    console.error("No active session found")
-    return { success: false, error: "Not authenticated" }
-  }
-
-  if (!session.user || !session.user.id) {
-    console.error("Session exists but no user ID found", session)
-    return { success: false, error: "Invalid user session" }
-  }
-
-  const userId = session.user.id
-
   try {
+    // Create a Supabase client with the user's session
+    const cookieStore = cookies()
+    const supabase = createServerSupabaseClient()
+
+    // Get the current user
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+
+    if (sessionError) {
+      console.error("Session error:", sessionError)
+      return { success: false, error: "Authentication error", details: sessionError.message }
+    }
+
+    if (!session) {
+      console.error("No active session found")
+      return { success: false, error: "Not authenticated" }
+    }
+
+    if (!session.user || !session.user.id) {
+      console.error("Session exists but no user ID found", session)
+      return { success: false, error: "Invalid user session" }
+    }
+
+    const userId = session.user.id
+    console.log("Creating invoice for user:", userId)
+
     // Check Lightning configuration
     const configCheck = await checkLightningConfig()
     if (!configCheck.valid) {
@@ -155,8 +156,12 @@ export async function createDepositInvoice(amount: number) {
       rHash: rHashStr,
     }
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return { success: false, error: "An unexpected error occurred" }
+    console.error("Unexpected error in createDepositInvoice:", error)
+    return {
+      success: false,
+      error: "An unexpected error occurred",
+      details: error instanceof Error ? error.message : String(error),
+    }
   }
 }
 
@@ -164,88 +169,104 @@ export async function createDepositInvoice(amount: number) {
  * Check if a deposit invoice has been paid
  */
 export async function checkDepositStatus(rHash: string) {
-  const supabase = createServerSupabaseClient()
+  try {
+    const supabase = createServerSupabaseClient()
 
-  // Get the current user
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) {
-    return { success: false, error: "Not authenticated" }
-  }
+    // Get the current user
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
 
-  // Check the invoice status
-  const invoiceStatus = await checkInvoice(rHash)
-
-  if (!invoiceStatus.success) {
-    return { success: false, error: "Failed to check invoice status" }
-  }
-
-  // If the invoice is settled, update the transaction and user balance
-  if (invoiceStatus.settled && invoiceStatus.settled === true) {
-    // Use service role key for admin access to bypass RLS
-    const adminSupabase = createServerSupabaseClient({
-      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    })
-
-    // Get the transaction to verify amount
-    const { data: transaction } = await adminSupabase
-      .from("transactions")
-      .select("*")
-      .eq("r_hash_str", rHash)
-      .eq("status", "pending")
-      .single()
-
-    if (!transaction) {
-      return { success: false, error: "Transaction not found or already processed" }
+    if (sessionError || !session) {
+      console.error("Session error or no session:", sessionError)
+      return { success: false, error: "Not authenticated" }
     }
 
-    // Start a transaction to update both the transaction status and user balance
-    const { data: profile } = await adminSupabase.from("profiles").select("balance").eq("id", session.user.id).single()
+    // Check the invoice status
+    const invoiceStatus = await checkInvoice(rHash)
 
-    if (!profile) {
-      return { success: false, error: "User profile not found" }
+    if (!invoiceStatus.success) {
+      return { success: false, error: "Failed to check invoice status" }
     }
 
-    const newBalance = profile.balance + transaction.amount
+    // If the invoice is settled, update the transaction and user balance
+    if (invoiceStatus.settled && invoiceStatus.settled === true) {
+      // Use service role key for admin access to bypass RLS
+      const adminSupabase = createServerSupabaseClient({
+        supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      })
 
-    // Update transaction status
-    const { error: txError } = await adminSupabase
-      .from("transactions")
-      .update({ status: "completed", updated_at: new Date().toISOString() })
-      .eq("id", transaction.id)
+      // Get the transaction to verify amount
+      const { data: transaction } = await adminSupabase
+        .from("transactions")
+        .select("*")
+        .eq("r_hash_str", rHash)
+        .eq("status", "pending")
+        .single()
 
-    if (txError) {
-      console.error("Error updating transaction:", txError)
-      return { success: false, error: "Failed to update transaction" }
+      if (!transaction) {
+        return { success: false, error: "Transaction not found or already processed" }
+      }
+
+      // Start a transaction to update both the transaction status and user balance
+      const { data: profile } = await adminSupabase
+        .from("profiles")
+        .select("balance")
+        .eq("id", session.user.id)
+        .single()
+
+      if (!profile) {
+        return { success: false, error: "User profile not found" }
+      }
+
+      const newBalance = profile.balance + transaction.amount
+
+      // Update transaction status
+      const { error: txError } = await adminSupabase
+        .from("transactions")
+        .update({ status: "completed", updated_at: new Date().toISOString() })
+        .eq("id", transaction.id)
+
+      if (txError) {
+        console.error("Error updating transaction:", txError)
+        return { success: false, error: "Failed to update transaction" }
+      }
+
+      // Update user balance
+      const { error: balanceError } = await adminSupabase
+        .from("profiles")
+        .update({ balance: newBalance, updated_at: new Date().toISOString() })
+        .eq("id", session.user.id)
+
+      if (balanceError) {
+        console.error("Error updating balance:", balanceError)
+        return { success: false, error: "Failed to update balance" }
+      }
+
+      // Revalidate the profile page to show updated balance
+      revalidatePath("/profile")
+      revalidatePath("/dashboard")
+
+      return {
+        success: true,
+        settled: true,
+        amount: transaction.amount,
+        newBalance,
+      }
     }
-
-    // Update user balance
-    const { error: balanceError } = await adminSupabase
-      .from("profiles")
-      .update({ balance: newBalance, updated_at: new Date().toISOString() })
-      .eq("id", session.user.id)
-
-    if (balanceError) {
-      console.error("Error updating balance:", balanceError)
-      return { success: false, error: "Failed to update balance" }
-    }
-
-    // Revalidate the profile page to show updated balance
-    revalidatePath("/profile")
-    revalidatePath("/dashboard")
 
     return {
       success: true,
-      settled: true,
-      amount: transaction.amount,
-      newBalance,
+      settled: false,
     }
-  }
-
-  return {
-    success: true,
-    settled: false,
+  } catch (error) {
+    console.error("Unexpected error in checkDepositStatus:", error)
+    return {
+      success: false,
+      error: "An unexpected error occurred",
+      details: error instanceof Error ? error.message : String(error),
+    }
   }
 }
 
@@ -253,104 +274,116 @@ export async function checkDepositStatus(rHash: string) {
  * Process a withdrawal request
  */
 export async function processWithdrawal(formData: FormData) {
-  const supabase = createServerSupabaseClient()
+  try {
+    const supabase = createServerSupabaseClient()
 
-  // Get the current user
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) {
-    return { success: false, error: "Not authenticated" }
-  }
+    // Get the current user
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
 
-  const userId = session.user.id
+    if (sessionError || !session) {
+      console.error("Session error or no session:", sessionError)
+      return { success: false, error: "Not authenticated" }
+    }
 
-  // Get the payment request and amount from the form
-  const paymentRequest = formData.get("paymentRequest") as string
-  const amount = Number.parseInt(formData.get("amount") as string, 10)
+    const userId = session.user.id
 
-  if (!paymentRequest || isNaN(amount) || amount <= 0) {
-    return { success: false, error: "Invalid payment request or amount" }
-  }
+    // Get the payment request and amount from the form
+    const paymentRequest = formData.get("paymentRequest") as string
+    const amount = Number.parseInt(formData.get("amount") as string, 10)
 
-  // Use service role key for admin access to bypass RLS
-  const adminSupabase = createServerSupabaseClient({
-    supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  })
+    if (!paymentRequest || isNaN(amount) || amount <= 0) {
+      return { success: false, error: "Invalid payment request or amount" }
+    }
 
-  // Check if the user has enough balance
-  const { data: profile } = await adminSupabase.from("profiles").select("balance").eq("id", userId).single()
-
-  if (!profile) {
-    return { success: false, error: "User profile not found" }
-  }
-
-  if (profile.balance < amount) {
-    return { success: false, error: "Insufficient balance" }
-  }
-
-  // Create a transaction record
-  const { data: transaction, error: txError } = await adminSupabase
-    .from("transactions")
-    .insert({
-      user_id: userId,
-      type: "withdrawal",
-      amount,
-      status: "pending",
-      payment_request: paymentRequest,
-      memo: `Withdrawal of ${amount} sats from Ganamos!`,
+    // Use service role key for admin access to bypass RLS
+    const adminSupabase = createServerSupabaseClient({
+      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     })
-    .select()
-    .single()
 
-  if (txError || !transaction) {
-    console.error("Error creating transaction:", txError)
-    return { success: false, error: "Failed to create transaction" }
-  }
+    // Check if the user has enough balance
+    const { data: profile } = await adminSupabase.from("profiles").select("balance").eq("id", userId).single()
 
-  // Pay the invoice
-  const paymentResult = await payInvoice(paymentRequest)
+    if (!profile) {
+      return { success: false, error: "User profile not found" }
+    }
 
-  if (!paymentResult.success) {
-    // Update transaction to failed
+    if (profile.balance < amount) {
+      return { success: false, error: "Insufficient balance" }
+    }
+
+    // Create a transaction record
+    const { data: transaction, error: txError } = await adminSupabase
+      .from("transactions")
+      .insert({
+        user_id: userId,
+        type: "withdrawal",
+        amount,
+        status: "pending",
+        payment_request: paymentRequest,
+        memo: `Withdrawal of ${amount} sats from Ganamos!`,
+      })
+      .select()
+      .single()
+
+    if (txError || !transaction) {
+      console.error("Error creating transaction:", txError)
+      return { success: false, error: "Failed to create transaction" }
+    }
+
+    // Pay the invoice
+    const paymentResult = await payInvoice(paymentRequest)
+
+    if (!paymentResult.success) {
+      // Update transaction to failed
+      await adminSupabase
+        .from("transactions")
+        .update({
+          status: "failed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", transaction.id)
+
+      return { success: false, error: "Failed to pay invoice" }
+    }
+
+    // Update transaction with payment hash and status
     await adminSupabase
       .from("transactions")
       .update({
-        status: "failed",
+        status: "completed",
+        payment_hash: paymentResult.paymentHash,
         updated_at: new Date().toISOString(),
       })
       .eq("id", transaction.id)
 
-    return { success: false, error: "Failed to pay invoice" }
-  }
+    // Update user balance
+    const newBalance = profile.balance - amount
+    await adminSupabase
+      .from("profiles")
+      .update({
+        balance: newBalance,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId)
 
-  // Update transaction with payment hash and status
-  await adminSupabase
-    .from("transactions")
-    .update({
-      status: "completed",
-      payment_hash: paymentResult.paymentHash,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", transaction.id)
+    // Revalidate the profile page to show updated balance
+    revalidatePath("/profile")
+    revalidatePath("/dashboard")
 
-  // Update user balance
-  const newBalance = profile.balance - amount
-  await adminSupabase
-    .from("profiles")
-    .update({
-      balance: newBalance,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", userId)
-
-  // Revalidate the profile page to show updated balance
-  revalidatePath("/profile")
-  revalidatePath("/dashboard")
-
-  return {
-    success: true,
-    paymentHash: paymentResult.paymentHash,
-    newBalance,
+    return {
+      success: true,
+      paymentHash: paymentResult.paymentHash,
+      newBalance,
+    }
+  } catch (error) {
+    console.error("Unexpected error in processWithdrawal:", error)
+    return {
+      success: false,
+      error: "An unexpected error occurred",
+      details: error instanceof Error ? error.message : String(error),
+    }
   }
 }

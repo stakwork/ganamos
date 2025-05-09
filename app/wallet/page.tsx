@@ -110,21 +110,52 @@ function TransactionHistory() {
 
 export default function WalletPage() {
   const router = useRouter()
-  const { profile, loading } = useAuth()
+  const { user, profile, loading } = useAuth()
   const [balance, setBalance] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    // Check if user is authenticated
+    if (!loading && !user) {
+      router.push("/auth/login?redirect=/wallet")
+      return
+    }
+
     if (profile) {
       setBalance(profile.balance)
       setIsLoading(false)
     } else if (!loading) {
       setIsLoading(false)
     }
-  }, [profile, loading])
+  }, [profile, loading, user, router])
 
   if (isLoading) {
     return <LoadingSpinner message="Loading wallet..." />
+  }
+
+  // If not authenticated, show login prompt
+  if (!user) {
+    return (
+      <div className="container max-w-md mx-auto py-8 px-4">
+        <div className="flex items-center mb-6">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
+            <ArrowLeftIcon className="h-5 w-5" />
+            <span className="sr-only">Back</span>
+          </Button>
+          <h1 className="text-2xl font-bold">Bitcoin Wallet</h1>
+        </div>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center py-8">
+              <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+              <p className="text-muted-foreground mb-6">Please sign in to access your wallet</p>
+              <Button onClick={() => router.push("/auth/login?redirect=/wallet")}>Sign In</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (

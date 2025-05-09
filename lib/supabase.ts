@@ -6,33 +6,63 @@ interface SupabaseOptions {
   supabaseKey?: string
 }
 
-// Create a single supabase client for interacting with your database
-const createSupabaseClient = (options?: SupabaseOptions) => {
-  const supabaseUrl = options?.supabaseUrl || (process.env.NEXT_PUBLIC_SUPABASE_URL as string)
-  const supabaseKey = options?.supabaseKey || (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string)
+// Check for environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  return createClient<Database>(supabaseUrl, supabaseKey, {
-    auth: {
-      persistSession: true,
-      storageKey: "ganamos-auth",
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      flowType: "pkce",
-    },
+if (typeof window !== "undefined" && (!supabaseUrl || !supabaseAnonKey)) {
+  console.error("Missing Supabase environment variables:", {
+    hasUrl: !!supabaseUrl,
+    hasAnonKey: !!supabaseAnonKey,
   })
 }
 
 // Client-side singleton to avoid multiple instances
-let supabaseInstance: ReturnType<typeof createSupabaseClient> | null = null
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null
 
+// Get or create the Supabase client (singleton pattern)
 export const getSupabaseClient = () => {
-  if (!supabaseInstance && typeof window !== "undefined") {
-    supabaseInstance = createSupabaseClient()
+  if (typeof window === "undefined") {
+    // Server-side - always create a new instance
+    return createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
+      {
+        auth: {
+          persistSession: false,
+        },
+      },
+    )
   }
+
+  // Client-side - use singleton pattern
+  if (!supabaseInstance) {
+    supabaseInstance = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
+      {
+        auth: {
+          persistSession: true,
+          storageKey: "ganamos-auth",
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          flowType: "pkce",
+        },
+      },
+    )
+  }
+
   return supabaseInstance
 }
 
 // Server-side client (creates a new instance each time)
 export const createServerSupabaseClient = (options?: SupabaseOptions) => {
-  return createSupabaseClient(options)
+  const url = options?.supabaseUrl || (process.env.NEXT_PUBLIC_SUPABASE_URL as string)
+  const key = options?.supabaseKey || (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string)
+
+  return createClient<Database>(url, key, {
+    auth: {
+      persistSession: false,
+    },
+  })
 }

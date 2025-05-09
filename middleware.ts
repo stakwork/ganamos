@@ -11,26 +11,34 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
+  // Get the current path
+  const path = req.nextUrl.pathname
+
   // If accessing a protected route without a session, redirect to login
   const protectedRoutes = ["/dashboard", "/wallet", "/profile", "/post/new"]
-  const isProtectedRoute = protectedRoutes.some((route) => req.nextUrl.pathname.startsWith(route))
+  const isProtectedRoute = protectedRoutes.some((route) => path.startsWith(route))
 
   if (isProtectedRoute && !session) {
     const redirectUrl = new URL("/auth/login", req.url)
-    redirectUrl.searchParams.set("redirect", req.nextUrl.pathname)
+    redirectUrl.searchParams.set("redirect", path)
     return NextResponse.redirect(redirectUrl)
   }
 
   // If accessing login/register while logged in, redirect to dashboard
-  // Commenting this out to prevent redirect loops
-  /*
+  // But only do this for exact matches to prevent redirect loops
   const authRoutes = ["/auth/login", "/auth/register"]
-  const isAuthRoute = authRoutes.some((route) => req.nextUrl.pathname === route)
+  const isExactAuthRoute = authRoutes.includes(path)
 
-  if (isAuthRoute && session) {
+  if (isExactAuthRoute && session) {
+    // Check if there's a specific redirect parameter
+    const redirectTo = req.nextUrl.searchParams.get("redirect")
+    if (redirectTo && !authRoutes.includes(redirectTo)) {
+      // If there's a redirect parameter and it's not to another auth route, use it
+      return NextResponse.redirect(new URL(redirectTo, req.url))
+    }
+    // Otherwise redirect to dashboard
     return NextResponse.redirect(new URL("/dashboard", req.url))
   }
-  */
 
   return res
 }

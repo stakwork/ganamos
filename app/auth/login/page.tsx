@@ -10,12 +10,14 @@ import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
+  const [redirecting, setRedirecting] = useState(false)
   const { signInWithGoogle, signInWithEmail, session } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
@@ -26,11 +28,28 @@ export default function LoginPage() {
   // Check if user is already logged in
   useEffect(() => {
     if (session) {
-      console.log("User is already logged in, redirecting to dashboard")
-      // Use window.location for a hard redirect to avoid client-side routing issues
-      window.location.href = redirect
+      console.log("User is already logged in, redirecting to:", redirect)
+      setRedirecting(true)
+
+      // Use a timeout to prevent immediate redirect which can cause loops
+      const redirectTimer = setTimeout(() => {
+        // Use window.location for a hard redirect to avoid client-side routing issues
+        window.location.href = redirect
+      }, 100)
+
+      return () => clearTimeout(redirectTimer)
     }
   }, [session, redirect])
+
+  // Prevent showing the login form if we're already redirecting
+  if (redirecting) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" />
+        <p className="mt-4 text-muted-foreground">Redirecting to dashboard...</p>
+      </div>
+    )
+  }
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
@@ -51,19 +70,45 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
+      // Validate inputs
+      if (!email.trim() || !password.trim()) {
+        toast({
+          title: "Login failed",
+          description: "Email and password are required",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
+
+      console.log("Attempting to sign in with email:", email)
       const result = await signInWithEmail(email, password)
+
       if (result?.success) {
         console.log("Login successful, redirecting to:", redirect)
-        // Use window.location for a hard redirect to avoid client-side routing issues
-        window.location.href = redirect
+        setRedirecting(true)
+
+        // Use a timeout to prevent immediate redirect which can cause loops
+        setTimeout(() => {
+          // Use window.location for a hard redirect to avoid client-side routing issues
+          window.location.href = redirect
+        }, 100)
+      } else {
+        // Show the specific error message from the auth provider
+        toast({
+          title: "Login failed",
+          description: result?.message || "Please check your credentials and try again.",
+          variant: "destructive",
+        })
+        setIsLoading(false)
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Login error:", error)
       toast({
         title: "Login failed",
-        description: "Please check your credentials and try again.",
+        description: error?.message || "An unexpected error occurred. Please try again.",
         variant: "destructive",
       })
-    } finally {
       setIsLoading(false)
     }
   }

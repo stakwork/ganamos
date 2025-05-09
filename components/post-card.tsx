@@ -73,19 +73,15 @@ export function PostCard({ post }: { post: Post }) {
         )}
         <div className="absolute top-2 right-2">
           <Badge
-            variant={post.claimed ? "secondary" : post.fixed ? "outline" : "default"}
+            variant={post.fixed ? "outline" : "default"}
             className={
               post.fixed
                 ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-100 dark:hover:bg-emerald-900"
-                : post.claimed
-                  ? "bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-900"
-                  : "flex items-center gap-1"
+                : "flex items-center gap-1"
             }
           >
             {post.fixed ? (
               "Fixed"
-            ) : post.claimed ? (
-              "In Progress"
             ) : (
               <>
                 <div className="w-3 h-3 relative">
@@ -153,19 +149,9 @@ export function PostCard({ post }: { post: Post }) {
             <span className="text-xs text-muted-foreground">{post.location}</span>
           </div>
 
-          {!post.fixed && !post.claimed && (
+          {!post.fixed && (
             <Button size="sm" variant="outline" onClick={handleClick} className="dark:border-gray-700">
               View Details
-            </Button>
-          )}
-
-          {post.claimed && !post.fixed && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-100 hover:text-amber-700 dark:text-amber-400 dark:border-amber-800/30 dark:bg-amber-950/50 dark:hover:bg-amber-900/50"
-            >
-              In Progress
             </Button>
           )}
 

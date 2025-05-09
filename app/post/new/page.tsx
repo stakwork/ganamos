@@ -10,11 +10,10 @@ import { Slider } from "@/components/ui/slider"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
-import { getCurrentLocation } from "@/lib/mock-location"
+import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
 import { mockPosts } from "@/lib/mock-data"
 import { v4 as uuidv4 } from "@/lib/uuid"
 import { formatSatsValue } from "@/lib/utils"
-import { LocationSelector } from "@/components/location-selector"
 import { getSupabaseClient } from "@/lib/supabase"
 
 // Pre-load the camera component
@@ -53,7 +52,6 @@ export default function NewPostPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [step, setStep] = useState<"photo" | "details">("photo")
   const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
-  const [showLocationSelector, setShowLocationSelector] = useState(false)
   const [showAddSatsDialog, setShowAddSatsDialog] = useState(false)
   const [satsToAdd, setSatsToAdd] = useState(5000)
   const { toast } = useToast()
@@ -61,14 +59,12 @@ export default function NewPostPage() {
   const { user, profile, updateBalance } = useAuth()
   const supabase = getSupabaseClient()
 
-  // Update location when it changes
+  // Always set location to Downtown
   useEffect(() => {
-    const handleStorageChange = () => {
+    if (typeof window !== "undefined") {
+      saveSelectedLocation("downtown")
       setCurrentLocation(getCurrentLocation())
     }
-
-    window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
   }, [])
 
   // Hide navigation bar
@@ -313,14 +309,6 @@ export default function NewPostPage() {
               </svg>
               <span className="text-sm text-muted-foreground">{currentLocation.name}</span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowLocationSelector(true)}
-              className="text-xs h-7 px-2"
-            >
-              Change
-            </Button>
           </div>
 
           <div className="space-y-2">
@@ -414,9 +402,6 @@ export default function NewPostPage() {
           </Button>
         </form>
       )}
-
-      {/* Location Selector Dialog */}
-      <LocationSelector isOpen={showLocationSelector} onOpenChange={setShowLocationSelector} />
 
       {/* Add Sats Dialog */}
       <Dialog open={showAddSatsDialog} onOpenChange={setShowAddSatsDialog}>

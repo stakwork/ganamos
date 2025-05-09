@@ -24,7 +24,7 @@ export default function DepositPage() {
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
 
-  const { user, loading: authLoading } = useAuth()
+  const { user, profile, loading: authLoading } = useAuth()
 
   // Check if user is authenticated
   useEffect(() => {
@@ -63,6 +63,9 @@ export default function DepositPage() {
     setError(null)
 
     try {
+      // Wait a moment to ensure authentication is fully established
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
       const result = await createDepositInvoice(amount)
       if (result.success) {
         setInvoice(result.paymentRequest)
@@ -72,6 +75,18 @@ export default function DepositPage() {
         startCheckingPayment(result.rHash)
       } else {
         console.error("Invoice creation failed:", result.error, result.details)
+
+        // Handle authentication errors specifically
+        if (result.error === "Not authenticated") {
+          toast({
+            title: "Session Expired",
+            description: "Your session has expired. Please log in again.",
+            variant: "destructive",
+          })
+          router.push("/auth/login?redirect=/wallet/deposit")
+          return
+        }
+
         setError(result.error || "Failed to create invoice")
         toast({
           title: "Error Creating Invoice",
@@ -182,6 +197,49 @@ export default function DepositPage() {
     }
   }
 
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="container max-w-md mx-auto py-8 px-4">
+        <div className="flex items-center mb-6">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
+            <ArrowLeftIcon className="h-5 w-5" />
+            <span className="sr-only">Back</span>
+          </Button>
+          <h1 className="text-2xl font-bold">Deposit Bitcoin</h1>
+        </div>
+        <div className="flex flex-col items-center justify-center py-12">
+          <LoadingSpinner />
+          <p className="mt-4 text-muted-foreground">Checking authentication...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Redirect if not authenticated
+  if (!user) {
+    return (
+      <div className="container max-w-md mx-auto py-8 px-4">
+        <div className="flex items-center mb-6">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
+            <ArrowLeftIcon className="h-5 w-5" />
+            <span className="sr-only">Back</span>
+          </Button>
+          <h1 className="text-2xl font-bold">Deposit Bitcoin</h1>
+        </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center py-8">
+              <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+              <p className="text-muted-foreground mb-6">Please sign in to access this feature</p>
+              <Button onClick={() => router.push("/auth/login?redirect=/wallet/deposit")}>Sign In</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="container max-w-md mx-auto py-8 px-4">
       <div className="flex items-center mb-6">
@@ -289,6 +347,8 @@ export default function DepositPage() {
                 <p>LND_REST_URL: {process.env.LND_REST_URL ? `"${process.env.LND_REST_URL}"` : "Not set"}</p>
                 <p>LND_ADMIN_MACAROON set: {process.env.LND_ADMIN_MACAROON ? "Yes" : "No"}</p>
                 <p>Current state: {invoice ? "Invoice generated" : "No invoice"}</p>
+                <p>User authenticated: {user ? "Yes" : "No"}</p>
+                <p>User ID: {user?.id ? user.id.substring(0, 8) + "..." : "None"}</p>
                 {rHash && <p>rHash: {rHash.substring(0, 10)}...</p>}
                 {invoice && <p>Invoice length: {invoice.length} chars</p>}
               </div>

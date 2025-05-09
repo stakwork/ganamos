@@ -36,7 +36,7 @@ export const mockLocations: MockLocation[] = [
 ]
 
 // Default location to use when none is selected
-export const defaultLocation = mockLocations[0]
+export const defaultLocation = mockLocations[0] // Downtown
 
 // Local storage key for saving selected location
 export const LOCATION_STORAGE_KEY = "motc_selected_location"
@@ -47,8 +47,10 @@ export function getCurrentLocation(): MockLocation {
     return defaultLocation
   }
 
+  // Always set to downtown if not already set
   const storedLocationId = localStorage.getItem(LOCATION_STORAGE_KEY)
   if (!storedLocationId) {
+    saveSelectedLocation("downtown")
     return defaultLocation
   }
 

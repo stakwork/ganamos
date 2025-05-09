@@ -16,7 +16,7 @@ type AuthContextType = {
   loading: boolean
   signInWithGoogle: (redirectPath?: string) => Promise<void>
   signInWithTwitter: () => Promise<void>
-  signInWithEmail: (email: string, password: string) => Promise<{ success: boolean }>
+  signInWithEmail: (email: string, password: string) => Promise<{ success: boolean; message?: string }>
   signUpWithEmail: (email: string, password: string, name: string) => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<Profile>) => Promise<void>
@@ -308,18 +308,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithEmail = async (email: string, password: string) => {
     try {
       console.log("Signing in with email:", email)
+
+      // Validate inputs
+      if (!email || !password) {
+        console.error("Email or password is empty")
+        return { success: false, message: "Email and password are required" }
+      }
+
+      // Add a delay to ensure network stability
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
+        email,
+        password,
       })
 
       if (error) {
-        toast({
-          title: "Error signing in",
-          description: error.message,
-          variant: "destructive",
-        })
-        throw error
+        console.error("Supabase auth error:", error)
+        return {
+          success: false,
+          message: error.message || "Authentication failed",
+        }
       }
 
       console.log("Sign in successful, session:", data.session?.user?.email)
@@ -334,7 +343,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: true }
     } catch (error: any) {
       console.error("Error signing in:", error)
-      return { success: false }
+      return {
+        success: false,
+        message: error?.message || "An unexpected error occurred",
+      }
     }
   }
 

@@ -20,7 +20,6 @@ import type { Post } from "@/lib/types"
 export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [post, setPost] = useState<Post | null>(null)
   const [loading, setLoading] = useState(true)
-  const [claiming, setClaiming] = useState(false)
   const [submittingFix, setSubmittingFix] = useState(false)
   const [fixImage, setFixImage] = useState<string | null>(null)
   const [showCamera, setShowCamera] = useState(false)
@@ -30,8 +29,6 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const { user, profile, updateBalance } = useAuth()
   const supabase = getSupabaseClient()
-
-  // Force hide bottom nav
 
   // Force hide bottom nav when camera is shown
   useEffect(() => {
@@ -116,77 +113,6 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     return () => window.removeEventListener("storage", handleStorageChange)
   }, [])
 
-  const handleClaimPost = async () => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to claim this post",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setClaiming(true)
-
-    try {
-      // In a real app, this would be an API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Update the local state
-      if (post) {
-        const updatedPost = {
-          ...post,
-          claimed: true,
-          claimedBy: user.id,
-          claimed_by: user.id,
-          claimedAt: new Date(),
-          claimed_at: new Date().toISOString(),
-        }
-
-        // Update in Supabase if possible
-        if (supabase) {
-          const { error } = await supabase
-            .from("posts")
-            .update({
-              claimed: true,
-              claimed_by: user.id,
-              claimed_at: new Date().toISOString(),
-            })
-            .eq("id", post.id)
-
-          if (error) {
-            console.error("Error updating post in Supabase:", error)
-          }
-        }
-
-        // Update the post in the mockPosts array
-        const postIndex = mockPosts.findIndex((p) => p.id === post.id)
-        if (postIndex !== -1) {
-          mockPosts[postIndex] = updatedPost
-        }
-
-        setPost(updatedPost)
-
-        // Trigger storage event to update other components
-        window.dispatchEvent(new Event("storage"))
-      }
-
-      toast({
-        title: "🎯 Post claimed!",
-        description: "You have 6 hours to fix this issue",
-        variant: "success",
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Could not claim the post",
-        variant: "destructive",
-      })
-    } finally {
-      setClaiming(false)
-    }
-  }
-
   const handleCaptureFixImage = (imageSrc: string) => {
     setFixImage(imageSrc)
     setShowCamera(false)
@@ -221,6 +147,12 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           fixed_at: nowIso,
           fixedImageUrl: fixImage,
           fixed_image_url: fixImage,
+          // Set claimed info if not already set
+          claimed: true,
+          claimedBy: user.id,
+          claimed_by: user.id,
+          claimedAt: post.claimedAt || now,
+          claimed_at: post.claimed_at || nowIso,
         }
 
         // Update in Supabase if possible
@@ -231,6 +163,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               fixed: true,
               fixed_at: nowIso,
               fixed_image_url: fixImage,
+              claimed: true,
+              claimed_by: user.id,
+              claimed_at: post.claimed_at || nowIso,
             })
             .eq("id", post.id)
 
@@ -463,14 +398,14 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         />
         <div className="absolute top-2 right-2">
           <Badge
-            variant={post.claimed ? "secondary" : post.fixed ? "outline" : "default"}
+            variant={post.fixed ? "outline" : "default"}
             className={
               post.fixed
                 ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-100 dark:hover:bg-emerald-900"
                 : ""
             }
           >
-            {post.fixed ? "Fixed" : post.claimed ? "In Progress" : formatSatsValue(post.reward)}
+            {post.fixed ? "Fixed" : formatSatsValue(post.reward)}
           </Badge>
         </div>
       </div>
@@ -527,17 +462,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
-            {/* Allow any user (including the creator) to claim the post if it's not claimed or fixed */}
-            {!post.claimed && !post.fixed && user && (
-              <Button onClick={handleClaimPost} disabled={claiming}>
-                {claiming ? "Claiming..." : "Claim"}
-              </Button>
-            )}
-
-            {/* Show Submit Fix button if the post is claimed by the current user */}
-            {post.claimed && (post.claimedBy === user?.id || post.claimed_by === user?.id) && !post.fixed && (
-              <Button onClick={() => setShowCamera(true)}>Submit Fix</Button>
-            )}
+            {/* Show Submit Fix button for all unfixed posts */}
+            {!post.fixed && user && <Button onClick={() => setShowCamera(true)}>Submit Fix</Button>}
 
             {post.fixed && (
               <Badge

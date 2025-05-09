@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { processWithdrawal } from "@/app/actions/lightning-actions"
 import { Button } from "@/components/ui/button"
@@ -10,13 +10,12 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { LoadingSpinner } from "@/components/loading-spinner"
-import { useEffect } from "react"
 import { ArrowLeftIcon } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 
 export default function WithdrawPage() {
   const router = useRouter()
-  const { profile } = useAuth()
+  const { user, profile, loading: authLoading } = useAuth()
   const [amount, setAmount] = useState<number>(1000)
   const [paymentRequest, setPaymentRequest] = useState<string>("")
   const [loading, setLoading] = useState<boolean>(false)
@@ -24,17 +23,38 @@ export default function WithdrawPage() {
   const [loadingBalance, setLoadingBalance] = useState<boolean>(true)
   const { toast } = useToast()
 
-  // Fetch user balance
+  // Check if user is authenticated
   useEffect(() => {
+    if (!authLoading && !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to access this feature",
+        variant: "destructive",
+      })
+      router.push("/auth/login?redirect=/wallet/withdraw")
+      return
+    }
+
+    // Fetch user balance
     if (profile) {
       setBalance(profile.balance)
       setLoadingBalance(false)
     }
-  }, [profile])
+  }, [user, authLoading, profile, router, toast])
 
   // Process withdrawal
   const handleWithdrawal = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to withdraw funds",
+        variant: "destructive",
+      })
+      router.push("/auth/login?redirect=/wallet/withdraw")
+      return
+    }
 
     if (amount < 100) {
       toast({
@@ -65,6 +85,9 @@ export default function WithdrawPage() {
 
     setLoading(true)
     try {
+      // Wait a moment to ensure authentication is fully established
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
       const formData = new FormData()
       formData.append("paymentRequest", paymentRequest)
       formData.append("amount", amount.toString())
@@ -80,6 +103,17 @@ export default function WithdrawPage() {
         setPaymentRequest("")
         setBalance(result.newBalance)
       } else {
+        // Handle authentication errors specifically
+        if (result.error === "Not authenticated") {
+          toast({
+            title: "Session Expired",
+            description: "Your session has expired. Please log in again.",
+            variant: "destructive",
+          })
+          router.push("/auth/login?redirect=/wallet/withdraw")
+          return
+        }
+
         toast({
           title: "Withdrawal failed",
           description: result.error || "Failed to process withdrawal",
@@ -96,6 +130,50 @@ export default function WithdrawPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="container max-w-md mx-auto py-8 px-4">
+        <div className="flex items-center mb-6">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
+            <ArrowLeftIcon className="h-5 w-5" />
+            <span className="sr-only">Back</span>
+          </Button>
+          <h1 className="text-2xl font-bold">Withdraw Bitcoin</h1>
+        </div>
+        <div className="flex flex-col items-center justify-center py-12">
+          <LoadingSpinner />
+          <p className="mt-4 text-muted-foreground">Checking authentication...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // If not authenticated, show login prompt
+  if (!user) {
+    return (
+      <div className="container max-w-md mx-auto py-8 px-4">
+        <div className="flex items-center mb-6">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
+            <ArrowLeftIcon className="h-5 w-5" />
+            <span className="sr-only">Back</span>
+          </Button>
+          <h1 className="text-2xl font-bold">Withdraw Bitcoin</h1>
+        </div>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center py-8">
+              <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+              <p className="text-muted-foreground mb-6">Please sign in to withdraw funds</p>
+              <Button onClick={() => router.push("/auth/login?redirect=/wallet/withdraw")}>Sign In</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (

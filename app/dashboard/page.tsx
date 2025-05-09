@@ -6,9 +6,8 @@ import Image from "next/image"
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
 import { PostCard } from "@/components/post-card"
-import { LocationPrompt } from "@/components/location-prompt"
 import { mockPosts } from "@/lib/mock-data"
-import { getCurrentLocation } from "@/lib/mock-location"
+import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
 import { formatSatsValue } from "@/lib/utils"
 import { getSupabaseClient } from "@/lib/supabase"
 import type { Post } from "@/lib/types"
@@ -16,7 +15,6 @@ import type { Post } from "@/lib/types"
 export default function DashboardPage() {
   const { user, profile, loading } = useAuth()
   const router = useRouter()
-  const [showLocationPrompt, setShowLocationPrompt] = useState(false)
   const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
   const [showSearchPage, setShowSearchPage] = useState(false)
   const [posts, setPosts] = useState<Post[]>([])
@@ -29,14 +27,11 @@ export default function DashboardPage() {
       return
     }
 
-    // Check if location has been selected before
+    // Always set location to Downtown
     if (typeof window !== "undefined") {
-      const hasSelectedLocation = localStorage.getItem("motc_selected_location")
-      if (!hasSelectedLocation) {
-        setShowLocationPrompt(true)
-      } else {
-        setCurrentLocation(getCurrentLocation())
-      }
+      // Set Downtown as the default location
+      saveSelectedLocation("downtown")
+      setCurrentLocation(getCurrentLocation())
     }
 
     // Fetch posts
@@ -88,11 +83,6 @@ export default function DashboardPage() {
     return () => window.removeEventListener("storage", handleStorageChange)
   }, [])
 
-  const handleLocationSelected = () => {
-    setShowLocationPrompt(false)
-    setCurrentLocation(getCurrentLocation())
-  }
-
   const handleSatsClick = () => {
     router.push("/profile")
   }
@@ -103,10 +93,6 @@ export default function DashboardPage() {
         <div className="text-center">Loading...</div>
       </div>
     )
-  }
-
-  if (showLocationPrompt) {
-    return <LocationPrompt onPermissionGranted={handleLocationSelected} />
   }
 
   return (
@@ -283,12 +269,7 @@ function SearchPage({ onClose }: { onClose: () => void }) {
           <div>
             <label className="text-sm font-medium">Location</label>
             <select className="w-full mt-1 p-2 border rounded-md dark:border-gray-800 bg-background">
-              <option>All Locations</option>
               <option>Downtown</option>
-              <option>Central Park</option>
-              <option>Ocean Beach</option>
-              <option>University Campus</option>
-              <option>Shopping Mall</option>
             </select>
           </div>
 
