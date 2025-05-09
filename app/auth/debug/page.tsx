@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useAuth } from "@/components/auth-provider"
 
 export default function AuthDebugPage() {
@@ -11,7 +11,7 @@ export default function AuthDebugPage() {
   const [userDetails, setUserDetails] = useState<any>(null)
   const [supabaseConfig, setSupabaseConfig] = useState<any>(null)
   const { user, profile, session } = useAuth()
-  const supabase = getSupabaseClient()
+  const supabase = createBrowserSupabaseClient()
 
   useEffect(() => {
     const checkSession = async () => {

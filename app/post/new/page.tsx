@@ -14,7 +14,7 @@ import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
 import { mockPosts } from "@/lib/mock-data"
 import { v4 as uuidv4 } from "@/lib/uuid"
 import { formatSatsValue } from "@/lib/utils"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createBrowserSupabaseClient } from "@/lib/supabase"
 
 // Pre-load the camera component
 import dynamic from "next/dynamic"
@@ -57,7 +57,7 @@ export default function NewPostPage() {
   const { toast } = useToast()
   const router = useRouter()
   const { user, profile, updateBalance } = useAuth()
-  const supabase = getSupabaseClient()
+  const supabase = createBrowserSupabaseClient()
 
   // Always set location to Downtown
   useEffect(() => {

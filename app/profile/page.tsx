@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { formatSatsValue } from "@/lib/utils"
 import { mockPosts } from "@/lib/mock-data"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import type { Post } from "@/lib/types"
 
@@ -36,7 +36,7 @@ export default function ProfilePage() {
   const [showQrDialog, setShowQrDialog] = useState(false)
   const [showAvatarSelector, setShowAvatarSelector] = useState(false)
   const [posts, setPosts] = useState<Post[]>([])
-  const supabase = getSupabaseClient()
+  const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
 
   useEffect(() => {

@@ -10,7 +10,7 @@ import { ArrowDownIcon, ArrowUpIcon, HistoryIcon, ArrowLeftIcon } from "lucide-r
 import { useAuth } from "@/components/auth-provider"
 import { formatSatsValue } from "@/lib/utils"
 import { LoadingSpinner } from "@/components/loading-spinner"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { formatDistanceToNow } from "date-fns"
 import type { Transaction } from "@/lib/database.types"
 
@@ -18,7 +18,7 @@ function TransactionHistory() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const { profile } = useAuth()
-  const supabase = getSupabaseClient()
+  const supabase = createBrowserSupabaseClient()
 
   useEffect(() => {
     async function fetchTransactions() {

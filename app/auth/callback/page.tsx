@@ -1,161 +1,48 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { LoadingSpinner } from "@/components/loading-spinner"
 
 export default function AuthCallbackPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = getSupabaseClient()
-  const [error, setError] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<any>({})
-  const redirect = searchParams.get("redirect") || "/dashboard"
+  const supabase = createBrowserSupabaseClient()
 
   useEffect(() => {
-    // Handle the OAuth callback
-    const handleAuthCallback = async () => {
+    const handleCallback = async () => {
       try {
-        console.log("Auth callback page loaded")
-        setDebugInfo((prev) => ({ ...prev, callbackTriggered: true }))
-
-        // Check if we have a code in the URL (for PKCE flow)
+        // Get the code from the URL
         const code = searchParams.get("code")
-        if (code) {
-          console.log("Found code in URL, exchanging for session")
-          setDebugInfo((prev) => ({ ...prev, codeFound: code.substring(0, 10) + "..." }))
 
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+        // Get the redirect path if any
+        const redirect = searchParams.get("redirect") || "/dashboard"
+
+        if (code) {
+          // Exchange the code for a session
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
 
           if (error) {
             console.error("Error exchanging code for session:", error)
-            setDebugInfo((prev) => ({ ...prev, codeExchangeError: error.message }))
-            throw error
-          }
-
-          if (data.session) {
-            console.log("Session established via code exchange")
-            setDebugInfo((prev) => ({
-              ...prev,
-              sessionEstablished: true,
-              user: data.session.user.email,
-            }))
-
-            // Use window.location for a hard redirect
-            window.location.href = redirect
+            router.push(`/auth/login?error=${encodeURIComponent(error.message)}`)
             return
           }
+
+          // Redirect to the specified path or dashboard
+          router.push(redirect)
+        } else {
+          // No code found, redirect to login
+          router.push("/auth/login")
         }
-
-        // Check for hash fragment in URL (for implicit flow)
-        if (typeof window !== "undefined" && window.location.hash) {
-          console.log("Found hash in URL, parsing tokens")
-          setDebugInfo((prev) => ({ ...prev, hashFound: true }))
-
-          // Extract access_token from the URL hash
-          const hashParams = new URLSearchParams(window.location.hash.substring(1))
-          const accessToken = hashParams.get("access_token")
-          const refreshToken = hashParams.get("refresh_token")
-
-          if (accessToken) {
-            console.log("Found access token in hash, setting session")
-            setDebugInfo((prev) => ({
-              ...prev,
-              accessTokenFound: true,
-              tokenLength: accessToken.length,
-            }))
-
-            // Set the session using the hash params
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken || "",
-            })
-
-            if (error) {
-              console.error("Error setting session from hash:", error)
-              setDebugInfo((prev) => ({ ...prev, setSessionError: error.message }))
-              throw error
-            }
-
-            if (data.session) {
-              console.log("Session established via hash params")
-              setDebugInfo((prev) => ({
-                ...prev,
-                sessionEstablished: true,
-                user: data.session.user.email,
-              }))
-
-              // Use window.location for a hard redirect
-              window.location.href = redirect
-              return
-            }
-          }
-        }
-
-        // If we get here, check if we already have a session
-        console.log("Checking for existing session")
-        const { data, error } = await supabase.auth.getSession()
-
-        if (error) {
-          console.error("Error getting session:", error)
-          setDebugInfo((prev) => ({ ...prev, getSessionError: error.message }))
-          throw error
-        }
-
-        if (data.session) {
-          console.log("Existing session found")
-          setDebugInfo((prev) => ({
-            ...prev,
-            existingSession: true,
-            user: data.session.user.email,
-          }))
-
-          // Use window.location for a hard redirect
-          window.location.href = redirect
-          return
-        }
-
-        // If we get here, no session was established
-        console.error("No session established after authentication")
-        setDebugInfo((prev) => ({ ...prev, noSessionEstablished: true }))
-        setError("Authentication failed. Please try again.")
-        setTimeout(() => {
-          window.location.href = "/auth/login?error=No%20session%20established"
-        }, 3000)
       } catch (error: any) {
         console.error("Authentication error:", error)
-        setDebugInfo((prev) => ({ ...prev, catchError: error.message }))
-        setError(`Authentication failed: ${error.message}`)
-        setTimeout(() => {
-          window.location.href = "/auth/login?error=" + encodeURIComponent(error.message)
-        }, 3000)
+        router.push(`/auth/login?error=${encodeURIComponent(error.message || "Authentication failed")}`)
       }
     }
 
-    handleAuthCallback()
-  }, [router, supabase, searchParams, redirect])
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen">
-        <div className="text-center max-w-md px-4">
-          <h2 className="text-xl font-semibold mb-2">Authentication Error</h2>
-          <p className="text-muted-foreground mb-4">{error}</p>
-          <p className="text-sm">Redirecting you back to login...</p>
-
-          {process.env.NODE_ENV !== "production" && (
-            <details className="mt-8 text-left text-xs text-muted-foreground">
-              <summary className="cursor-pointer">Debug Information</summary>
-              <pre className="mt-2 p-4 bg-gray-100 dark:bg-gray-800 rounded overflow-auto">
-                {JSON.stringify(debugInfo, null, 2)}
-              </pre>
-            </details>
-          )}
-        </div>
-      </div>
-    )
-  }
+    handleCallback()
+  }, [router, searchParams, supabase])
 
   return (
     <div className="flex flex-col items-center justify-center h-screen">
@@ -163,15 +50,6 @@ export default function AuthCallbackPage() {
         <h2 className="text-xl font-semibold mb-2">Completing login...</h2>
         <p className="text-muted-foreground mb-4">Please wait while we authenticate you.</p>
         <LoadingSpinner />
-
-        {process.env.NODE_ENV !== "production" && (
-          <details className="mt-8 text-left text-xs text-muted-foreground">
-            <summary className="cursor-pointer">Debug Information</summary>
-            <pre className="mt-2 p-4 bg-gray-100 dark:bg-gray-800 rounded overflow-auto">
-              {JSON.stringify(debugInfo, null, 2)}
-            </pre>
-          </details>
-        )}
       </div>
     </div>
   )

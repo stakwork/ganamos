@@ -6,37 +6,36 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
   const supabase = createMiddlewareClient({ req, res })
 
-  // Refresh session if expired
+  // Get the current path and session
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
-  // Get the current path
   const path = req.nextUrl.pathname
 
-  // If accessing a protected route without a session, redirect to login
+  // Protected routes require authentication
   const protectedRoutes = ["/dashboard", "/wallet", "/profile", "/post/new"]
   const isProtectedRoute = protectedRoutes.some((route) => path.startsWith(route))
 
   if (isProtectedRoute && !session) {
+    // Redirect to login with return URL
     const redirectUrl = new URL("/auth/login", req.url)
     redirectUrl.searchParams.set("redirect", path)
     return NextResponse.redirect(redirectUrl)
   }
 
-  // If accessing login/register while logged in, redirect to dashboard
-  // But only do this for exact matches to prevent redirect loops
+  // Redirect authenticated users away from auth pages
   const authRoutes = ["/auth/login", "/auth/register"]
   const isExactAuthRoute = authRoutes.includes(path)
 
   if (isExactAuthRoute && session) {
-    // Check if there's a specific redirect parameter
+    // Check for redirect parameter
     const redirectTo = req.nextUrl.searchParams.get("redirect")
     if (redirectTo && !authRoutes.includes(redirectTo)) {
-      // If there's a redirect parameter and it's not to another auth route, use it
       return NextResponse.redirect(new URL(redirectTo, req.url))
     }
-    // Otherwise redirect to dashboard
+
+    // Default redirect to dashboard
     return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 

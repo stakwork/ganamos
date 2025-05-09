@@ -9,7 +9,7 @@ import { PostCard } from "@/components/post-card"
 import { mockPosts } from "@/lib/mock-data"
 import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
 import { formatSatsValue } from "@/lib/utils"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createBrowserSupabaseClient } from "@/lib/supabase"
 import type { Post } from "@/lib/types"
 
 export default function DashboardPage() {
@@ -19,7 +19,7 @@ export default function DashboardPage() {
   const [showSearchPage, setShowSearchPage] = useState(false)
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const supabase = getSupabaseClient()
+  const supabase = createBrowserSupabaseClient()
 
   useEffect(() => {
     if (!loading && !user) {

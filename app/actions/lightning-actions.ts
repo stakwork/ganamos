@@ -127,9 +127,7 @@ export async function createDepositInvoice(amount: number) {
     }
 
     // Use service role key for admin access to bypass RLS
-    const adminSupabase = createServerSupabaseClient({
-      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    })
+    const adminSupabase = createServerSupabaseClient()
 
     // Store the invoice in the database with explicit data types
     const { data, error } = await adminSupabase
@@ -193,9 +191,7 @@ export async function checkDepositStatus(rHash: string) {
     // If the invoice is settled, update the transaction and user balance
     if (invoiceStatus.settled && invoiceStatus.settled === true) {
       // Use service role key for admin access to bypass RLS
-      const adminSupabase = createServerSupabaseClient({
-        supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      })
+      const adminSupabase = createServerSupabaseClient()
 
       // Get the transaction to verify amount
       const { data: transaction } = await adminSupabase
@@ -299,9 +295,7 @@ export async function processWithdrawal(formData: FormData) {
     }
 
     // Use service role key for admin access to bypass RLS
-    const adminSupabase = createServerSupabaseClient({
-      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    })
+    const adminSupabase = createServerSupabaseClient()
 
     // Check if the user has enough balance
     const { data: profile } = await adminSupabase.from("profiles").select("balance").eq("id", userId).single()

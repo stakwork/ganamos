@@ -1,7 +1,7 @@
 "use client"
+
 import { useState } from "react"
 import type React from "react"
-
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
 export default function RegisterPage() {
   const [name, setName] = useState("")
@@ -24,6 +25,7 @@ export default function RegisterPage() {
     setIsLoading(true)
     try {
       await signInWithGoogle()
+      // The redirect is handled by Supabase OAuth
     } catch (error) {
       toast({
         title: "Registration failed",
@@ -77,7 +79,12 @@ export default function RegisterPage() {
             <p className="text-muted-foreground">Join Ganamos to start posting issues and earning rewards</p>
           </div>
 
-          {showEmailForm ? (
+          {isLoading && !showEmailForm ? (
+            <div className="py-8 flex flex-col items-center justify-center">
+              <LoadingSpinner size="lg" />
+              <p className="mt-4 text-muted-foreground">Creating your account...</p>
+            </div>
+          ) : showEmailForm ? (
             <form onSubmit={handleEmailSignUp} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
@@ -136,11 +143,7 @@ export default function RegisterPage() {
           ) : (
             <>
               <div className="space-y-4">
-                <Button
-                  className="w-full flex items-center justify-center gap-2"
-                  onClick={handleGoogleSignIn}
-                  disabled={isLoading}
-                >
+                <Button className="w-full flex items-center justify-center gap-2" onClick={handleGoogleSignIn}>
                   <svg width="20" height="20" viewBox="0 0 24 24">
                     <path
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"

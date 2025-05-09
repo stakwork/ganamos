@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "@/lib/database.types"
 
 interface SupabaseOptions {
@@ -17,45 +18,17 @@ if (typeof window !== "undefined" && (!supabaseUrl || !supabaseAnonKey)) {
   })
 }
 
-// Client-side singleton to avoid multiple instances
-let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null
-
-// Get or create the Supabase client (singleton pattern)
+// For backward compatibility - returns the browser client
 export const getSupabaseClient = () => {
-  if (typeof window === "undefined") {
-    // Server-side - always create a new instance
-    return createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
-      {
-        auth: {
-          persistSession: false,
-        },
-      },
-    )
-  }
-
-  // Client-side - use singleton pattern
-  if (!supabaseInstance) {
-    supabaseInstance = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
-      {
-        auth: {
-          persistSession: true,
-          storageKey: "ganamos-auth",
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-          flowType: "pkce",
-        },
-      },
-    )
-  }
-
-  return supabaseInstance
+  return createBrowserSupabaseClient()
 }
 
-// Server-side client (creates a new instance each time)
+// For client components - uses the auth helpers
+export const createBrowserSupabaseClient = () => {
+  return createClientComponentClient<Database>()
+}
+
+// For server components and API routes
 export const createServerSupabaseClient = (options?: SupabaseOptions) => {
   const url = options?.supabaseUrl || (process.env.NEXT_PUBLIC_SUPABASE_URL as string)
   const key = options?.supabaseKey || (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string)

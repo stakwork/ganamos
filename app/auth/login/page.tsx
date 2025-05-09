@@ -1,7 +1,7 @@
 "use client"
-import { useState, useEffect } from "react"
-import type React from "react"
 
+import { useState } from "react"
+import type React from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -17,44 +17,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
-  const [redirecting, setRedirecting] = useState(false)
-  const { signInWithGoogle, signInWithEmail, session } = useAuth()
+  const { signInWithGoogle, signInWithEmail } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
   const error = searchParams.get("error")
   const redirect = searchParams.get("redirect") || "/dashboard"
 
-  // Check if user is already logged in
-  useEffect(() => {
-    if (session) {
-      console.log("User is already logged in, redirecting to:", redirect)
-      setRedirecting(true)
-
-      // Use a timeout to prevent immediate redirect which can cause loops
-      const redirectTimer = setTimeout(() => {
-        // Use window.location for a hard redirect to avoid client-side routing issues
-        window.location.href = redirect
-      }, 100)
-
-      return () => clearTimeout(redirectTimer)
-    }
-  }, [session, redirect])
-
-  // Prevent showing the login form if we're already redirecting
-  if (redirecting) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <LoadingSpinner size="lg" />
-        <p className="mt-4 text-muted-foreground">Redirecting to dashboard...</p>
-      </div>
-    )
-  }
-
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
     try {
       await signInWithGoogle()
+      // The redirect is handled by Supabase OAuth
     } catch (error) {
       toast({
         title: "Login failed",
@@ -81,20 +55,12 @@ export default function LoginPage() {
         return
       }
 
-      console.log("Attempting to sign in with email:", email)
       const result = await signInWithEmail(email, password)
 
       if (result?.success) {
-        console.log("Login successful, redirecting to:", redirect)
-        setRedirecting(true)
-
-        // Use a timeout to prevent immediate redirect which can cause loops
-        setTimeout(() => {
-          // Use window.location for a hard redirect to avoid client-side routing issues
-          window.location.href = redirect
-        }, 100)
+        // Redirect to the specified path or dashboard
+        router.push(redirect)
       } else {
-        // Show the specific error message from the auth provider
         toast({
           title: "Login failed",
           description: result?.message || "Please check your credentials and try again.",
@@ -140,7 +106,12 @@ export default function LoginPage() {
             </Alert>
           )}
 
-          {showEmailForm ? (
+          {isLoading ? (
+            <div className="py-8 flex flex-col items-center justify-center">
+              <LoadingSpinner size="lg" />
+              <p className="mt-4 text-muted-foreground">Signing you in...</p>
+            </div>
+          ) : showEmailForm ? (
             <form onSubmit={handleEmailSignIn} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -173,8 +144,8 @@ export default function LoginPage() {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Logging in..." : "Log in"}
+              <Button type="submit" className="w-full">
+                Log in
               </Button>
 
               <div className="text-center">
@@ -190,11 +161,7 @@ export default function LoginPage() {
           ) : (
             <>
               <div className="space-y-4">
-                <Button
-                  className="w-full flex items-center justify-center gap-2"
-                  onClick={handleGoogleSignIn}
-                  disabled={isLoading}
-                >
+                <Button className="w-full flex items-center justify-center gap-2" onClick={handleGoogleSignIn}>
                   <svg width="20" height="20" viewBox="0 0 24 24">
                     <path
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"

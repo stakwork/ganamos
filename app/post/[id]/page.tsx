@@ -14,7 +14,7 @@ import { CameraCapture } from "@/components/camera-capture"
 import { getCurrentLocation } from "@/lib/mock-location"
 import { formatSatsValue } from "@/lib/utils"
 import { BitcoinLogo } from "@/components/bitcoin-logo"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createBrowserSupabaseClient } from "@/lib/supabase"
 import type { Post } from "@/lib/types"
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
@@ -28,7 +28,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const { toast } = useToast()
   const router = useRouter()
   const { user, profile, updateBalance } = useAuth()
-  const supabase = getSupabaseClient()
+  const supabase = createBrowserSupabaseClient()
 
   // Force hide bottom nav when camera is shown
   useEffect(() => {
