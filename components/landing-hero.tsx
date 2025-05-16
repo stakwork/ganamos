@@ -1,3 +1,5 @@
+"use client"
+
 export function LandingHero() {
   return (
     <div className="flex flex-col items-center text-center pt-16">
@@ -12,7 +14,6 @@ export function LandingHero() {
             style={{ marginTop: "1px", marginLeft: "-1px" }}
             onError={(e) => {
               console.error("Failed to load Bitcoin logo:", e)
-              console.log("Attempted image path:", "/images/bitcoin-full-logo.png")
               // Fallback to text
               e.currentTarget.outerHTML = '<span className="font-bold">BTC</span>'
             }}
