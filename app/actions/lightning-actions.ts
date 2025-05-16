@@ -1,9 +1,14 @@
 "use server"
 
-import { cookies } from "next/headers"
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { createInvoice, checkInvoice, payInvoice } from "@/lib/lightning"
 import { revalidatePath } from "next/cache"
+
+// Dynamic import for cookies to avoid issues with pages directory
+async function getCookieStore() {
+  const { cookies } = await import("next/headers")
+  return cookies()
+}
 
 /**
  * Check if the Lightning configuration is valid
@@ -59,7 +64,7 @@ async function checkLightningConfig() {
 export async function createDepositInvoice(amount: number, userId: string) {
   try {
     // Create a Supabase client with the user's session
-    const cookieStore = cookies()
+    const cookieStore = await getCookieStore()
     const supabase = createServerSupabaseClient({ cookieStore })
 
     // Get the current user
@@ -168,7 +173,7 @@ export async function createDepositInvoice(amount: number, userId: string) {
  */
 export async function checkDepositStatus(rHash: string, userId: string) {
   try {
-    const cookieStore = cookies()
+    const cookieStore = await getCookieStore()
     const supabase = createServerSupabaseClient({ cookieStore })
 
     // Get the current user
@@ -282,7 +287,7 @@ export async function checkDepositStatus(rHash: string, userId: string) {
  */
 export async function processWithdrawal(formData: FormData) {
   try {
-    const cookieStore = cookies()
+    const cookieStore = await getCookieStore()
     const supabase = createServerSupabaseClient({ cookieStore })
 
     // Get the current user

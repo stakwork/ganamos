@@ -1,12 +1,11 @@
 import { createClient } from "@supabase/supabase-js"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
 import type { Database } from "@/lib/database.types"
 
 interface SupabaseOptions {
   supabaseUrl?: string
   supabaseKey?: string
-  cookieStore?: ReturnType<typeof cookies>
+  cookieStore?: any // Using any to avoid direct import of next/headers
 }
 
 // Check for environment variables
@@ -37,18 +36,24 @@ export const createServerSupabaseClient = (options?: SupabaseOptions) => {
     options?.supabaseKey ||
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string)
-  const cookieStore = options?.cookieStore || cookies()
 
-  return createClient<Database>(url, key, {
+  // Create client with basic options first
+  const clientOptions: any = {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
     },
-  })
+  }
+
+  // Only add cookies if cookieStore is provided
+  if (options?.cookieStore) {
+    clientOptions.auth.cookies = {
+      get(name: string) {
+        return options.cookieStore.get(name)?.value
+      },
+    }
+  }
+
+  return createClient<Database>(url, key, clientOptions)
 }
