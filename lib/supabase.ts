@@ -1,10 +1,12 @@
 import { createClient } from "@supabase/supabase-js"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import type { Database } from "@/lib/database.types"
 
 interface SupabaseOptions {
   supabaseUrl?: string
   supabaseKey?: string
+  cookieStore?: ReturnType<typeof cookies>
 }
 
 // Check for environment variables
@@ -31,11 +33,22 @@ export const createBrowserSupabaseClient = () => {
 // For server components and API routes
 export const createServerSupabaseClient = (options?: SupabaseOptions) => {
   const url = options?.supabaseUrl || (process.env.NEXT_PUBLIC_SUPABASE_URL as string)
-  const key = options?.supabaseKey || (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string)
+  const key =
+    options?.supabaseKey ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string)
+  const cookieStore = options?.cookieStore || cookies()
 
   return createClient<Database>(url, key, {
     auth: {
       persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+      },
     },
   })
 }

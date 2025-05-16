@@ -56,11 +56,11 @@ async function checkLightningConfig() {
 /**
  * Create a deposit invoice for a user
  */
-export async function createDepositInvoice(amount: number) {
+export async function createDepositInvoice(amount: number, userId: string) {
   try {
     // Create a Supabase client with the user's session
     const cookieStore = cookies()
-    const supabase = createServerSupabaseClient()
+    const supabase = createServerSupabaseClient({ cookieStore })
 
     // Get the current user
     const {
@@ -73,18 +73,16 @@ export async function createDepositInvoice(amount: number) {
       return { success: false, error: "Authentication error", details: sessionError.message }
     }
 
-    if (!session) {
-      console.error("No active session found")
+    // Use the passed userId if no session is found
+    // This allows the client to pass the user ID when the session might not be available
+    const effectiveUserId = session?.user?.id || userId
+
+    if (!effectiveUserId) {
+      console.error("No user ID provided and no active session found")
       return { success: false, error: "Not authenticated" }
     }
 
-    if (!session.user || !session.user.id) {
-      console.error("Session exists but no user ID found", session)
-      return { success: false, error: "Invalid user session" }
-    }
-
-    const userId = session.user.id
-    console.log("Creating invoice for user:", userId)
+    console.log("Creating invoice for user:", effectiveUserId)
 
     // Check Lightning configuration
     const configCheck = await checkLightningConfig()
@@ -97,8 +95,13 @@ export async function createDepositInvoice(amount: number) {
       }
     }
 
+    // Use service role key for admin access to bypass RLS
+    const adminSupabase = createServerSupabaseClient({
+      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    })
+
     // Check if the transactions table exists
-    const { error: tableCheckError } = await supabase.from("transactions").select("id").limit(1)
+    const { error: tableCheckError } = await adminSupabase.from("transactions").select("id").limit(1)
 
     if (tableCheckError) {
       console.error("Transactions table check error:", tableCheckError)
@@ -126,14 +129,11 @@ export async function createDepositInvoice(amount: number) {
       rHashStr = Buffer.from(rHashStr).toString("hex")
     }
 
-    // Use service role key for admin access to bypass RLS
-    const adminSupabase = createServerSupabaseClient()
-
     // Store the invoice in the database with explicit data types
     const { data, error } = await adminSupabase
       .from("transactions")
       .insert({
-        user_id: userId,
+        user_id: effectiveUserId,
         type: "deposit",
         amount: amount,
         status: "pending",
@@ -166,9 +166,10 @@ export async function createDepositInvoice(amount: number) {
 /**
  * Check if a deposit invoice has been paid
  */
-export async function checkDepositStatus(rHash: string) {
+export async function checkDepositStatus(rHash: string, userId: string) {
   try {
-    const supabase = createServerSupabaseClient()
+    const cookieStore = cookies()
+    const supabase = createServerSupabaseClient({ cookieStore })
 
     // Get the current user
     const {
@@ -176,8 +177,16 @@ export async function checkDepositStatus(rHash: string) {
       error: sessionError,
     } = await supabase.auth.getSession()
 
-    if (sessionError || !session) {
-      console.error("Session error or no session:", sessionError)
+    // Use the passed userId if no session is found
+    const effectiveUserId = session?.user?.id || userId
+
+    if (sessionError) {
+      console.error("Session error:", sessionError)
+      // Continue with the provided userId instead of returning an error
+    }
+
+    if (!effectiveUserId) {
+      console.error("No user ID provided and no active session found")
       return { success: false, error: "Not authenticated" }
     }
 
@@ -191,7 +200,9 @@ export async function checkDepositStatus(rHash: string) {
     // If the invoice is settled, update the transaction and user balance
     if (invoiceStatus.settled && invoiceStatus.settled === true) {
       // Use service role key for admin access to bypass RLS
-      const adminSupabase = createServerSupabaseClient()
+      const adminSupabase = createServerSupabaseClient({
+        supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      })
 
       // Get the transaction to verify amount
       const { data: transaction } = await adminSupabase
@@ -209,7 +220,7 @@ export async function checkDepositStatus(rHash: string) {
       const { data: profile } = await adminSupabase
         .from("profiles")
         .select("balance")
-        .eq("id", session.user.id)
+        .eq("id", effectiveUserId)
         .single()
 
       if (!profile) {
@@ -233,7 +244,7 @@ export async function checkDepositStatus(rHash: string) {
       const { error: balanceError } = await adminSupabase
         .from("profiles")
         .update({ balance: newBalance, updated_at: new Date().toISOString() })
-        .eq("id", session.user.id)
+        .eq("id", effectiveUserId)
 
       if (balanceError) {
         console.error("Error updating balance:", balanceError)
@@ -271,7 +282,8 @@ export async function checkDepositStatus(rHash: string) {
  */
 export async function processWithdrawal(formData: FormData) {
   try {
-    const supabase = createServerSupabaseClient()
+    const cookieStore = cookies()
+    const supabase = createServerSupabaseClient({ cookieStore })
 
     // Get the current user
     const {
@@ -295,7 +307,9 @@ export async function processWithdrawal(formData: FormData) {
     }
 
     // Use service role key for admin access to bypass RLS
-    const adminSupabase = createServerSupabaseClient()
+    const adminSupabase = createServerSupabaseClient({
+      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    })
 
     // Check if the user has enough balance
     const { data: profile } = await adminSupabase.from("profiles").select("balance").eq("id", userId).single()

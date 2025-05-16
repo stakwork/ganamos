@@ -66,7 +66,8 @@ export default function DepositPage() {
       // Wait a moment to ensure authentication is fully established
       await new Promise((resolve) => setTimeout(resolve, 500))
 
-      const result = await createDepositInvoice(amount)
+      // Pass the user ID to the server action
+      const result = await createDepositInvoice(amount, user.id)
       if (result.success) {
         setInvoice(result.paymentRequest)
         setRHash(result.rHash)
@@ -130,6 +131,11 @@ export default function DepositPage() {
 
   // Check if payment has been received
   const startCheckingPayment = async (rHash: string) => {
+    if (!user) {
+      console.error("Cannot check payment status: User not authenticated")
+      return
+    }
+
     setChecking(true)
 
     // Check every 3 seconds for 5 minutes (100 times)
@@ -140,7 +146,8 @@ export default function DepositPage() {
       attempts++
 
       try {
-        const result = await checkDepositStatus(rHash)
+        // Pass the user ID to the server action
+        const result = await checkDepositStatus(rHash, user.id)
 
         if (result.success && result.settled) {
           clearInterval(checkInterval)
