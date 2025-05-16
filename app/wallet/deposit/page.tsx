@@ -24,7 +24,7 @@ export default function DepositPage() {
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
 
-  const { user, profile, loading: authLoading } = useAuth()
+  const { user, profile, loading: authLoading, refreshProfile } = useAuth()
 
   // Check if user is authenticated
   useEffect(() => {
@@ -154,11 +154,22 @@ export default function DepositPage() {
           setSettled(true)
           setChecking(false)
 
+          console.log("Payment received! New balance:", result.newBalance)
+
+          // Refresh the profile to get the updated balance
+          await refreshProfile()
+
+          // Show success message and redirect to profile page
           toast({
             title: "Payment received!",
             description: `${result.amount} sats added to your balance`,
             variant: "default",
           })
+
+          // Short delay before redirecting to ensure toast is seen
+          setTimeout(() => {
+            router.push("/profile")
+          }, 1500)
         }
 
         if (attempts >= maxAttempts) {
@@ -181,15 +192,72 @@ export default function DepositPage() {
   }
 
   // For mock testing - simulate payment received
-  const simulatePaymentReceived = () => {
+  const simulatePaymentReceived = async () => {
+    if (!user || !profile) {
+      console.error("Cannot simulate payment: User not authenticated")
+      return
+    }
+
     setSettled(true)
     setChecking(false)
 
-    toast({
-      title: "Payment received! (Simulated)",
-      description: `${amount} sats added to your balance`,
-      variant: "default",
-    })
+    // Calculate new balance
+    const newBalance = profile.balance + amount
+    console.log("Simulating payment received. Current balance:", profile.balance, "New balance:", newBalance)
+
+    // Update the user's balance in the database
+    try {
+      // Create a transaction record for the simulated deposit
+      const { createBrowserSupabaseClient } = await import("@/lib/supabase")
+      const supabase = createBrowserSupabaseClient()
+
+      // Add a transaction record
+      const { error: txError } = await supabase.from("transactions").insert({
+        user_id: user.id,
+        type: "deposit",
+        amount: amount,
+        status: "completed",
+        memo: `Simulated deposit of ${amount} sats`,
+      })
+
+      if (txError) {
+        console.error("Error creating transaction record:", txError)
+      }
+
+      // Update the user's balance
+      const { error: balanceError } = await supabase
+        .from("profiles")
+        .update({
+          balance: newBalance,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id)
+
+      if (balanceError) {
+        console.error("Error updating balance:", balanceError)
+      }
+
+      // Refresh the profile to get the updated balance
+      await refreshProfile()
+
+      toast({
+        title: "Payment received! (Simulated)",
+        description: `${amount} sats added to your balance`,
+        variant: "default",
+      })
+
+      // Short delay before redirecting to ensure toast is seen
+      setTimeout(() => {
+        router.push("/profile")
+      }, 1500)
+    } catch (error) {
+      console.error("Error simulating payment:", error)
+      toast({
+        title: "Error",
+        description: "Failed to simulate payment",
+        variant: "destructive",
+      })
+    }
   }
 
   // Copy invoice to clipboard
@@ -300,17 +368,7 @@ export default function DepositPage() {
                 <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                   <h3 className="text-lg font-medium text-green-700 dark:text-green-300">Payment Received!</h3>
                   <p className="text-green-600 dark:text-green-400">{amount} sats have been added to your balance</p>
-                  <Button
-                    onClick={() => {
-                      setInvoice(null)
-                      setRHash(null)
-                      setSettled(false)
-                      setError(null)
-                    }}
-                    className="mt-4"
-                  >
-                    Create New Invoice
-                  </Button>
+                  <p className="text-sm text-green-500 dark:text-green-400 mt-1">Redirecting to your profile...</p>
                 </div>
               ) : (
                 <>
@@ -356,6 +414,7 @@ export default function DepositPage() {
                 <p>Current state: {invoice ? "Invoice generated" : "No invoice"}</p>
                 <p>User authenticated: {user ? "Yes" : "No"}</p>
                 <p>User ID: {user?.id ? user.id.substring(0, 8) + "..." : "None"}</p>
+                <p>Current balance: {profile ? profile.balance : "Unknown"} sats</p>
                 {rHash && <p>rHash: {rHash.substring(0, 10)}...</p>}
                 {invoice && <p>Invoice length: {invoice.length} chars</p>}
               </div>

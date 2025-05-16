@@ -24,7 +24,8 @@ export interface Database {
         }
         Update: {
           id?: string
-          email?: string | null
+          email?: string
+          name?: string | null
           avatar_url?: string | null
           balance?: number
           created_at?: string

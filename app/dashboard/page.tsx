@@ -84,7 +84,7 @@ export default function DashboardPage() {
   }, [])
 
   const handleSatsClick = () => {
-    router.push("/profile")
+    router.push("/wallet")
   }
 
   if (loading || !user) {

@@ -63,6 +63,8 @@ async function checkLightningConfig() {
  */
 export async function createDepositInvoice(amount: number, userId: string) {
   try {
+    console.log("Creating deposit invoice for user:", userId, "Amount:", amount)
+
     // Create a Supabase client with the user's session
     const cookieStore = await getCookieStore()
     const supabase = createServerSupabaseClient({ cookieStore })
@@ -153,6 +155,8 @@ export async function createDepositInvoice(amount: number, userId: string) {
       return { success: false, error: "Failed to store invoice: " + error.message }
     }
 
+    console.log("Invoice created successfully:", rHashStr)
+
     return {
       success: true,
       paymentRequest: invoiceResult.paymentRequest,
@@ -173,6 +177,8 @@ export async function createDepositInvoice(amount: number, userId: string) {
  */
 export async function checkDepositStatus(rHash: string, userId: string) {
   try {
+    console.log("Checking deposit status for rHash:", rHash, "User ID:", userId)
+
     const cookieStore = await getCookieStore()
     const supabase = createServerSupabaseClient({ cookieStore })
 
@@ -204,6 +210,8 @@ export async function checkDepositStatus(rHash: string, userId: string) {
 
     // If the invoice is settled, update the transaction and user balance
     if (invoiceStatus.settled && invoiceStatus.settled === true) {
+      console.log("Invoice is settled! Processing payment for user:", effectiveUserId)
+
       // Use service role key for admin access to bypass RLS
       const adminSupabase = createServerSupabaseClient({
         supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -218,10 +226,13 @@ export async function checkDepositStatus(rHash: string, userId: string) {
         .single()
 
       if (!transaction) {
+        console.log("Transaction not found or already processed")
         return { success: false, error: "Transaction not found or already processed" }
       }
 
-      // Start a transaction to update both the transaction status and user balance
+      console.log("Found transaction:", transaction.id, "Amount:", transaction.amount)
+
+      // Get the user's current balance
       const { data: profile } = await adminSupabase
         .from("profiles")
         .select("balance")
@@ -229,15 +240,21 @@ export async function checkDepositStatus(rHash: string, userId: string) {
         .single()
 
       if (!profile) {
+        console.error("User profile not found")
         return { success: false, error: "User profile not found" }
       }
 
+      console.log("Current balance:", profile.balance)
       const newBalance = profile.balance + transaction.amount
+      console.log("New balance will be:", newBalance)
 
       // Update transaction status
       const { error: txError } = await adminSupabase
         .from("transactions")
-        .update({ status: "completed", updated_at: new Date().toISOString() })
+        .update({
+          status: "completed",
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", transaction.id)
 
       if (txError) {
@@ -245,10 +262,15 @@ export async function checkDepositStatus(rHash: string, userId: string) {
         return { success: false, error: "Failed to update transaction" }
       }
 
+      console.log("Transaction updated successfully")
+
       // Update user balance
       const { error: balanceError } = await adminSupabase
         .from("profiles")
-        .update({ balance: newBalance, updated_at: new Date().toISOString() })
+        .update({
+          balance: newBalance,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", effectiveUserId)
 
       if (balanceError) {
@@ -256,9 +278,12 @@ export async function checkDepositStatus(rHash: string, userId: string) {
         return { success: false, error: "Failed to update balance" }
       }
 
+      console.log("Balance updated successfully to:", newBalance)
+
       // Revalidate the profile page to show updated balance
       revalidatePath("/profile")
       revalidatePath("/dashboard")
+      revalidatePath("/wallet")
 
       return {
         success: true,
@@ -385,6 +410,7 @@ export async function processWithdrawal(formData: FormData) {
     // Revalidate the profile page to show updated balance
     revalidatePath("/profile")
     revalidatePath("/dashboard")
+    revalidatePath("/wallet")
 
     return {
       success: true,

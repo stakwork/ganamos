@@ -37,9 +37,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Fetch user profile
   const fetchProfile = async (userId: string) => {
     try {
+      console.log("Fetching profile for user:", userId)
       const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
 
       if (error || !data) {
+        console.log("Profile not found, creating new profile")
         // Create a new profile if one doesn't exist
         const { data: userData } = await supabase.auth.getUser()
         const newProfile = {
@@ -63,12 +65,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return null
         }
 
+        console.log("New profile created:", createdProfile || newProfile)
         return createdProfile || newProfile
       }
 
       // Ensure balance is never undefined
       if (data) {
         data.balance = data.balance || 0
+        console.log("Profile fetched successfully. Balance:", data.balance)
       }
 
       return data
@@ -80,11 +84,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Refresh the user's profile
   const refreshProfile = async () => {
-    if (!user) return
+    if (!user) {
+      console.log("Cannot refresh profile: No user")
+      return
+    }
 
+    console.log("Refreshing profile for user:", user.id)
     const profileData = await fetchProfile(user.id)
     if (profileData) {
+      console.log("Profile refreshed. New balance:", profileData.balance)
       setProfile(profileData)
+    } else {
+      console.log("Failed to refresh profile")
     }
   }
 
@@ -130,6 +141,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth()
   }, [supabase])
+
+  // Set up a real-time subscription to the profile table
+  useEffect(() => {
+    if (!user) return
+
+    console.log("Setting up real-time subscription to profile updates")
+
+    const profileSubscription = supabase
+      .channel("profile-updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${user.id}`,
+        },
+        async (payload) => {
+          console.log("Profile updated:", payload.new)
+          // Refresh the profile when it's updated
+          await refreshProfile()
+        },
+      )
+      .subscribe()
+
+    return () => {
+      profileSubscription.unsubscribe()
+    }
+  }, [user, supabase])
 
   // Sign in with Google
   const signInWithGoogle = async () => {
@@ -234,6 +274,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return
 
     try {
+      console.log("Updating profile:", updates)
       const { error } = await supabase.from("profiles").update(updates).eq("id", user.id)
 
       if (error) throw error
@@ -253,6 +294,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      console.log("Updating balance from", profile.balance, "to", newBalance)
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -271,6 +313,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ...profile,
         balance: newBalance,
       })
+
+      console.log("Balance updated successfully to", newBalance)
 
       // Refresh profile to ensure consistency
       await refreshProfile()

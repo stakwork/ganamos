@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -18,18 +20,21 @@ export function PostCard({ post }: { post: Post }) {
   const [profileName, setProfileName] = useState<string>("")
   const [profileAvatar, setProfileAvatar] = useState<string>("")
   const [isLoadingProfile, setIsLoadingProfile] = useState(true)
+  const [userId, setUserId] = useState<string>("")
 
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
-        const userId = post.userId || post.user_id
-        if (!userId) {
+        const postUserId = post.userId || post.user_id
+        if (!postUserId) {
           setIsLoadingProfile(false)
           return
         }
 
+        setUserId(postUserId)
+
         const supabase = createBrowserSupabaseClient()
-        const { data, error } = await supabase.from("profiles").select("name, avatar_url").eq("id", userId).single()
+        const { data, error } = await supabase.from("profiles").select("name, avatar_url").eq("id", postUserId).single()
 
         if (error) {
           console.error("Error fetching profile:", error)
@@ -57,6 +62,13 @@ export function PostCard({ post }: { post: Post }) {
 
   const handleClick = () => {
     router.push(`/post/${post.id}`)
+  }
+
+  const handleProfileClick = (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent triggering the card click
+    if (userId) {
+      router.push(`/profile/${userId}`)
+    }
   }
 
   // Format the date safely
@@ -151,20 +163,24 @@ export function PostCard({ post }: { post: Post }) {
       </div>
 
       <CardContent className="p-4">
-        {/* Profile info row */}
-        <div className="flex items-center mb-2">
-          <Avatar className="h-6 w-6 mr-2">
-            <AvatarImage src={profileAvatar || "/placeholder.svg"} alt={profileName || "User"} />
-            <AvatarFallback>{getInitials()}</AvatarFallback>
-          </Avatar>
-          <span className="text-sm font-medium">{isLoadingProfile ? "Loading..." : profileName || "Anonymous"}</span>
-        </div>
-
-        <div className="flex flex-col space-y-1">
+        <div className="flex flex-col space-y-3">
           <div>
-            <p className="mt-1 text-sm line-clamp-3" onClick={handleClick}>
+            <p className="text-sm line-clamp-3" onClick={handleClick}>
               {post.description}
             </p>
+          </div>
+
+          {/* Profile info row */}
+          <div className="flex items-center">
+            <div className="flex items-center cursor-pointer hover:opacity-80" onClick={handleProfileClick}>
+              <Avatar className="h-6 w-6 mr-2">
+                <AvatarImage src={profileAvatar || "/placeholder.svg"} alt={profileName || "User"} />
+                <AvatarFallback>{getInitials()}</AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-medium">
+                {isLoadingProfile ? "Loading..." : profileName || "Anonymous"}
+              </span>
+            </div>
           </div>
         </div>
       </CardContent>
