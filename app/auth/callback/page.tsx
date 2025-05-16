@@ -15,13 +15,19 @@ export default function AuthCallbackPage() {
       try {
         // Get the code from the URL
         const code = searchParams.get("code")
+        const error = searchParams.get("error")
+
+        console.log("Auth callback - Code present:", !!code)
+        console.log("Auth callback - Error present:", !!error, error ? `Error: ${error}` : "")
+        console.log("Auth callback - Full URL:", window.location.href)
 
         // Get the redirect path if any
         const redirect = searchParams.get("redirect") || "/dashboard"
 
         if (code) {
           // Exchange the code for a session
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          console.log("Auth callback - Exchanging code for session")
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
           if (error) {
             console.error("Error exchanging code for session:", error)
@@ -29,10 +35,12 @@ export default function AuthCallbackPage() {
             return
           }
 
+          console.log("Auth callback - Session exchange successful")
           // Redirect to the specified path or dashboard
           router.push(redirect)
         } else {
           // No code found, redirect to login
+          console.log("Auth callback - No code found, redirecting to login")
           router.push("/auth/login")
         }
       } catch (error: any) {

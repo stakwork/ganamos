@@ -27,12 +27,15 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
     try {
+      console.log("Login page - Starting Google sign-in")
       await signInWithGoogle()
       // The redirect is handled by Supabase OAuth
-    } catch (error) {
+      console.log("Login page - Google sign-in initiated successfully")
+    } catch (error: any) {
+      console.error("Login page - Google sign-in error:", error)
       toast({
         title: "Login failed",
-        description: "There was an error signing in with Google.",
+        description: error?.message || "There was an error signing in with Google.",
         variant: "destructive",
       })
       setIsLoading(false)
