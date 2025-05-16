@@ -10,6 +10,12 @@ export function LandingHero() {
             alt="Bitcoin"
             className="h-4"
             style={{ marginTop: "1px", marginLeft: "-1px" }}
+            onError={(e) => {
+              console.error("Failed to load Bitcoin logo:", e)
+              console.log("Attempted image path:", "/images/bitcoin-full-logo.png")
+              // Fallback to text
+              e.currentTarget.outerHTML = '<span className="font-bold">BTC</span>'
+            }}
           />
         </span>
       </p>
