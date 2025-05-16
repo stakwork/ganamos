@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { LandingHero } from "@/components/landing-hero"
 import { getCurrentUser } from "@/lib/auth"
+import { BackgroundImage } from "@/components/background-image"
 
 export default async function Home() {
   const user = await getCurrentUser()
@@ -14,21 +15,7 @@ export default async function Home() {
     <div className="relative min-h-screen">
       {/* Background Image */}
       <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0">
-          <img
-            src="/images/community-fixing.jpg"
-            alt="Person fixing a fence in a community"
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              console.error("Failed to load background image:", e)
-              // Try to log the actual path
-              console.log("Attempted image path:", "/images/community-fixing.jpg")
-              console.log("Base path:", window.location.origin)
-              // Fallback to a color
-              e.currentTarget.style.backgroundColor = "#f0f0f0"
-            }}
-          />
-        </div>
+        <BackgroundImage />
         <div className="absolute inset-0 bg-gradient-to-t from-white/90 dark:from-black/90 via-white/30 dark:via-black/30 to-transparent" />
       </div>
 
