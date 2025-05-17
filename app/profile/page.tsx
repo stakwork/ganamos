@@ -41,6 +41,8 @@ export default function ProfilePage() {
   const [fixedIssues, setFixedIssues] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [fixedCount, setFixedCount] = useState(0)
+  const [bitcoinPrice, setBitcoinPrice] = useState(64000) // Default fallback price
+  const [isPriceLoading, setIsPriceLoading] = useState(true)
   const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
 
@@ -55,6 +57,9 @@ export default function ProfilePage() {
 
       // Fetch data for the initial active tab
       fetchDataForTab(activeTab)
+
+      // Fetch Bitcoin price
+      fetchBitcoinPrice()
     }
 
     // Set up a listener for storage events to update data when it changes
@@ -73,6 +78,37 @@ export default function ProfilePage() {
       console.log("🔍 PROFILE PAGE - Current balance:", profile.balance)
     }
   }, [profile])
+
+  // Fetch the current Bitcoin price
+  const fetchBitcoinPrice = async () => {
+    try {
+      setIsPriceLoading(true)
+      console.log("🔍 Fetching Bitcoin price from CoinMarketCap")
+
+      const response = await fetch("/api/bitcoin-price")
+      const data = await response.json()
+
+      if (data.price) {
+        console.log(`🔍 Current Bitcoin price: $${data.price}`)
+        setBitcoinPrice(data.price)
+      } else {
+        console.warn("No price data returned, using fallback price")
+      }
+    } catch (error) {
+      console.error("Error fetching Bitcoin price:", error)
+      // Keep using the default price
+    } finally {
+      setIsPriceLoading(false)
+    }
+  }
+
+  // Calculate USD value from satoshis
+  const calculateUsdValue = (sats: number) => {
+    // 1 BTC = 100,000,000 satoshis
+    const btcAmount = sats / 100000000
+    const usdValue = btcAmount * bitcoinPrice
+    return usdValue.toFixed(2)
+  }
 
   // Fetch the count of fixed issues for the user
   const fetchFixedCount = async () => {
@@ -384,7 +420,7 @@ export default function ProfilePage() {
                     </div>
                     <p className="text-xl font-bold">{formatSatsValue(profile.balance)}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      ${((profile.balance / 100000000) * 64000).toFixed(2)} USD
+                      {isPriceLoading ? "Loading..." : `$${calculateUsdValue(profile.balance)} USD`}
                     </p>
                   </div>
                 </Button>
