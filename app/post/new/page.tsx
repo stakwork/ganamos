@@ -7,7 +7,6 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
 import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
@@ -52,8 +51,6 @@ export default function NewPostPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [step, setStep] = useState<"photo" | "details">("photo")
   const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
-  const [showAddSatsDialog, setShowAddSatsDialog] = useState(false)
-  const [satsToAdd, setSatsToAdd] = useState(5000)
   const { toast } = useToast()
   const router = useRouter()
   const { user, profile, updateBalance } = useAuth()
@@ -116,7 +113,7 @@ export default function NewPostPage() {
         description: "You don't have enough sats to offer this reward",
         variant: "destructive",
       })
-      setShowAddSatsDialog(true)
+      router.push("/wallet")
       return
     }
 
@@ -207,20 +204,8 @@ export default function NewPostPage() {
     }
   }
 
-  const handleAddSats = () => {
-    if (profile) {
-      // In a real app, this would be a payment flow
-      // For now, we'll just add the sats to the user's balance
-      updateBalance(profile.balance + satsToAdd)
-
-      toast({
-        title: "Sats added",
-        description: `${formatSatsValue(satsToAdd)} have been added to your balance`,
-        duration: 3000, // 3 seconds
-      })
-
-      setShowAddSatsDialog(false)
-    }
+  const navigateToWallet = () => {
+    router.push("/wallet")
   }
 
   if (!user) {
@@ -366,13 +351,7 @@ export default function NewPostPage() {
                   <span className="text-xs">{formatSatsValue(profile?.balance || 0)}</span>
                 </div>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAddSatsDialog(true)}
-                className="text-xs h-7 px-2"
-              >
+              <Button type="button" variant="outline" size="sm" onClick={navigateToWallet} className="text-xs h-7 px-2">
                 Add Sats
               </Button>
             </div>
@@ -402,48 +381,6 @@ export default function NewPostPage() {
           </Button>
         </form>
       )}
-
-      {/* Add Sats Dialog */}
-      <Dialog open={showAddSatsDialog} onOpenChange={setShowAddSatsDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Sats to Your Balance</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            <div className="flex items-center justify-center mb-4">
-              <div className="p-3 bg-amber-100 rounded-full dark:bg-amber-900/50">
-                <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={32} height={32} className="object-contain" />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSatsToAdd(Math.max(1000, satsToAdd - 1000))}
-                >
-                  -
-                </Button>
-                <div className="flex-1 text-center font-bold text-lg">{formatSatsValue(satsToAdd)}</div>
-                <Button type="button" variant="outline" size="sm" onClick={() => setSatsToAdd(satsToAdd + 1000)}>
-                  +
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setShowAddSatsDialog(false)}>
-                Cancel
-              </Button>
-              <Button className="flex-1" onClick={handleAddSats}>
-                Add Sats
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
