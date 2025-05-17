@@ -18,6 +18,7 @@ import { mockPosts } from "@/lib/mock-data"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import type { Post } from "@/lib/types"
+import { AvatarSelector } from "@/components/avatar-selector"
 
 type ActivityItem = {
   id: string
@@ -323,6 +324,8 @@ export default function ProfilePage() {
           Log Out
         </Button>
       </div>
+
+      <AvatarSelector isOpen={showAvatarSelector} onOpenChange={setShowAvatarSelector} />
     </div>
   )
 }

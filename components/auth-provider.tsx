@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: userData.user?.email || "",
           name: userData.user?.user_metadata?.full_name || userData.user?.user_metadata?.name || "User",
           avatar_url: userData.user?.user_metadata?.avatar_url || null,
-          balance: 5000, // Starting balance
+          balance: 0, // Starting balance
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }
