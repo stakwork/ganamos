@@ -7,21 +7,21 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Fix your community, earn Bitcoin",
     start_url: "/",
     display: "standalone",
-    background_color: "#ffffff",
+    background_color: "#10b981",
     theme_color: "#10b981",
     icons: [
       {
-        src: "/icons/icon-192x192.png",
+        src: "/favicon.png",
         sizes: "192x192",
         type: "image/png",
       },
       {
-        src: "/icons/icon-512x512.png",
+        src: "/favicon.png",
         sizes: "512x512",
         type: "image/png",
       },
       {
-        src: "/icons/icon-maskable-512x512.png",
+        src: "/favicon.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
