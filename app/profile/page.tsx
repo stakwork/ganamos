@@ -383,6 +383,9 @@ export default function ProfilePage() {
                       <p className="text-sm text-muted-foreground">Balance</p>
                     </div>
                     <p className="text-xl font-bold">{formatSatsValue(profile.balance)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      ${((profile.balance / 100000000) * 64000).toFixed(2)} USD
+                    </p>
                   </div>
                 </Button>
               </DialogTrigger>
