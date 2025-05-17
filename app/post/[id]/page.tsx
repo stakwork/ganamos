@@ -119,6 +119,11 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     setShowBeforeAfter(true)
   }
 
+  const handleRetakePhoto = () => {
+    setShowBeforeAfter(false)
+    setShowCamera(true)
+  }
+
   const handleSubmitFix = async () => {
     if (!fixImage) {
       toast({
@@ -328,6 +333,31 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             <h2 className="text-lg font-medium mb-2">After</h2>
             <div className="relative w-full h-64 overflow-hidden rounded-lg">
               <Image src={fixImage || "/placeholder.svg"} alt="After" fill className="object-cover" />
+              <div className="absolute top-2 right-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleRetakePhoto}
+                  className="bg-black/50 hover:bg-black/70 text-white border-0"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="mr-1"
+                  >
+                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  Retake
+                </Button>
+              </div>
             </div>
           </div>
 

@@ -17,8 +17,8 @@ import { formatSatsValue } from "@/lib/utils"
 import { mockPosts } from "@/lib/mock-data"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
-import type { Post } from "@/lib/types"
 import { AvatarSelector } from "@/components/avatar-selector"
+import type { Post } from "@/lib/types"
 
 type ActivityItem = {
   id: string
@@ -37,6 +37,10 @@ export default function ProfilePage() {
   const [showQrDialog, setShowQrDialog] = useState(false)
   const [showAvatarSelector, setShowAvatarSelector] = useState(false)
   const [posts, setPosts] = useState<Post[]>([])
+  const [postedIssues, setPostedIssues] = useState<Post[]>([])
+  const [fixedIssues, setFixedIssues] = useState<Post[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [fixedCount, setFixedCount] = useState(0)
   const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
 
@@ -46,17 +50,22 @@ export default function ProfilePage() {
     }
 
     if (user) {
-      fetchPosts()
+      // Fetch fixed count on initial load
+      fetchFixedCount()
+
+      // Fetch data for the initial active tab
+      fetchDataForTab(activeTab)
     }
 
-    // Set up a listener for storage events to update posts when they change
+    // Set up a listener for storage events to update data when it changes
     const handleStorageChange = () => {
-      fetchPosts()
+      fetchDataForTab(activeTab)
+      fetchFixedCount()
     }
 
     window.addEventListener("storage", handleStorageChange)
     return () => window.removeEventListener("storage", handleStorageChange)
-  }, [user, loading, router])
+  }, [user, loading, router, activeTab])
 
   useEffect(() => {
     if (profile) {
@@ -65,27 +74,156 @@ export default function ProfilePage() {
     }
   }, [profile])
 
-  const fetchPosts = async () => {
+  // Fetch the count of fixed issues for the user
+  const fetchFixedCount = async () => {
     if (!user) return
 
     try {
-      // Try to fetch from Supabase first
       if (supabase) {
-        const { data, error } = await supabase.from("posts").select("*")
+        console.log("🔍 Fetching fixed count for user:", user.id)
+        const { data, error, count } = await supabase
+          .from("posts")
+          .select("*", { count: "exact" })
+          .eq("claimed_by", user.id)
+          .eq("fixed", true)
+
+        if (!error) {
+          console.log(`🔍 Found ${count} fixed issues`)
+          setFixedCount(count || 0)
+        } else {
+          console.error("Error fetching fixed count:", error)
+          // Fall back to mock data for fixed count
+          const mockFixedCount = mockPosts.filter(
+            (post) => (post.claimed_by === user.id || post.claimedBy === user.id) && post.fixed === true,
+          ).length
+          setFixedCount(mockFixedCount)
+        }
+      }
+    } catch (error) {
+      console.error("Error in fetchFixedCount:", error)
+    }
+  }
+
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+    fetchDataForTab(value)
+  }
+
+  // Fetch data based on the selected tab
+  const fetchDataForTab = async (tab: string) => {
+    if (!user) return
+
+    setIsLoading(true)
+    console.log(`🔍 Fetching data for tab: ${tab}`)
+
+    try {
+      if (tab === "posted") {
+        await fetchPostedIssues()
+      } else if (tab === "fixing") {
+        await fetchFixedIssues()
+      } else if (tab === "activity") {
+        await fetchActivities()
+      }
+    } catch (error) {
+      console.error(`Error fetching data for tab ${tab}:`, error)
+      toast({
+        title: "Error",
+        description: `Failed to load ${tab} data`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Fetch issues posted by the user
+  const fetchPostedIssues = async () => {
+    try {
+      if (supabase) {
+        console.log("🔍 Fetching posted issues")
+        const { data, error } = await supabase
+          .from("posts")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
 
         if (data && !error) {
-          // Filter posts that belong to the current user or are claimed by the current user
-          const userPosts = data.filter(
-            (post) => post.user_id === user.id || post.userId === user.id || post.claimed_by === user.id,
-          )
-
-          setPosts(userPosts)
-          generateActivities(userPosts)
+          console.log(`🔍 Found ${data.length} posted issues`)
+          setPostedIssues(data)
           return
+        } else if (error) {
+          console.error("Error fetching posted issues:", error)
         }
       }
 
       // Fall back to mock data
+      console.log("🔍 Using mock data for posted issues")
+      const mockPostedIssues = mockPosts.filter((post) => post.userId === user.id || post.user_id === user.id)
+      setPostedIssues(mockPostedIssues)
+    } catch (error) {
+      console.error("Error in fetchPostedIssues:", error)
+      throw error
+    }
+  }
+
+  // Fetch issues fixed by the user
+  const fetchFixedIssues = async () => {
+    try {
+      if (supabase) {
+        console.log("🔍 Fetching fixed issues")
+        const { data, error } = await supabase
+          .from("posts")
+          .select("*")
+          .eq("claimed_by", user.id)
+          .eq("fixed", true)
+          .order("fixed_at", { ascending: false })
+
+        if (data && !error) {
+          console.log(`🔍 Found ${data.length} fixed issues`)
+          setFixedIssues(data)
+          return
+        } else if (error) {
+          console.error("Error fetching fixed issues:", error)
+        }
+      }
+
+      // Fall back to mock data
+      console.log("🔍 Using mock data for fixed issues")
+      const mockFixedIssues = mockPosts.filter(
+        (post) => (post.claimed_by === user.id || post.claimedBy === user.id) && post.fixed === true,
+      )
+      setFixedIssues(mockFixedIssues)
+    } catch (error) {
+      console.error("Error in fetchFixedIssues:", error)
+      throw error
+    }
+  }
+
+  // Fetch activities for the user
+  const fetchActivities = async () => {
+    try {
+      if (supabase) {
+        console.log("🔍 Fetching user activities")
+
+        // Get all posts related to the user (posted or claimed)
+        const { data, error } = await supabase
+          .from("posts")
+          .select("*")
+          .or(`user_id.eq.${user.id},claimed_by.eq.${user.id}`)
+          .order("created_at", { ascending: false })
+
+        if (data && !error) {
+          console.log(`🔍 Found ${data.length} posts for activities`)
+          generateActivities(data)
+          return
+        } else if (error) {
+          console.error("Error fetching activities:", error)
+        }
+      }
+
+      // Fall back to mock data
+      console.log("🔍 Using mock data for activities")
       const userPosts = mockPosts.filter((post) => post.userId === user.id || post.user_id === user.id)
       const claimedPosts = mockPosts.filter((post) => post.claimed_by === user.id || post.claimedBy === user.id)
 
@@ -97,21 +235,17 @@ export default function ProfilePage() {
         }
       })
 
-      setPosts(allPosts)
       generateActivities(allPosts)
     } catch (error) {
-      console.error("Error fetching posts:", error)
-      toast({
-        title: "Error",
-        description: "Failed to fetch posts",
-        variant: "destructive",
-      })
+      console.error("Error in fetchActivities:", error)
+      throw error
     }
   }
 
   const generateActivities = (posts: Post[]) => {
     if (!user) return
 
+    console.log("🔍 Generating activities from posts")
     const userActivities: ActivityItem[] = []
 
     // Posts created by the user
@@ -168,6 +302,7 @@ export default function ProfilePage() {
 
     // Sort by timestamp (newest first)
     userActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+    console.log(`🔍 Generated ${userActivities.length} activity items`)
 
     setActivities(userActivities)
   }
@@ -178,19 +313,6 @@ export default function ProfilePage() {
         <div className="text-center">Loading...</div>
       </div>
     )
-  }
-
-  const postedIssues = posts.filter((post) => post.userId === user.id || post.user_id === user.id)
-  const fixedIssues = posts.filter(
-    (post) => (post.claimed_by === user.id || post.claimedBy === user.id) && post.fixed === true,
-  )
-  const inProgressIssues = posts.filter(
-    (post) => (post.claimed_by === user.id || post.claimedBy === user.id) && !post.fixed,
-  )
-
-  // Update the handleSatsClick function to navigate to the wallet page
-  const handleSatsClick = () => {
-    router.push("/wallet")
   }
 
   return (
@@ -267,13 +389,13 @@ export default function ProfilePage() {
             </Dialog>
             <div className="p-3 text-center border rounded-lg dark:border-gray-800">
               <p className="text-sm text-muted-foreground">Issues Fixed</p>
-              <p className="text-xl font-bold">{fixedIssues.length}</p>
+              <p className="text-xl font-bold">{fixedCount}</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="posted" className="w-full" onValueChange={setActiveTab}>
+      <Tabs defaultValue="posted" className="w-full" onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-3 mb-4 dark:bg-gray-800/50">
           <TabsTrigger value="posted">Posted</TabsTrigger>
           <TabsTrigger value="fixing">Fixed</TabsTrigger>
@@ -281,7 +403,14 @@ export default function ProfilePage() {
         </TabsList>
 
         <TabsContent value="posted" className="space-y-4">
-          {postedIssues.length > 0 ? (
+          {isLoading ? (
+            <div className="p-8 text-center">
+              <div className="animate-pulse flex flex-col space-y-4">
+                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
+                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
+              </div>
+            </div>
+          ) : postedIssues.length > 0 ? (
             postedIssues.map((post) => <PostCard key={post.id} post={post} />)
           ) : (
             <div className="p-8 text-center">
@@ -294,7 +423,14 @@ export default function ProfilePage() {
         </TabsContent>
 
         <TabsContent value="fixing" className="space-y-4">
-          {fixedIssues.length > 0 ? (
+          {isLoading ? (
+            <div className="p-8 text-center">
+              <div className="animate-pulse flex flex-col space-y-4">
+                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
+                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
+              </div>
+            </div>
+          ) : fixedIssues.length > 0 ? (
             fixedIssues.map((post) => <PostCard key={post.id} post={post} />)
           ) : (
             <div className="p-8 text-center">
@@ -307,7 +443,15 @@ export default function ProfilePage() {
         </TabsContent>
 
         <TabsContent value="activity" className="space-y-4">
-          {activities.length > 0 ? (
+          {isLoading ? (
+            <div className="p-8 text-center">
+              <div className="animate-pulse flex flex-col space-y-4">
+                <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
+                <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
+                <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
+              </div>
+            </div>
+          ) : activities.length > 0 ? (
             activities.map((activity) => <ActivityCard key={activity.id} activity={activity} />)
           ) : (
             <div className="p-8 text-center">
