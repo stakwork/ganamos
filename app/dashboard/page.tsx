@@ -21,6 +21,10 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const supabase = createBrowserSupabaseClient()
 
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+  const [hasMore, setHasMore] = useState(true)
+
   useEffect(() => {
     if (!loading && !user) {
       router.push("/auth/login")
@@ -34,30 +38,66 @@ export default function DashboardPage() {
       setCurrentLocation(getCurrentLocation())
     }
 
-    // Fetch posts
-    fetchPosts()
+    // Fetch posts with page 1
+    fetchPosts(1)
   }, [user, loading, router])
 
-  const fetchPosts = async () => {
+  const fetchPosts = async (page = currentPage) => {
     setIsLoading(true)
     try {
       // Try to fetch from Supabase first
       if (supabase) {
-        const { data, error } = await supabase.from("posts").select("*").order("created_at", { ascending: false })
+        // Calculate pagination range
+        const from = (page - 1) * pageSize
+        const to = from + pageSize - 1
+
+        console.log(`Fetching posts from ${from} to ${to}`)
+
+        const { data, error, count } = await supabase
+          .from("posts")
+          .select("*", { count: "exact" })
+          .order("created_at", { ascending: false })
+          .eq("fixed", false)
+          .range(from, to)
 
         if (data && !error) {
-          setPosts(data.filter((post) => !post.fixed))
+          if (page === 1) {
+            setPosts(data)
+          } else {
+            setPosts((prev) => [...prev, ...data])
+          }
+
+          // Check if there are more posts to load
+          setHasMore(count ? from + data.length < count : false)
           setIsLoading(false)
           return
         }
       }
 
       // Fall back to mock data if Supabase fails
-      setPosts([...mockPosts.filter((post) => !post.fixed)])
+      const mockPaginatedPosts = mockPosts.filter((post) => !post.fixed).slice((page - 1) * pageSize, page * pageSize)
+
+      if (page === 1) {
+        setPosts(mockPaginatedPosts)
+      } else {
+        setPosts((prev) => [...prev, ...mockPaginatedPosts])
+      }
+
+      // Check if there are more mock posts to load
+      setHasMore(page * pageSize < mockPosts.filter((post) => !post.fixed).length)
     } catch (error) {
       console.error("Error fetching posts:", error)
       // Fall back to mock data
-      setPosts([...mockPosts.filter((post) => !post.fixed)])
+      const mockPaginatedPosts = mockPosts.filter((post) => !post.fixed).slice((page - 1) * pageSize, page * pageSize)
+
+      if (page === 1) {
+        setPosts(mockPaginatedPosts)
+      } else {
+        setPosts((prev) => [...prev, ...mockPaginatedPosts])
+      }
+
+      // Check if there are more mock posts to load
+      setHasMore(page * pageSize < mockPosts.filter((post) => !post.fixed).length)
     } finally {
       setIsLoading(false)
     }
@@ -136,7 +176,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="container px-4 pb-6 mx-auto max-w-md">
-        {isLoading ? (
+        {posts.length === 0 && isLoading ? (
           <div className="space-y-6">
             {[1, 2, 3].map((i) => (
               <div key={i} className="border rounded-lg dark:border-gray-800 overflow-hidden">
@@ -152,7 +192,53 @@ export default function DashboardPage() {
         ) : (
           <div className="space-y-6">
             {posts.length > 0 ? (
-              posts.map((post) => <PostCard key={post.id} post={post} />)
+              <>
+                {posts.map((post) => (
+                  <PostCard key={post.id} post={post} />
+                ))}
+
+                {hasMore && (
+                  <div className="flex justify-center mt-6">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setCurrentPage((prev) => prev + 1)
+                        fetchPosts(currentPage + 1)
+                      }}
+                      disabled={isLoading}
+                      className="w-full"
+                    >
+                      {isLoading ? (
+                        <div className="flex items-center">
+                          <svg
+                            className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Loading...
+                        </div>
+                      ) : (
+                        "Load More"
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="p-8 text-center border rounded-lg dark:border-gray-800 bg-white/90 dark:bg-gray-900/90">
                 <div className="flex flex-col items-center">
