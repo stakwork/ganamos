@@ -43,6 +43,7 @@ export default function ProfilePage() {
   const [fixedCount, setFixedCount] = useState(0)
   const [bitcoinPrice, setBitcoinPrice] = useState(64000) // Default fallback price
   const [isPriceLoading, setIsPriceLoading] = useState(true)
+  const [priceError, setPriceError] = useState<string | null>(null)
   const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
 
@@ -90,19 +91,35 @@ export default function ProfilePage() {
   const fetchBitcoinPrice = async () => {
     try {
       setIsPriceLoading(true)
-      console.log("🔍 Fetching Bitcoin price from CoinMarketCap")
+      setPriceError(null)
+      console.log("🔍 Fetching Bitcoin price from API")
 
       const response = await fetch("/api/bitcoin-price")
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Bitcoin price API error: ${response.status} - ${errorText}`)
+        setPriceError("API error")
+        return
+      }
+
       const data = await response.json()
 
       if (data.price) {
         console.log(`🔍 Current Bitcoin price: $${data.price}`)
         setBitcoinPrice(data.price)
+
+        if (data.error) {
+          console.warn(`Bitcoin price warning: ${data.error}`)
+          setPriceError(data.cached ? "Using cached price" : "Using fallback price")
+        }
       } else {
         console.warn("No price data returned, using fallback price")
+        setPriceError("No price data")
       }
     } catch (error) {
       console.error("Error fetching Bitcoin price:", error)
+      setPriceError("Failed to fetch price")
       // Keep using the default price
     } finally {
       setIsPriceLoading(false)
@@ -426,9 +443,12 @@ export default function ProfilePage() {
                       <p className="text-sm text-muted-foreground">Balance</p>
                     </div>
                     <p className="text-xl font-bold">{formatSatsValue(profile.balance)}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {isPriceLoading ? "Loading..." : `$${calculateUsdValue(profile.balance)} USD`}
-                    </p>
+                    <div className="flex flex-col items-center">
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {isPriceLoading ? "Loading..." : `$${calculateUsdValue(profile.balance)} USD`}
+                      </p>
+                      {priceError && <p className="text-xs text-amber-500 mt-0.5">{priceError}</p>}
+                    </div>
                   </div>
                 </Button>
               </DialogTrigger>
