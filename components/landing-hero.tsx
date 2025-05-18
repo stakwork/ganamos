@@ -35,7 +35,7 @@ export function LandingHero() {
     <div className="flex flex-col items-center text-center pt-16">
       <h1 className="app-title mb-4">Ganamos!</h1>
       <p className="mt-2 text-lg text-muted-foreground font-medium bg-white/50 dark:bg-gray-900/50 px-3 py-1 rounded-full flex items-center justify-center gap-1">
-        Fix your community, earn
+        Fix your community, <span className="mr-px">earn</span>
         <span className="flex items-center">
           <img
             src="/images/bitcoin-full-logo.png"

@@ -32,7 +32,7 @@ type ActivityItem = {
 export default function ProfilePage() {
   const { user, profile, loading, signOut } = useAuth()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState("posted")
+  const [activeTab, setActiveTab] = useState("activity")
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [showQrDialog, setShowQrDialog] = useState(false)
   const [showAvatarSelector, setShowAvatarSelector] = useState(false)
@@ -58,7 +58,7 @@ export default function ProfilePage() {
       // Fetch data for the initial active tab
       fetchDataForTab(activeTab)
 
-      // Fetch Bitcoin price
+      // Fetch Bitcoin price - only once when profile loads
       fetchBitcoinPrice()
     }
 
@@ -70,7 +70,14 @@ export default function ProfilePage() {
 
     window.addEventListener("storage", handleStorageChange)
     return () => window.removeEventListener("storage", handleStorageChange)
-  }, [user, loading, router, activeTab])
+  }, [user, loading, router]) // Remove activeTab from the dependency array
+
+  // Handle tab changes without refetching Bitcoin price
+  useEffect(() => {
+    if (user) {
+      fetchDataForTab(activeTab)
+    }
+  }, [activeTab, user])
 
   useEffect(() => {
     if (profile) {
@@ -434,11 +441,11 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="posted" className="w-full" onValueChange={handleTabChange}>
+      <Tabs defaultValue="activity" className="w-full" onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-3 mb-4 dark:bg-gray-800/50">
+          <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="posted">Posted</TabsTrigger>
           <TabsTrigger value="fixing">Fixed</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
         <TabsContent value="posted" className="space-y-4">

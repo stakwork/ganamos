@@ -15,6 +15,7 @@ import { getCurrentLocation } from "@/lib/mock-location"
 import { formatSatsValue } from "@/lib/utils"
 import { BitcoinLogo } from "@/components/bitcoin-logo"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { Post } from "@/lib/types"
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
@@ -25,6 +26,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [showCamera, setShowCamera] = useState(false)
   const [showBeforeAfter, setShowBeforeAfter] = useState(false)
   const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
+  const [fixerProfile, setFixerProfile] = useState<{ name: string; avatar_url: string | null } | null>(null)
   const { toast } = useToast()
   const router = useRouter()
   const { user, profile, updateBalance } = useAuth()
@@ -102,6 +104,32 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
 
     fetchPost()
   }, [params.id, toast, supabase])
+
+  // Fetch the profile of the user who fixed the issue
+  useEffect(() => {
+    const fetchFixerProfile = async () => {
+      if (!post || !post.fixed || (!post.claimed_by && !post.claimedBy)) return
+
+      const fixerId = post.claimed_by || post.claimedBy
+
+      try {
+        const { data, error } = await supabase.from("profiles").select("name, avatar_url").eq("id", fixerId).single()
+
+        if (error) {
+          console.error("Error fetching fixer profile:", error)
+          return
+        }
+
+        if (data) {
+          setFixerProfile(data)
+        }
+      } catch (error) {
+        console.error("Error in fetchFixerProfile:", error)
+      }
+    }
+
+    fetchFixerProfile()
+  }, [post, supabase])
 
   // Update location when it changes
   useEffect(() => {
@@ -241,6 +269,23 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     } finally {
       setSubmittingFix(false)
     }
+  }
+
+  const getFixerInitials = () => {
+    if (!fixerProfile?.name) return "U"
+    return fixerProfile.name
+      .split(" ")
+      .map((part) => part.charAt(0))
+      .join("")
+      .toUpperCase()
+  }
+
+  const formatFixerName = () => {
+    if (!fixerProfile?.name) return "Unknown User"
+    const nameParts = fixerProfile.name.split(" ")
+    const firstName = nameParts[0] || ""
+    const lastInitial = nameParts.length > 1 ? `${nameParts[nameParts.length - 1].charAt(0)}.` : ""
+    return `${firstName} ${lastInitial}`
   }
 
   if (loading) {
@@ -419,26 +464,49 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      <div className="relative w-full h-64 mb-4 overflow-hidden rounded-lg">
-        <Image
-          src={post.imageUrl || post.image_url || "/placeholder.svg"}
-          alt={post.title}
-          fill
-          className="object-cover"
-        />
-        <div className="absolute top-2 right-2">
-          <Badge
-            variant={post.fixed ? "outline" : "default"}
-            className={
-              post.fixed
-                ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-100 dark:hover:bg-emerald-900"
-                : ""
-            }
-          >
-            {post.fixed ? "Fixed" : formatSatsValue(post.reward)}
-          </Badge>
+      {/* Before and After Images */}
+      {post.fixed && post.fixed_image_url ? (
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Before</p>
+            <div className="relative w-full h-40 overflow-hidden rounded-lg">
+              <Image
+                src={post.imageUrl || post.image_url || "/placeholder.svg"}
+                alt="Before"
+                fill
+                className="object-cover"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">After</p>
+            <div className="relative w-full h-40 overflow-hidden rounded-lg">
+              <Image src={post.fixed_image_url || "/placeholder.svg"} alt="After" fill className="object-cover" />
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="relative w-full h-64 mb-4 overflow-hidden rounded-lg">
+          <Image
+            src={post.imageUrl || post.image_url || "/placeholder.svg"}
+            alt={post.title}
+            fill
+            className="object-cover"
+          />
+          <div className="absolute top-2 right-2">
+            <Badge
+              variant={post.fixed ? "outline" : "default"}
+              className={
+                post.fixed
+                  ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-100 dark:hover:bg-emerald-900"
+                  : ""
+              }
+            >
+              {post.fixed ? "Fixed" : formatSatsValue(post.reward)}
+            </Badge>
+          </div>
+        </div>
+      )}
 
       <div className="mb-6">
         <h2 className="text-xl font-bold">{post.title}</h2>
@@ -489,6 +557,21 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               <div>
                 <p className="font-medium">Reward</p>
                 <p className="text-2xl font-bold">{formatSatsValue(post.reward)}</p>
+                {post.fixed && fixerProfile && (
+                  <div className="flex items-center mt-1">
+                    <p className="text-xs text-muted-foreground mr-1">Earned by</p>
+                    <div className="flex items-center">
+                      <Avatar className="h-4 w-4 mr-1">
+                        <AvatarImage
+                          src={fixerProfile.avatar_url || "/placeholder.svg"}
+                          alt={fixerProfile.name || "User"}
+                        />
+                        <AvatarFallback>{getFixerInitials()}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs font-medium">{formatFixerName()}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
