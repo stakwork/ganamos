@@ -10,38 +10,20 @@ import { mockPosts } from "@/lib/mock-data"
 import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { getFilters, clearFilters, countActiveFilters } from "@/lib/filter-store"
 import type { Post } from "@/lib/types"
-import { Filter, X } from "lucide-react"
 
 export default function DashboardPage() {
   const { user, profile, loading } = useAuth()
   const router = useRouter()
   const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
+  const [showSearchPage, setShowSearchPage] = useState(false)
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const supabase = createBrowserSupabaseClient()
-  const [filters, setFilters] = useState(getFilters())
-  const [activeFilterCount, setActiveFilterCount] = useState(0)
 
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
   const [hasMore, setHasMore] = useState(true)
-
-  // Load filters and count active ones
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const currentFilters = getFilters()
-      setFilters(currentFilters)
-      setActiveFilterCount(countActiveFilters(currentFilters))
-
-      // Update location based on filter
-      if (currentFilters.isActive) {
-        saveSelectedLocation(currentFilters.location)
-        setCurrentLocation(currentFilters.location)
-      }
-    }
-  }, [])
 
   useEffect(() => {
     if (!loading && !user) {
@@ -49,15 +31,16 @@ export default function DashboardPage() {
       return
     }
 
-    // Set default location if no filters are active
-    if (typeof window !== "undefined" && !filters.isActive) {
+    // Always set location to Downtown
+    if (typeof window !== "undefined") {
+      // Set Downtown as the default location
       saveSelectedLocation("downtown")
       setCurrentLocation(getCurrentLocation())
     }
 
     // Fetch posts with page 1
     fetchPosts(1)
-  }, [user, loading, router, filters])
+  }, [user, loading, router])
 
   const fetchPosts = async (page = currentPage) => {
     setIsLoading(true)
@@ -70,48 +53,12 @@ export default function DashboardPage() {
 
         console.log(`Fetching posts from ${from} to ${to}`)
 
-        let query = supabase
+        const { data, error, count } = await supabase
           .from("posts")
           .select("*", { count: "exact" })
           .order("created_at", { ascending: false })
           .eq("fixed", false)
-
-        // Apply filters if active
-        if (filters.isActive) {
-          // Apply location filter
-          if (filters.location) {
-            query = query.eq("location", filters.location)
-          }
-
-          // Apply reward range filter
-          if (filters.rewardRange[0] > 0 || filters.rewardRange[1] < 10000) {
-            query = query.gte("reward", filters.rewardRange[0]).lte("reward", filters.rewardRange[1])
-          }
-
-          // Apply date filter
-          if (filters.dateFilter !== "any") {
-            const now = new Date()
-            let dateLimit
-
-            if (filters.dateFilter === "today") {
-              // Start of today
-              dateLimit = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-            } else if (filters.dateFilter === "week") {
-              // 7 days ago
-              dateLimit = new Date(now)
-              dateLimit.setDate(dateLimit.getDate() - 7)
-            }
-
-            if (dateLimit) {
-              query = query.gte("created_at", dateLimit.toISOString())
-            }
-          }
-        }
-
-        // Apply pagination
-        query = query.range(from, to)
-
-        const { data, error, count } = await query
+          .range(from, to)
 
         if (data && !error) {
           if (page === 1) {
@@ -128,43 +75,7 @@ export default function DashboardPage() {
       }
 
       // Fall back to mock data if Supabase fails
-      let filteredPosts = mockPosts.filter((post) => !post.fixed)
-
-      // Apply filters to mock data if active
-      if (filters.isActive) {
-        // Apply location filter
-        if (filters.location) {
-          filteredPosts = filteredPosts.filter((post) => post.location === filters.location)
-        }
-
-        // Apply reward range filter
-        if (filters.rewardRange[0] > 0 || filters.rewardRange[1] < 10000) {
-          filteredPosts = filteredPosts.filter(
-            (post) => post.reward >= filters.rewardRange[0] && post.reward <= filters.rewardRange[1],
-          )
-        }
-
-        // Apply date filter
-        if (filters.dateFilter !== "any") {
-          const now = new Date()
-          let dateLimit
-
-          if (filters.dateFilter === "today") {
-            // Start of today
-            dateLimit = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-          } else if (filters.dateFilter === "week") {
-            // 7 days ago
-            dateLimit = new Date(now)
-            dateLimit.setDate(dateLimit.getDate() - 7)
-          }
-
-          if (dateLimit) {
-            filteredPosts = filteredPosts.filter((post) => new Date(post.created_at) >= dateLimit)
-          }
-        }
-      }
-
-      const mockPaginatedPosts = filteredPosts.slice((page - 1) * pageSize, page * pageSize)
+      const mockPaginatedPosts = mockPosts.filter((post) => !post.fixed).slice((page - 1) * pageSize, page * pageSize)
 
       if (page === 1) {
         setPosts(mockPaginatedPosts)
@@ -173,46 +84,11 @@ export default function DashboardPage() {
       }
 
       // Check if there are more mock posts to load
-      setHasMore(page * pageSize < filteredPosts.length)
+      setHasMore(page * pageSize < mockPosts.filter((post) => !post.fixed).length)
     } catch (error) {
       console.error("Error fetching posts:", error)
-      // Fall back to mock data with same filter logic
-      let filteredPosts = mockPosts.filter((post) => !post.fixed)
-
-      if (filters.isActive) {
-        // Apply location filter
-        if (filters.location) {
-          filteredPosts = filteredPosts.filter((post) => post.location === filters.location)
-        }
-
-        // Apply reward range filter
-        if (filters.rewardRange[0] > 0 || filters.rewardRange[1] < 10000) {
-          filteredPosts = filteredPosts.filter(
-            (post) => post.reward >= filters.rewardRange[0] && post.reward <= filters.rewardRange[1],
-          )
-        }
-
-        // Apply date filter
-        if (filters.dateFilter !== "any") {
-          const now = new Date()
-          let dateLimit
-
-          if (filters.dateFilter === "today") {
-            // Start of today
-            dateLimit = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-          } else if (filters.dateFilter === "week") {
-            // 7 days ago
-            dateLimit = new Date(now)
-            dateLimit.setDate(dateLimit.getDate() - 7)
-          }
-
-          if (dateLimit) {
-            filteredPosts = filteredPosts.filter((post) => new Date(post.created_at) >= dateLimit)
-          }
-        }
-      }
-
-      const mockPaginatedPosts = filteredPosts.slice((page - 1) * pageSize, page * pageSize)
+      // Fall back to mock data
+      const mockPaginatedPosts = mockPosts.filter((post) => !post.fixed).slice((page - 1) * pageSize, page * pageSize)
 
       if (page === 1) {
         setPosts(mockPaginatedPosts)
@@ -221,31 +97,16 @@ export default function DashboardPage() {
       }
 
       // Check if there are more mock posts to load
-      setHasMore(page * pageSize < filteredPosts.length)
+      setHasMore(page * pageSize < mockPosts.filter((post) => !post.fixed).length)
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Handle filter changes
-  const handleClearFilters = () => {
-    clearFilters()
-    setFilters(getFilters())
-    setActiveFilterCount(0)
-    // Reset to page 1
-    setCurrentPage(1)
-    // Reset location to downtown
-    saveSelectedLocation("downtown")
-    setCurrentLocation("downtown")
-  }
-
   // Update when posts change
   useEffect(() => {
     const handleStorageChange = () => {
-      const currentFilters = getFilters()
-      setFilters(currentFilters)
-      setActiveFilterCount(countActiveFilters(currentFilters))
-      fetchPosts(1)
+      fetchPosts()
     }
 
     window.addEventListener("storage", handleStorageChange)
@@ -279,38 +140,37 @@ export default function DashboardPage() {
       <div className="sticky top-0 z-10 bg-gradient-to-b from-background via-background to-transparent pb-4">
         <div className="container px-4 pt-6 mx-auto max-w-md">
           <div className="flex items-center justify-between">
-            {/* Filter indicator */}
-            {filters.isActive && activeFilterCount > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1 text-sm"
-                onClick={handleClearFilters}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full"
+              onClick={() => setShowSearchPage(true)}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-muted-foreground"
               >
-                <Filter className="w-4 h-4" />
-                <span>
-                  {activeFilterCount} {activeFilterCount === 1 ? "Filter" : "Filters"}
-                </span>
-                <X
-                  className="w-4 h-4 ml-1 text-muted-foreground hover:text-foreground"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleClearFilters()
-                  }}
-                />
-              </Button>
-            )}
-
-            <div className={filters.isActive && activeFilterCount > 0 ? "" : "ml-auto"}>
-              <Button
-                variant="ghost"
-                onClick={handleSatsClick}
-                className="flex items-center px-3 py-1 text-sm font-medium bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
-              >
-                <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="mr-1" />
-                {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
-              </Button>
-            </div>
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <span className="sr-only">Search</span>
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={handleSatsClick}
+              className="flex items-center px-3 py-1 text-sm font-medium bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+            >
+              <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="mr-1" />
+              {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
+            </Button>
           </div>
         </div>
       </div>
@@ -398,17 +258,7 @@ export default function DashboardPage() {
                     <circle cx="12" cy="13" r="3" />
                   </svg>
                   <p className="text-lg font-medium mb-2">No issues found</p>
-                  <p className="text-muted-foreground mb-6">
-                    {filters.isActive
-                      ? "No issues match your current filters"
-                      : "Be the first to post an issue in your community"}
-                  </p>
-                  {filters.isActive ? (
-                    <Button onClick={handleClearFilters} className="flex items-center gap-2 mb-4">
-                      <X className="w-4 h-4" />
-                      Clear Filters
-                    </Button>
-                  ) : null}
+                  <p className="text-muted-foreground mb-6">Be the first to post an issue in your community</p>
                   <Button onClick={() => router.push("/post/new")} className="flex items-center gap-2">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -432,6 +282,154 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {showSearchPage && <SearchPage onClose={() => setShowSearchPage(false)} />}
     </>
+  )
+}
+
+function SearchPage({ onClose }: { onClose: () => void }) {
+  // Group posts by reward range for the bar chart
+  const rewardRanges = [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
+  const postsByReward = rewardRanges.map((min, index) => {
+    const max = rewardRanges[index + 1] || Number.POSITIVE_INFINITY
+    const count = mockPosts.filter((post) => post.reward >= min && post.reward < max).length
+    return { min, max, count }
+  })
+
+  const maxCount = Math.max(...postsByReward.map((range) => range.count))
+  const [selectedDateFilter, setSelectedDateFilter] = useState<string>("any")
+  const [rewardRange, setRewardRange] = useState<[number, number]>([0, 10000])
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background">
+      <div className="container px-4 py-6 mx-auto max-w-md">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">Search</h1>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+            <span className="sr-only">Close</span>
+          </Button>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <label className="text-sm font-medium">Search</label>
+            <div className="relative mt-1">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search issues..."
+                className="w-full pl-10 pr-4 py-2 border rounded-md dark:border-gray-800 bg-background"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Location</label>
+            <select className="w-full mt-1 p-2 border rounded-md dark:border-gray-800 bg-background">
+              <option>Downtown</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Reward Range</label>
+            <div className="mt-4">
+              <div className="flex h-24 items-end space-x-1 mb-2">
+                {postsByReward.map((range, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 bg-emerald-200 dark:bg-emerald-900/50 rounded-t"
+                    style={{
+                      height: `${range.count ? (range.count / maxCount) * 100 : 0}%`,
+                      opacity: rewardRange[0] <= range.min && range.max <= rewardRange[1] ? 1 : 0.3,
+                    }}
+                  />
+                ))}
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="10000"
+                step="1000"
+                value={rewardRange[1]}
+                onChange={(e) => setRewardRange([rewardRange[0], Number.parseInt(e.target.value)])}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>{formatSatsValue(rewardRange[0])}</span>
+                <span>{formatSatsValue(rewardRange[1])}</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium mb-2 block">Date</label>
+            <div className="flex gap-2">
+              <Button
+                variant={selectedDateFilter === "any" ? "default" : "outline"}
+                size="sm"
+                className="flex-1"
+                onClick={() => setSelectedDateFilter("any")}
+              >
+                Any Time
+              </Button>
+              <Button
+                variant={selectedDateFilter === "today" ? "default" : "outline"}
+                size="sm"
+                className="flex-1"
+                onClick={() => setSelectedDateFilter("today")}
+              >
+                Today
+              </Button>
+              <Button
+                variant={selectedDateFilter === "week" ? "default" : "outline"}
+                size="sm"
+                className="flex-1"
+                onClick={() => setSelectedDateFilter("week")}
+              >
+                This Week
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button variant="outline" className="w-1/2 dark:border-gray-700" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button className="w-1/2" onClick={onClose}>
+              Apply Filters
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

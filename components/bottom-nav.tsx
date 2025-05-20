@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Plus, User, Wallet, Search } from "lucide-react"
+import { Home, Plus, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function BottomNav() {
@@ -15,95 +15,52 @@ export function BottomNav() {
 
   const isActive = (path: string) => {
     if (path === "/dashboard" && (pathname === "/dashboard" || pathname === "/")) return true
-    if (path === "/wallet" && pathname.startsWith("/wallet")) return true
-    if (path === "/search" && pathname.startsWith("/search")) return true
-    if (path === "/profile" && pathname.startsWith("/profile")) return true
+    if (path !== "/dashboard" && pathname.startsWith(path)) return true
     return false
   }
 
   return (
-    <>
-      {/* Floating Action Button for New Post - Only shown on Home tab */}
-      {(pathname === "/dashboard" || pathname === "/") && (
-        <div className="fixed z-50 max-w-md w-full mx-auto left-0 right-0 bottom-20 pointer-events-none">
-          <div className="relative w-full">
-            <Link href="/post/new" className="absolute right-[26px] bottom-0 pointer-events-auto">
-              <div className="flex items-center justify-center w-14 h-14 bg-primary rounded-full shadow-lg">
-                <Plus className="w-6 h-6 text-white" />
-              </div>
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 z-50 w-full h-16 bg-white/80 backdrop-blur-md dark:bg-gray-900/80">
-        <div className="grid h-full max-w-md mx-auto grid-cols-4">
-          {/* Home */}
-          <Link
-            href="/dashboard"
+    <div className="fixed bottom-0 left-0 z-50 w-full h-16 bg-white/80 backdrop-blur-md dark:bg-gray-900/80">
+      <div className="relative h-full max-w-md mx-auto">
+        {/* Left icon (Home) - fixed position */}
+        <Link
+          href="/dashboard"
+          className={cn(
+            "absolute left-8 top-1/2 -translate-y-1/2",
+            isActive("/dashboard") && "text-primary dark:text-primary",
+          )}
+        >
+          <Home
             className={cn(
-              "flex flex-col items-center justify-center",
+              "w-6 h-6 text-gray-500 dark:text-gray-400",
               isActive("/dashboard") && "text-primary dark:text-primary",
             )}
-          >
-            <Home
-              className={cn(
-                "w-6 h-6 text-gray-500 dark:text-gray-400",
-                isActive("/dashboard") && "text-primary dark:text-primary",
-              )}
-            />
-          </Link>
+          />
+        </Link>
 
-          {/* Search */}
-          <Link
-            href="/search"
-            className={cn(
-              "flex flex-col items-center justify-center",
-              isActive("/search") && "text-primary dark:text-primary",
-            )}
-          >
-            <Search
-              className={cn(
-                "w-6 h-6 text-gray-500 dark:text-gray-400",
-                isActive("/search") && "text-primary dark:text-primary",
-              )}
-            />
-          </Link>
+        {/* Center button (New Post) - fixed position */}
+        <Link href="/post/new" className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/3">
+          <div className="flex items-center justify-center w-12 h-12 bg-primary rounded-full">
+            <Plus className="w-6 h-6 text-white" />
+          </div>
+        </Link>
 
-          {/* Wallet */}
-          <Link
-            href="/wallet"
+        {/* Right icon (Profile) - fixed position */}
+        <Link
+          href="/profile"
+          className={cn(
+            "absolute right-8 top-1/2 -translate-y-1/2",
+            isActive("/profile") && "text-primary dark:text-primary",
+          )}
+        >
+          <User
             className={cn(
-              "flex flex-col items-center justify-center",
-              isActive("/wallet") && "text-primary dark:text-primary",
-            )}
-          >
-            <Wallet
-              className={cn(
-                "w-6 h-6 text-gray-500 dark:text-gray-400",
-                isActive("/wallet") && "text-primary dark:text-primary",
-              )}
-            />
-          </Link>
-
-          {/* Profile */}
-          <Link
-            href="/profile"
-            className={cn(
-              "flex flex-col items-center justify-center",
+              "w-6 h-6 text-gray-500 dark:text-gray-400",
               isActive("/profile") && "text-primary dark:text-primary",
             )}
-          >
-            <User
-              className={cn(
-                "w-6 h-6 text-gray-500 dark:text-gray-400",
-                isActive("/profile") && "text-primary dark:text-primary",
-              )}
-            />
-          </Link>
-        </div>
+          />
+        </Link>
       </div>
-    </>
+    </div>
   )
 }
