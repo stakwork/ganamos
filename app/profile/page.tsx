@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -36,58 +36,60 @@ export default function ProfilePage() {
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [showQrDialog, setShowQrDialog] = useState(false)
   const [showAvatarSelector, setShowAvatarSelector] = useState(false)
-  const [posts, setPosts] = useState<Post[]>([])
   const [postedIssues, setPostedIssues] = useState<Post[]>([])
   const [fixedIssues, setFixedIssues] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isActivityLoading, setIsActivityLoading] = useState(false)
   const [fixedCount, setFixedCount] = useState(0)
   const [bitcoinPrice, setBitcoinPrice] = useState(64000) // Default fallback price
   const [isPriceLoading, setIsPriceLoading] = useState(true)
   const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
+  const [activitiesPage, setActivitiesPage] = useState(1)
+  const [hasMoreActivities, setHasMoreActivities] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const ACTIVITIES_PER_PAGE = 10
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/auth/login")
+  // Cache for posts data to avoid redundant processing
+  const postsCache = useRef<Post[]>([])
+  // Track if initial data has been loaded
+  const initialDataLoaded = useRef(false)
+  // Track if Bitcoin price has been fetched
+  const bitcoinPriceFetched = useRef(false)
+
+  // Memoize the fetchFixedCount function to avoid recreating it on each render
+  const fetchFixedCount = useCallback(async () => {
+    if (!user) return
+
+    try {
+      console.log("🔍 Fetching fixed count for user:", user.id)
+      const { data, error, count } = await supabase
+        .from("posts")
+        .select("*", { count: "exact", head: true }) // Use head: true to only get count, not data
+        .eq("claimed_by", user.id)
+        .eq("fixed", true)
+
+      if (!error) {
+        console.log(`🔍 Found ${count} fixed issues`)
+        setFixedCount(count || 0)
+      } else {
+        console.error("Error fetching fixed count:", error)
+        // Fall back to mock data for fixed count
+        const mockFixedCount = mockPosts.filter(
+          (post) => (post.claimed_by === user.id || post.claimedBy === user.id) && post.fixed === true,
+        ).length
+        setFixedCount(mockFixedCount)
+      }
+    } catch (error) {
+      console.error("Error in fetchFixedCount:", error)
     }
+  }, [user, supabase])
 
-    if (user) {
-      // Fetch fixed count on initial load
-      fetchFixedCount()
+  // Fetch the current Bitcoin price - memoized to prevent unnecessary re-creation
+  const fetchBitcoinPrice = useCallback(async () => {
+    // Only fetch once per session
+    if (bitcoinPriceFetched.current) return
 
-      // Fetch data for the initial active tab
-      fetchDataForTab(activeTab)
-
-      // Fetch Bitcoin price - only once when profile loads
-      fetchBitcoinPrice()
-    }
-
-    // Set up a listener for storage events to update data when it changes
-    const handleStorageChange = () => {
-      fetchDataForTab(activeTab)
-      fetchFixedCount()
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
-  }, [user, loading, router]) // Remove activeTab from the dependency array
-
-  // Handle tab changes without refetching Bitcoin price
-  useEffect(() => {
-    if (user) {
-      fetchDataForTab(activeTab)
-    }
-  }, [activeTab, user])
-
-  useEffect(() => {
-    if (profile) {
-      console.log("🔍 PROFILE PAGE - Profile data loaded:", profile)
-      console.log("🔍 PROFILE PAGE - Current balance:", profile.balance)
-    }
-  }, [profile])
-
-  // Fetch the current Bitcoin price
-  const fetchBitcoinPrice = async () => {
     try {
       setIsPriceLoading(true)
       console.log("🔍 Fetching Bitcoin price from CoinMarketCap")
@@ -98,6 +100,7 @@ export default function ProfilePage() {
       if (data.price) {
         console.log(`🔍 Current Bitcoin price: $${data.price}`)
         setBitcoinPrice(data.price)
+        bitcoinPriceFetched.current = true
       } else {
         console.warn("No price data returned, using fallback price")
       }
@@ -107,7 +110,7 @@ export default function ProfilePage() {
     } finally {
       setIsPriceLoading(false)
     }
-  }
+  }, [])
 
   // Calculate USD value from satoshis
   const calculateUsdValue = (sats: number) => {
@@ -117,238 +120,233 @@ export default function ProfilePage() {
     return usdValue.toFixed(2)
   }
 
-  // Fetch the count of fixed issues for the user
-  const fetchFixedCount = async () => {
-    if (!user) return
+  // Fetch all posts related to the user in a single query
+  const fetchUserPosts = useCallback(async () => {
+    if (!user || !supabase) return null
 
     try {
-      if (supabase) {
-        console.log("🔍 Fetching fixed count for user:", user.id)
-        const { data, error, count } = await supabase
-          .from("posts")
-          .select("*", { count: "exact" })
-          .eq("claimed_by", user.id)
-          .eq("fixed", true)
+      console.log("🔍 Fetching all user-related posts in a single query")
+      const { data, error } = await supabase
+        .from("posts")
+        .select("*")
+        .or(`user_id.eq.${user.id},claimed_by.eq.${user.id}`)
+        .order("created_at", { ascending: false })
 
-        if (!error) {
-          console.log(`🔍 Found ${count} fixed issues`)
-          setFixedCount(count || 0)
-        } else {
-          console.error("Error fetching fixed count:", error)
-          // Fall back to mock data for fixed count
-          const mockFixedCount = mockPosts.filter(
-            (post) => (post.claimed_by === user.id || post.claimedBy === user.id) && post.fixed === true,
-          ).length
-          setFixedCount(mockFixedCount)
-        }
+      if (error) {
+        console.error("Error fetching user posts:", error)
+        return null
       }
+
+      console.log(`🔍 Found ${data.length} user-related posts`)
+      return data
     } catch (error) {
-      console.error("Error in fetchFixedCount:", error)
+      console.error("Error in fetchUserPosts:", error)
+      return null
     }
-  }
+  }, [user, supabase])
 
-  // Handle tab change
-  const handleTabChange = (value: string) => {
-    setActiveTab(value)
-    fetchDataForTab(value)
-  }
+  // Process posts into different categories (posted, fixed, activities)
+  const processPosts = useCallback(
+    (posts: Post[]) => {
+      if (!user || !posts) return
 
-  // Fetch data based on the selected tab
-  const fetchDataForTab = async (tab: string) => {
-    if (!user) return
+      console.log("🔍 Processing posts into categories")
 
-    setIsLoading(true)
-    console.log(`🔍 Fetching data for tab: ${tab}`)
+      // Filter posted issues
+      const posted = posts.filter((post) => post.user_id === user.id || post.userId === user.id)
+      setPostedIssues(posted)
 
-    try {
-      if (tab === "posted") {
-        await fetchPostedIssues()
-      } else if (tab === "fixing") {
-        await fetchFixedIssues()
-      } else if (tab === "activity") {
-        await fetchActivities()
-      }
-    } catch (error) {
-      console.error(`Error fetching data for tab ${tab}:`, error)
-      toast({
-        title: "Error",
-        description: `Failed to load ${tab} data`,
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Fetch issues posted by the user
-  const fetchPostedIssues = async () => {
-    try {
-      if (supabase) {
-        console.log("🔍 Fetching posted issues")
-        const { data, error } = await supabase
-          .from("posts")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-
-        if (data && !error) {
-          console.log(`🔍 Found ${data.length} posted issues`)
-          setPostedIssues(data)
-          return
-        } else if (error) {
-          console.error("Error fetching posted issues:", error)
-        }
-      }
-
-      // Fall back to mock data
-      console.log("🔍 Using mock data for posted issues")
-      const mockPostedIssues = mockPosts.filter((post) => post.userId === user.id || post.user_id === user.id)
-      setPostedIssues(mockPostedIssues)
-    } catch (error) {
-      console.error("Error in fetchPostedIssues:", error)
-      throw error
-    }
-  }
-
-  // Fetch issues fixed by the user
-  const fetchFixedIssues = async () => {
-    try {
-      if (supabase) {
-        console.log("🔍 Fetching fixed issues")
-        const { data, error } = await supabase
-          .from("posts")
-          .select("*")
-          .eq("claimed_by", user.id)
-          .eq("fixed", true)
-          .order("fixed_at", { ascending: false })
-
-        if (data && !error) {
-          console.log(`🔍 Found ${data.length} fixed issues`)
-          setFixedIssues(data)
-          return
-        } else if (error) {
-          console.error("Error fetching fixed issues:", error)
-        }
-      }
-
-      // Fall back to mock data
-      console.log("🔍 Using mock data for fixed issues")
-      const mockFixedIssues = mockPosts.filter(
+      // Filter fixed issues
+      const fixed = posts.filter(
         (post) => (post.claimed_by === user.id || post.claimedBy === user.id) && post.fixed === true,
       )
-      setFixedIssues(mockFixedIssues)
-    } catch (error) {
-      console.error("Error in fetchFixedIssues:", error)
-      throw error
+      setFixedIssues(fixed)
+
+      // Store in cache for later use
+      postsCache.current = posts
+
+      // Update fixed count
+      setFixedCount(fixed.length)
+
+      return { posted, fixed }
+    },
+    [user],
+  )
+
+  // Generate activities from posts with pagination
+  const generateActivities = useCallback(
+    (posts: Post[], page: number) => {
+      if (!user || !posts) return
+
+      setIsActivityLoading(true)
+      console.log("🔍 Generating activities from posts")
+
+      const userActivities: ActivityItem[] = []
+
+      // Posts created by the user
+      posts
+        .filter((post) => post.userId === user.id || post.user_id === user.id)
+        .forEach((post) => {
+          userActivities.push({
+            id: `post-${post.id}`,
+            type: "post",
+            postId: post.id,
+            postTitle: post.title,
+            timestamp: new Date(post.createdAt || post.created_at),
+          })
+        })
+
+      // Posts claimed by the user
+      posts
+        .filter((post) => post.claimed_by === user.id || post.claimedBy === user.id)
+        .forEach((post) => {
+          if (post.claimed_at || post.claimedAt) {
+            userActivities.push({
+              id: `claim-${post.id}`,
+              type: "claim",
+              postId: post.id,
+              postTitle: post.title,
+              timestamp: new Date(post.claimed_at || post.claimedAt),
+            })
+          }
+        })
+
+      // Posts fixed by the user
+      posts
+        .filter((post) => (post.claimed_by === user.id || post.claimedBy === user.id) && post.fixed === true)
+        .forEach((post) => {
+          if (post.fixed_at || post.fixedAt) {
+            userActivities.push({
+              id: `fix-${post.id}`,
+              type: "fix",
+              postId: post.id,
+              postTitle: post.title,
+              timestamp: new Date(post.fixed_at || post.fixedAt),
+            })
+
+            userActivities.push({
+              id: `reward-${post.id}`,
+              type: "reward",
+              postId: post.id,
+              postTitle: post.title,
+              timestamp: new Date(post.fixed_at || post.fixedAt),
+              amount: post.reward,
+            })
+          }
+        })
+
+      // Sort by timestamp (newest first)
+      userActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+
+      const totalActivities = userActivities.length
+      console.log(`🔍 Generated ${totalActivities} total activity items`)
+
+      // Calculate pagination
+      const itemsPerPage = ACTIVITIES_PER_PAGE
+      const start = (page - 1) * itemsPerPage
+      const end = start + itemsPerPage
+      const pageActivities = userActivities.slice(start, end)
+
+      // Check if there are more activities to load
+      setHasMoreActivities(end < totalActivities)
+
+      // Update the activities state based on the page
+      if (page === 1) {
+        setActivities(pageActivities)
+      } else {
+        setActivities((prev) => [...prev, ...pageActivities])
+      }
+
+      setActivitiesPage(page)
+      setIsActivityLoading(false)
+    },
+    [user],
+  )
+
+  // Load more activities
+  const handleLoadMore = useCallback(() => {
+    if (isLoadingMore) return
+
+    setIsLoadingMore(true)
+    const nextPage = activitiesPage + 1
+
+    // Use cached posts to generate more activities
+    if (postsCache.current.length > 0) {
+      generateActivities(postsCache.current, nextPage)
+      setIsLoadingMore(false)
+    } else {
+      // Fallback to fetching if cache is empty
+      fetchUserPosts().then((posts) => {
+        if (posts) {
+          generateActivities(posts, nextPage)
+        }
+        setIsLoadingMore(false)
+      })
     }
-  }
+  }, [activitiesPage, fetchUserPosts, generateActivities, isLoadingMore])
 
-  // Fetch activities for the user
-  const fetchActivities = async () => {
-    try {
-      if (supabase) {
-        console.log("🔍 Fetching user activities")
+  // Initial data loading
+  useEffect(() => {
+    if (loading || !user || initialDataLoaded.current) return
 
-        // Get all posts related to the user (posted or claimed)
-        const { data, error } = await supabase
-          .from("posts")
-          .select("*")
-          .or(`user_id.eq.${user.id},claimed_by.eq.${user.id}`)
-          .order("created_at", { ascending: false })
+    const loadInitialData = async () => {
+      setIsLoading(true)
 
-        if (data && !error) {
-          console.log(`🔍 Found ${data.length} posts for activities`)
-          generateActivities(data)
-          return
-        } else if (error) {
-          console.error("Error fetching activities:", error)
+      // Fetch Bitcoin price (only once)
+      fetchBitcoinPrice()
+
+      // Fetch all user posts in a single query
+      const posts = await fetchUserPosts()
+
+      if (posts) {
+        // Process posts into different categories
+        processPosts(posts)
+
+        // Generate initial activities
+        if (activeTab === "activity") {
+          generateActivities(posts, 1)
+        }
+      } else {
+        // Fallback to mock data
+        console.log("🔍 Using mock data")
+        const mockUserPosts = mockPosts.filter(
+          (post) =>
+            post.userId === user.id ||
+            post.user_id === user.id ||
+            post.claimed_by === user.id ||
+            post.claimedBy === user.id,
+        )
+        processPosts(mockUserPosts)
+
+        if (activeTab === "activity") {
+          generateActivities(mockUserPosts, 1)
         }
       }
 
-      // Fall back to mock data
-      console.log("🔍 Using mock data for activities")
-      const userPosts = mockPosts.filter((post) => post.userId === user.id || post.user_id === user.id)
-      const claimedPosts = mockPosts.filter((post) => post.claimed_by === user.id || post.claimedBy === user.id)
-
-      // Combine and deduplicate posts
-      const allPosts = [...userPosts]
-      claimedPosts.forEach((post) => {
-        if (!allPosts.some((p) => p.id === post.id)) {
-          allPosts.push(post)
-        }
-      })
-
-      generateActivities(allPosts)
-    } catch (error) {
-      console.error("Error in fetchActivities:", error)
-      throw error
+      initialDataLoaded.current = true
+      setIsLoading(false)
     }
-  }
 
-  const generateActivities = (posts: Post[]) => {
-    if (!user) return
+    loadInitialData()
 
-    console.log("🔍 Generating activities from posts")
-    const userActivities: ActivityItem[] = []
+    // Cleanup function
+    return () => {
+      initialDataLoaded.current = false
+    }
+  }, [user, loading, activeTab, fetchBitcoinPrice, fetchUserPosts, processPosts, generateActivities])
 
-    // Posts created by the user
-    posts
-      .filter((post) => post.userId === user.id || post.user_id === user.id)
-      .forEach((post) => {
-        userActivities.push({
-          id: `post-${post.id}`,
-          type: "post",
-          postId: post.id,
-          postTitle: post.title,
-          timestamp: new Date(post.createdAt || post.created_at),
-        })
-      })
+  // Handle tab changes
+  const handleTabChange = useCallback(
+    (value: string) => {
+      setActiveTab(value)
 
-    // Posts claimed by the user
-    posts
-      .filter((post) => post.claimed_by === user.id || post.claimedBy === user.id)
-      .forEach((post) => {
-        if (post.claimed_at || post.claimedAt) {
-          userActivities.push({
-            id: `claim-${post.id}`,
-            type: "claim",
-            postId: post.id,
-            postTitle: post.title,
-            timestamp: new Date(post.claimed_at || post.claimedAt),
-          })
-        }
-      })
-
-    // Posts fixed by the user
-    posts
-      .filter((post) => (post.claimed_by === user.id || post.claimedBy === user.id) && post.fixed === true)
-      .forEach((post) => {
-        if (post.fixed_at || post.fixedAt) {
-          userActivities.push({
-            id: `fix-${post.id}`,
-            type: "fix",
-            postId: post.id,
-            postTitle: post.title,
-            timestamp: new Date(post.fixed_at || post.fixedAt),
-          })
-
-          userActivities.push({
-            id: `reward-${post.id}`,
-            type: "reward",
-            postId: post.id,
-            postTitle: post.title,
-            timestamp: new Date(post.fixed_at || post.fixedAt),
-            amount: post.reward,
-          })
-        }
-      })
-
-    // Sort by timestamp (newest first)
-    userActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-    console.log(`🔍 Generated ${userActivities.length} activity items`)
-
-    setActivities(userActivities)
-  }
+      // If we're switching to activity tab and don't have activities yet
+      if (value === "activity" && activities.length === 0 && postsCache.current.length > 0) {
+        generateActivities(postsCache.current, 1)
+      }
+    },
+    [activities.length, generateActivities],
+  )
 
   if (loading || !user || !profile) {
     return (
@@ -489,7 +487,7 @@ export default function ProfilePage() {
         </TabsContent>
 
         <TabsContent value="activity" className="space-y-4">
-          {isLoading ? (
+          {isLoading || isActivityLoading ? (
             <div className="p-8 text-center">
               <div className="animate-pulse flex flex-col space-y-4">
                 <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
@@ -498,7 +496,47 @@ export default function ProfilePage() {
               </div>
             </div>
           ) : activities.length > 0 ? (
-            activities.map((activity) => <ActivityCard key={activity.id} activity={activity} />)
+            <>
+              <div className="space-y-4">
+                {activities.map((activity) => (
+                  <ActivityCard key={activity.id} activity={activity} />
+                ))}
+              </div>
+
+              {hasMoreActivities && (
+                <div className="mt-6 text-center">
+                  <Button variant="outline" onClick={handleLoadMore} disabled={isLoadingMore} className="w-full">
+                    {isLoadingMore ? (
+                      <div className="flex items-center justify-center">
+                        <svg
+                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Loading...
+                      </div>
+                    ) : (
+                      "Load More"
+                    )}
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="p-8 text-center">
               <p className="text-muted-foreground">No activity yet</p>
