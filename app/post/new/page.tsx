@@ -7,6 +7,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
 import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
@@ -14,6 +15,7 @@ import { mockPosts } from "@/lib/mock-data"
 import { v4 as uuidv4 } from "@/lib/uuid"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
+import type { Group } from "@/lib/types"
 
 // Pre-load the camera component
 import dynamic from "next/dynamic"
@@ -51,6 +53,9 @@ export default function NewPostPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [step, setStep] = useState<"photo" | "details">("photo")
   const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
+  const [userGroups, setUserGroups] = useState<Group[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+  const [loadingGroups, setLoadingGroups] = useState(true)
   const { toast } = useToast()
   const router = useRouter()
   const { user, profile, updateBalance } = useAuth()
@@ -63,6 +68,69 @@ export default function NewPostPage() {
       setCurrentLocation(getCurrentLocation())
     }
   }, [])
+
+  // Check if there's a selected group from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedGroupId = localStorage.getItem("selectedGroupId")
+      if (storedGroupId) {
+        setSelectedGroupId(storedGroupId)
+        // Clear it after using it
+        localStorage.removeItem("selectedGroupId")
+      }
+    }
+  }, [])
+
+  // Fetch user's groups
+  useEffect(() => {
+    async function fetchUserGroups() {
+      if (!user) return
+
+      setLoadingGroups(true)
+      try {
+        // Fetch groups where the user is an approved member
+        const { data: memberGroups, error: memberError } = await supabase
+          .from("group_members")
+          .select(`
+            group_id,
+            groups:group_id(
+              id,
+              name,
+              description,
+              created_by,
+              created_at,
+              updated_at,
+              invite_code
+            )
+          `)
+          .eq("user_id", user.id)
+          .eq("status", "approved")
+
+        if (memberError) {
+          console.error("Error fetching user groups:", memberError)
+          throw memberError
+        }
+
+        // Transform the data to match the Group interface
+        const transformedGroups = memberGroups
+          .filter((item) => item.groups) // Filter out any null groups
+          .map((item) => item.groups as Group)
+
+        setUserGroups(transformedGroups)
+      } catch (error) {
+        console.error("Error in fetchUserGroups:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load your groups. You can still post without selecting a group.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoadingGroups(false)
+      }
+    }
+
+    fetchUserGroups()
+  }, [user, supabase, toast])
 
   // Hide navigation bar
   useEffect(() => {
@@ -138,6 +206,7 @@ export default function NewPostPage() {
         fixed: false,
         createdAt: now,
         created_at: now.toISOString(), // Add both formats for compatibility
+        group_id: selectedGroupId,
       }
 
       // Save to Supabase if available
@@ -154,6 +223,7 @@ export default function NewPostPage() {
             claimed: false,
             fixed: false,
             created_at: now.toISOString(),
+            group_id: selectedGroupId,
           })
         } catch (error) {
           console.error("Error saving post to Supabase:", error)
@@ -182,8 +252,12 @@ export default function NewPostPage() {
         successToast.dismiss()
       }, 3000)
 
-      // Navigate to dashboard immediately
-      router.push("/dashboard")
+      // Navigate to the appropriate destination
+      if (selectedGroupId) {
+        router.push(`/groups/${selectedGroupId}`)
+      } else {
+        router.push("/dashboard")
+      }
     } catch (error) {
       console.error("Error creating post:", error)
       toast({
@@ -295,6 +369,32 @@ export default function NewPostPage() {
               <span className="text-sm text-muted-foreground">{currentLocation.name}</span>
             </div>
           </div>
+
+          {userGroups.length > 0 && (
+            <div className="space-y-2">
+              <label htmlFor="group" className="text-sm font-medium">
+                Post to Group (Optional)
+              </label>
+              <Select value={selectedGroupId || ""} onValueChange={(value) => setSelectedGroupId(value || null)}>
+                <SelectTrigger id="group" className="w-full">
+                  <SelectValue placeholder="Select a group or post publicly" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">Post Publicly</SelectItem>
+                  {userGroups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedGroupId && (
+                <p className="text-xs text-muted-foreground">
+                  This post will only be visible to members of the selected group.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Textarea

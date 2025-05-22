@@ -48,6 +48,7 @@ export interface Database {
           fixed_at: string | null
           fixed_image_url: string | null
           created_at: string
+          group_id: string | null
         }
         Insert: {
           id?: string
@@ -64,6 +65,7 @@ export interface Database {
           fixed_at?: string | null
           fixed_image_url?: string | null
           created_at?: string
+          group_id?: string | null
         }
         Update: {
           id?: string
@@ -80,6 +82,65 @@ export interface Database {
           fixed_at?: string | null
           fixed_image_url?: string | null
           created_at?: string
+          group_id?: string | null
+        }
+      }
+      groups: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+          invite_code: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          created_by: string
+          created_at?: string
+          updated_at?: string
+          invite_code?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+          invite_code?: string
+        }
+      }
+      group_members: {
+        Row: {
+          id: string
+          group_id: string
+          user_id: string
+          role: "admin" | "member"
+          status: "pending" | "approved" | "rejected"
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          group_id: string
+          user_id: string
+          role?: "admin" | "member"
+          status?: "pending" | "approved" | "rejected"
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          group_id?: string
+          user_id?: string
+          role?: "admin" | "member"
+          status?: "pending" | "approved" | "rejected"
+          created_at?: string
+          updated_at?: string
         }
       }
       transactions: {
@@ -130,3 +191,5 @@ export interface Database {
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
 export type Post = Database["public"]["Tables"]["posts"]["Row"]
 export type Transaction = Database["public"]["Tables"]["transactions"]["Row"]
+export type Group = Database["public"]["Tables"]["groups"]["Row"]
+export type GroupMember = Database["public"]["Tables"]["group_members"]["Row"]

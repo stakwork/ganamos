@@ -1,9 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { mockPosts } from "@/lib/mock-data"
 import { formatSatsValue } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 export default function SearchPage() {
   // Group posts by reward range for the bar chart
@@ -17,6 +20,51 @@ export default function SearchPage() {
   const maxCount = Math.max(...postsByReward.map((range) => range.count))
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>("any")
   const [rewardRange, setRewardRange] = useState<[number, number]>([0, 10000])
+  const [searchQuery, setSearchQuery] = useState("")
+
+  const router = useRouter()
+
+  // Update selected filters when individual filters change
+  useEffect(() => {
+    setSelectedFilters({
+      dateFilter: selectedDateFilter,
+      rewardRange: rewardRange,
+      location: "Downtown",
+      searchQuery: searchQuery,
+    })
+  }, [selectedDateFilter, rewardRange, searchQuery])
+
+  const [selectedFilters, setSelectedFilters] = useState({
+    dateFilter: selectedDateFilter,
+    rewardRange: rewardRange,
+    location: "Downtown",
+    searchQuery: searchQuery,
+  })
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value)
+  }
+
+  const applyFilters = () => {
+    // Count active filters
+    let filterCount = 0
+    if (selectedFilters.searchQuery) filterCount++
+    if (selectedFilters.dateFilter !== "any") filterCount++
+    if (selectedFilters.rewardRange[0] > 0 || selectedFilters.rewardRange[1] < 10000) filterCount++
+    if (selectedFilters.location !== "Downtown") filterCount++
+
+    // Save filters to localStorage
+    const filtersToSave = {
+      ...selectedFilters,
+      count: filterCount,
+      timestamp: new Date().toISOString(), // Add timestamp for date comparison
+    }
+
+    localStorage.setItem("activeFilters", JSON.stringify(filtersToSave))
+
+    // Navigate to dashboard
+    router.push("/dashboard")
+  }
 
   return (
     <div className="container px-4 py-6 mx-auto max-w-md">
@@ -47,6 +95,8 @@ export default function SearchPage() {
               type="text"
               placeholder="Search issues..."
               className="w-full pl-10 pr-4 py-2 border rounded-md dark:border-gray-800 bg-background"
+              value={searchQuery}
+              onChange={handleSearchChange}
             />
           </div>
         </div>
@@ -120,7 +170,9 @@ export default function SearchPage() {
         </div>
 
         <div className="flex gap-2">
-          <Button className="w-full">Apply Filters</Button>
+          <Button className="w-full" onClick={applyFilters}>
+            Apply Filters
+          </Button>
         </div>
       </div>
     </div>

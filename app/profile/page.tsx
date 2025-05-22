@@ -18,6 +18,7 @@ import { mockPosts } from "@/lib/mock-data"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { AvatarSelector } from "@/components/avatar-selector"
+import { GroupsList } from "@/components/groups-list"
 import type { Post } from "@/lib/types"
 
 type ActivityItem = {
@@ -440,10 +441,11 @@ export default function ProfilePage() {
       </Card>
 
       <Tabs defaultValue="activity" className="w-full" onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-3 mb-4 dark:bg-gray-800/50">
+        <TabsList className="grid w-full grid-cols-4 mb-4 dark:bg-gray-800/50">
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="posted">Posted</TabsTrigger>
           <TabsTrigger value="fixing">Fixed</TabsTrigger>
+          <TabsTrigger value="groups">Groups</TabsTrigger>
         </TabsList>
 
         <TabsContent value="posted" className="space-y-4">
@@ -545,6 +547,10 @@ export default function ProfilePage() {
               </Button>
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="groups" className="space-y-4">
+          <GroupsList userId={user.id} />
         </TabsContent>
       </Tabs>
       <div className="mt-8">

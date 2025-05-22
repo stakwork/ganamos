@@ -10,8 +10,17 @@ import { mockPosts } from "@/lib/mock-data"
 import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { Plus } from "lucide-react"
+import { Plus, X, Filter } from "lucide-react"
 import type { Post } from "@/lib/types"
+
+interface ActiveFilters {
+  count: number
+  dateFilter: string
+  rewardRange: [number, number]
+  location: string
+  searchQuery: string
+  timestamp?: string
+}
 
 export default function DashboardPage() {
   const { user, profile, loading } = useAuth()
@@ -24,6 +33,9 @@ export default function DashboardPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
   const [hasMore, setHasMore] = useState(true)
+
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters | null>(null)
+  const [filterCleared, setFilterCleared] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -38,11 +50,56 @@ export default function DashboardPage() {
       setCurrentLocation(getCurrentLocation())
     }
 
-    // Fetch posts with page 1
-    fetchPosts(1)
+    // Load active filters from localStorage
+    const loadFilters = () => {
+      const filtersJson = localStorage.getItem("activeFilters")
+      if (filtersJson) {
+        try {
+          const filters = JSON.parse(filtersJson)
+          setActiveFilters(filters)
+          // Reset to page 1 when filters change
+          setCurrentPage(1)
+          fetchPosts(1, filters)
+        } catch (e) {
+          console.error("Error parsing filters:", e)
+          fetchPosts(1, null)
+        }
+      } else {
+        fetchPosts(1, null)
+      }
+    }
+
+    loadFilters()
+
+    // Set up event listener for storage changes
+    const handleStorageChange = () => {
+      loadFilters()
+    }
+
+    window.addEventListener("storage", handleStorageChange)
+    return () => window.removeEventListener("storage", handleStorageChange)
   }, [user, loading, router])
 
-  const fetchPosts = async (page = currentPage) => {
+  // Effect to handle filter cleared state
+  useEffect(() => {
+    if (filterCleared) {
+      fetchPosts(1, null)
+      setFilterCleared(false)
+    }
+  }, [filterCleared])
+
+  const clearFilters = () => {
+    localStorage.removeItem("activeFilters")
+    setActiveFilters(null)
+    // Reset to page 1 and refresh posts without filters
+    setCurrentPage(1)
+    setPosts([]) // Clear posts immediately to avoid showing filtered results
+    setIsLoading(true) // Show loading state
+    setFilterCleared(true) // Set flag to trigger re-fetch
+  }
+
+  const fetchPosts = async (page = currentPage, filters = activeFilters) => {
+    console.log("Fetching posts with filters:", filters)
     setIsLoading(true)
     try {
       // Try to fetch from Supabase first
@@ -53,12 +110,43 @@ export default function DashboardPage() {
 
         console.log(`Fetching posts from ${from} to ${to}`)
 
-        const { data, error, count } = await supabase
+        let query = supabase
           .from("posts")
           .select("*", { count: "exact" })
           .order("created_at", { ascending: false })
           .eq("fixed", false)
-          .range(from, to)
+
+        // Apply filters if active
+        if (filters) {
+          // Apply search query filter
+          if (filters.searchQuery) {
+            query = query.ilike("title", `%${filters.searchQuery}%`)
+          }
+
+          // Apply date filter
+          if (filters.dateFilter === "today") {
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            query = query.gte("created_at", today.toISOString())
+          } else if (filters.dateFilter === "week") {
+            const weekAgo = new Date()
+            weekAgo.setDate(weekAgo.getDate() - 7)
+            query = query.gte("created_at", weekAgo.toISOString())
+          }
+
+          // Apply reward range filter
+          if (filters.rewardRange[0] > 0) {
+            query = query.gte("reward", filters.rewardRange[0])
+          }
+          if (filters.rewardRange[1] < 10000) {
+            query = query.lte("reward", filters.rewardRange[1])
+          }
+        }
+
+        // Apply pagination
+        query = query.range(from, to)
+
+        const { data, error, count } = await query
 
         if (data && !error) {
           if (page === 1) {
@@ -75,7 +163,40 @@ export default function DashboardPage() {
       }
 
       // Fall back to mock data if Supabase fails
-      const mockPaginatedPosts = mockPosts.filter((post) => !post.fixed).slice((page - 1) * pageSize, page * pageSize)
+      let filteredPosts = [...mockPosts].filter((post) => !post.fixed)
+
+      // Apply filters to mock data if active
+      if (filters) {
+        if (filters.searchQuery) {
+          filteredPosts = filteredPosts.filter((post) =>
+            post.title.toLowerCase().includes(filters.searchQuery.toLowerCase()),
+          )
+        }
+
+        if (filters.dateFilter === "today") {
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          filteredPosts = filteredPosts.filter((post) => {
+            const postDate = new Date(post.created_at)
+            return postDate >= today
+          })
+        } else if (filters.dateFilter === "week") {
+          const weekAgo = new Date()
+          weekAgo.setDate(weekAgo.getDate() - 7)
+          filteredPosts = filteredPosts.filter((post) => {
+            const postDate = new Date(post.created_at)
+            return postDate >= weekAgo
+          })
+        }
+
+        filteredPosts = filteredPosts.filter(
+          (post) => post.reward >= filters.rewardRange[0] && post.reward <= filters.rewardRange[1],
+        )
+      }
+
+      console.log(`Filtered posts count: ${filteredPosts.length}`)
+
+      const mockPaginatedPosts = filteredPosts.slice((page - 1) * pageSize, page * pageSize)
 
       if (page === 1) {
         setPosts(mockPaginatedPosts)
@@ -84,11 +205,20 @@ export default function DashboardPage() {
       }
 
       // Check if there are more mock posts to load
-      setHasMore(page * pageSize < mockPosts.filter((post) => !post.fixed).length)
+      setHasMore(page * pageSize < filteredPosts.length)
     } catch (error) {
       console.error("Error fetching posts:", error)
-      // Fall back to mock data
-      const mockPaginatedPosts = mockPosts.filter((post) => !post.fixed).slice((page - 1) * pageSize, page * pageSize)
+      // Fall back to mock data with simplified filter logic
+      let filteredPosts = [...mockPosts].filter((post) => !post.fixed)
+
+      // Apply basic filters even in error case
+      if (filters && filters.dateFilter === "today") {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        filteredPosts = filteredPosts.filter((post) => new Date(post.created_at) >= today)
+      }
+
+      const mockPaginatedPosts = filteredPosts.slice((page - 1) * pageSize, page * pageSize)
 
       if (page === 1) {
         setPosts(mockPaginatedPosts)
@@ -96,32 +226,11 @@ export default function DashboardPage() {
         setPosts((prev) => [...prev, ...mockPaginatedPosts])
       }
 
-      // Check if there are more mock posts to load
-      setHasMore(page * pageSize < mockPosts.filter((post) => !post.fixed).length)
+      setHasMore(page * pageSize < filteredPosts.length)
     } finally {
       setIsLoading(false)
     }
   }
-
-  // Update when posts change
-  useEffect(() => {
-    const handleStorageChange = () => {
-      fetchPosts()
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
-  }, [])
-
-  // Update location when it changes
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setCurrentLocation(getCurrentLocation())
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
-  }, [])
 
   const handleSatsClick = () => {
     router.push("/wallet")
@@ -138,9 +247,20 @@ export default function DashboardPage() {
   return (
     <>
       <div className="sticky top-0 z-10 bg-gradient-to-b from-background via-background to-transparent pb-4">
-        <div className="container px-4 pt-6 mx-auto max-w-md">
+        <div className="container px-1 pt-6 mx-auto max-w-md">
           <div className="flex items-center justify-between">
-            <div className="w-9 h-9"></div>
+            {activeFilters && activeFilters.count > 0 ? (
+              <button
+                onClick={clearFilters}
+                className="flex items-center px-3 py-1 text-sm font-medium bg-blue-100 rounded-full text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800 transition-all"
+              >
+                <Filter className="mr-1 h-3.5 w-3.5" />
+                {activeFilters.count} {activeFilters.count === 1 ? "Filter" : "Filters"}
+                <X className="ml-1 h-4 w-4" />
+              </button>
+            ) : (
+              <div className="w-9 h-9"></div>
+            )}
             <Button
               variant="ghost"
               onClick={handleSatsClick}
@@ -182,8 +302,9 @@ export default function DashboardPage() {
                       <Button
                         variant="outline"
                         onClick={() => {
-                          setCurrentPage((prev) => prev + 1)
-                          fetchPosts(currentPage + 1)
+                          const nextPage = currentPage + 1
+                          setCurrentPage(nextPage)
+                          fetchPosts(nextPage)
                         }}
                         disabled={isLoading}
                         className="w-full"
@@ -238,7 +359,11 @@ export default function DashboardPage() {
                       <circle cx="12" cy="13" r="3" />
                     </svg>
                     <p className="text-lg font-medium mb-2">No issues found</p>
-                    <p className="text-muted-foreground mb-6">Be the first to post an issue in your community</p>
+                    <p className="text-muted-foreground mb-6">
+                      {activeFilters && activeFilters.count > 0
+                        ? "Try removing some filters to see more results"
+                        : "Be the first to post an issue in your community"}
+                    </p>
                     <Button onClick={() => router.push("/post/new")} className="flex items-center gap-2">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
