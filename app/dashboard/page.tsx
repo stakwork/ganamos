@@ -23,7 +23,7 @@ interface ActiveFilters {
 }
 
 export default function DashboardPage() {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, loading, session, sessionLoaded } = useAuth()
   const router = useRouter()
   const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
   const [posts, setPosts] = useState<Post[]>([])
@@ -36,6 +36,14 @@ export default function DashboardPage() {
 
   const [activeFilters, setActiveFilters] = useState<ActiveFilters | null>(null)
   const [filterCleared, setFilterCleared] = useState(false)
+
+  // Add session guard with useEffect
+  useEffect(() => {
+    if (sessionLoaded && !session) {
+      console.log("Dashboard - No session after loading, redirecting to login")
+      router.push("/auth/login")
+    }
+  }, [session, sessionLoaded, router])
 
   useEffect(() => {
     if (!loading && !user) {
@@ -100,6 +108,12 @@ export default function DashboardPage() {
 
   const fetchPosts = async (page = currentPage, filters = activeFilters) => {
     console.log("Fetching posts with filters:", filters)
+    // Enhanced logging before API call
+    console.log("Session before API call:", !!session)
+    if (session) {
+      console.log("Session expiry:", new Date(session.expires_at! * 1000).toISOString())
+    }
+
     setIsLoading(true)
     try {
       // Try to fetch from Supabase first
@@ -234,6 +248,11 @@ export default function DashboardPage() {
 
   const handleSatsClick = () => {
     router.push("/wallet")
+  }
+
+  // Session guard with early return
+  if (sessionLoaded && !session) {
+    return null // Will redirect in useEffect
   }
 
   if (loading || !user) {

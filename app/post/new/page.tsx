@@ -10,7 +10,6 @@ import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
-import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
 import { mockPosts } from "@/lib/mock-data"
 import { v4 as uuidv4 } from "@/lib/uuid"
 import { formatSatsValue } from "@/lib/utils"
@@ -52,7 +51,8 @@ export default function NewPostPage() {
   const [image, setImage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [step, setStep] = useState<"photo" | "details">("photo")
-  const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
+  const [currentLocation, setCurrentLocation] = useState<{ name: string; lat?: number; lng?: number } | null>(null)
+  const [isGettingLocation, setIsGettingLocation] = useState(false)
   const [userGroups, setUserGroups] = useState<Group[]>([])
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [loadingGroups, setLoadingGroups] = useState(true)
@@ -62,12 +62,7 @@ export default function NewPostPage() {
   const supabase = createBrowserSupabaseClient()
 
   // Always set location to Downtown
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      saveSelectedLocation("downtown")
-      setCurrentLocation(getCurrentLocation())
-    }
-  }, [])
+  // We don't need to set a default location anymore
 
   // Check if there's a selected group from localStorage
   useEffect(() => {
@@ -154,6 +149,57 @@ export default function NewPostPage() {
     setStep("details")
   }
 
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: "Geolocation not supported",
+        description: "Your browser doesn't support geolocation",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsGettingLocation(true)
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords
+        // Get a readable location name based on coordinates
+        // For now, we'll just use "Your Location" as the name
+        setCurrentLocation({
+          name: "Your Location",
+          lat: latitude,
+          lng: longitude,
+        })
+        setIsGettingLocation(false)
+      },
+      (error) => {
+        console.error("Error getting location:", error)
+        setIsGettingLocation(false)
+
+        let errorMessage = "Failed to get your location"
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location permission denied"
+            break
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information unavailable"
+            break
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out"
+            break
+        }
+
+        toast({
+          title: "Location error",
+          description: errorMessage,
+          variant: "destructive",
+        })
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    )
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -200,7 +246,9 @@ export default function NewPostPage() {
         description,
         imageUrl: image,
         image_url: image, // Add both formats for compatibility
-        location: currentLocation.name,
+        location: currentLocation?.name || "Unknown",
+        latitude: currentLocation?.lat,
+        longitude: currentLocation?.lng,
         reward,
         claimed: false,
         fixed: false,
@@ -218,7 +266,9 @@ export default function NewPostPage() {
             title: description.substring(0, 50), // Use first part of description as title for compatibility
             description,
             image_url: image,
-            location: currentLocation.name,
+            location: currentLocation?.name || "Unknown",
+            latitude: currentLocation?.lat,
+            longitude: currentLocation?.lng,
             reward,
             claimed: false,
             fixed: false,
@@ -350,24 +400,86 @@ export default function NewPostPage() {
           )}
 
           <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg mb-4">
-            <div className="flex items-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mr-2 text-muted-foreground"
-              >
-                <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-              <span className="text-sm text-muted-foreground">{currentLocation.name}</span>
-            </div>
+            {currentLocation ? (
+              <div className="flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-2 text-muted-foreground"
+                >
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <span className="text-sm text-muted-foreground">{currentLocation.name}</span>
+                {currentLocation.lat && currentLocation.lng && (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    ({currentLocation.lat.toFixed(4)}, {currentLocation.lng.toFixed(4)})
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-2 text-muted-foreground"
+                >
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <span className="text-sm text-muted-foreground">No location set</span>
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleGetLocation}
+              className="text-xs h-7 px-2"
+              disabled={isGettingLocation}
+            >
+              {isGettingLocation ? (
+                <div className="flex items-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-1 h-3 w-3"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Getting...
+                </div>
+              ) : (
+                "Add Location"
+              )}
+            </Button>
           </div>
 
           {userGroups.length > 0 && (

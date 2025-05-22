@@ -239,7 +239,7 @@ export function PostCard({ post }: { post: Post }) {
               variant="outline"
               className="text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700 dark:text-emerald-400 dark:border-emerald-800/30 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/50"
             >
-              Completed
+              Fixed
             </Button>
           )}
         </div>

@@ -14,6 +14,7 @@ type AuthContextType = {
   profile: Profile | null
   session: Session | null
   loading: boolean
+  sessionLoaded: boolean // Added to track when session loading is complete
   signInWithGoogle: () => Promise<void>
   signInWithEmail: (email: string, password: string) => Promise<{ success: boolean; message?: string }>
   signUpWithEmail: (email: string, password: string, name: string) => Promise<void>
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sessionLoaded, setSessionLoaded] = useState(false) // Track when session is loaded
   const router = useRouter()
   const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
@@ -104,25 +106,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initializeAuth = async () => {
       setLoading(true)
 
-      // Get the initial session
-      const {
-        data: { session: initialSession },
-      } = await supabase.auth.getSession()
-      setSession(initialSession)
-      setUser(initialSession?.user || null)
+      try {
+        // Get the initial session
+        const {
+          data: { session: initialSession },
+        } = await supabase.auth.getSession()
 
-      if (initialSession?.user) {
-        const profileData = await fetchProfile(initialSession.user.id)
-        setProfile(profileData)
+        // Enhanced logging
+        console.log("Auth initialization - Session found:", !!initialSession)
+        if (initialSession) {
+          console.log("Auth initialization - User email:", initialSession.user?.email)
+          console.log(
+            "Auth initialization - Session expiry:",
+            new Date(initialSession.expires_at! * 1000).toISOString(),
+          )
+        }
+
+        setSession(initialSession)
+        setUser(initialSession?.user || null)
+
+        if (initialSession?.user) {
+          const profileData = await fetchProfile(initialSession.user.id)
+          setProfile(profileData)
+        }
+      } catch (error) {
+        console.error("Error during auth initialization:", error)
+      } finally {
+        setLoading(false)
+        setSessionLoaded(true) // Mark session as loaded regardless of outcome
       }
-
-      setLoading(false)
 
       // Set up auth state change listener
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (event, newSession) => {
         console.log("Auth state changed:", event, newSession?.user?.email)
+
+        // Enhanced logging for auth state changes
+        if (event === "SIGNED_IN") {
+          console.log("User signed in - Session:", !!newSession)
+          console.log("User signed in - User:", newSession?.user?.email)
+        } else if (event === "SIGNED_OUT") {
+          console.log("User signed out")
+        } else if (event === "TOKEN_REFRESHED") {
+          console.log(
+            "Token refreshed - New expiry:",
+            newSession ? new Date(newSession.expires_at! * 1000).toISOString() : "No session",
+          )
+        }
+
         setSession(newSession)
         setUser(newSession?.user || null)
 
@@ -205,20 +237,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: "Email and password are required" }
       }
 
+      console.log("Attempting email sign in for:", email)
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (error) {
+        console.error("Email sign in failed:", error.message)
         return {
           success: false,
           message: error.message || "Authentication failed",
         }
       }
 
+      // Enhanced logging after successful login
+      console.log("Email sign in successful - Session:", !!data.session)
+      console.log("Email sign in successful - User:", data.user?.email)
+
       return { success: true }
     } catch (error: any) {
+      console.error("Unexpected error during sign in:", error)
       return {
         success: false,
         message: error?.message || "An unexpected error occurred",
@@ -331,6 +371,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile,
         session,
         loading,
+        sessionLoaded,
         signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,

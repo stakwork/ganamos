@@ -36,6 +36,12 @@ export default function AuthCallbackPage() {
           }
 
           console.log("Auth callback - Session exchange successful")
+          console.log("Auth callback - User authenticated:", data.session?.user?.email)
+          console.log(
+            "Auth callback - Session expiry:",
+            data.session ? new Date(data.session.expires_at! * 1000).toISOString() : "No session",
+          )
+
           // Redirect to the specified path or dashboard
           router.push(redirect)
         } else {

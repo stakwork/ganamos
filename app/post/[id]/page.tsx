@@ -583,7 +583,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 variant="outline"
                 className="px-3 py-1 text-sm bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100 dark:border-emerald-800/30"
               >
-                Completed
+                Fixed
               </Badge>
             )}
           </div>

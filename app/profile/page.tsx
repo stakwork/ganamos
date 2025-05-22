@@ -31,7 +31,7 @@ type ActivityItem = {
 }
 
 export default function ProfilePage() {
-  const { user, profile, loading, signOut } = useAuth()
+  const { user, profile, loading, session, sessionLoaded, signOut } = useAuth()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("activity")
   const [activities, setActivities] = useState<ActivityItem[]>([])
@@ -58,12 +58,26 @@ export default function ProfilePage() {
   // Track if Bitcoin price has been fetched
   const bitcoinPriceFetched = useRef(false)
 
+  // Add session guard with useEffect
+  useEffect(() => {
+    if (sessionLoaded && !session) {
+      console.log("Profile - No session after loading, redirecting to login")
+      router.push("/auth/login")
+    }
+  }, [session, sessionLoaded, router])
+
   // Memoize the fetchFixedCount function to avoid recreating it on each render
   const fetchFixedCount = useCallback(async () => {
     if (!user) return
 
     try {
       console.log("🔍 Fetching fixed count for user:", user.id)
+      // Enhanced logging before API call
+      console.log("Session before fetchFixedCount:", !!session)
+      if (session) {
+        console.log("Session expiry:", new Date(session.expires_at! * 1000).toISOString())
+      }
+
       const { data, error, count } = await supabase
         .from("posts")
         .select("*", { count: "exact", head: true }) // Use head: true to only get count, not data
@@ -84,7 +98,7 @@ export default function ProfilePage() {
     } catch (error) {
       console.error("Error in fetchFixedCount:", error)
     }
-  }, [user, supabase])
+  }, [user, supabase, session])
 
   // Fetch the current Bitcoin price - memoized to prevent unnecessary re-creation
   const fetchBitcoinPrice = useCallback(async () => {
@@ -127,6 +141,12 @@ export default function ProfilePage() {
 
     try {
       console.log("🔍 Fetching all user-related posts in a single query")
+      // Enhanced logging before API call
+      console.log("Session before fetchUserPosts:", !!session)
+      if (session) {
+        console.log("Session expiry:", new Date(session.expires_at! * 1000).toISOString())
+      }
+
       const { data, error } = await supabase
         .from("posts")
         .select("*")
@@ -144,7 +164,7 @@ export default function ProfilePage() {
       console.error("Error in fetchUserPosts:", error)
       return null
     }
-  }, [user, supabase])
+  }, [user, supabase, session])
 
   // Process posts into different categories (posted, fixed, activities)
   const processPosts = useCallback(
@@ -349,6 +369,11 @@ export default function ProfilePage() {
     [activities.length, generateActivities],
   )
 
+  // Session guard with early return
+  if (sessionLoaded && !session) {
+    return null // Will redirect in useEffect
+  }
+
   if (loading || !user || !profile) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -441,14 +466,13 @@ export default function ProfilePage() {
       </Card>
 
       <Tabs defaultValue="activity" className="w-full" onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-4 mb-4 dark:bg-gray-800/50">
+        <TabsList className="grid w-full grid-cols-3 mb-4 dark:bg-gray-800/50">
           <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="posted">Posted</TabsTrigger>
-          <TabsTrigger value="fixing">Fixed</TabsTrigger>
+          <TabsTrigger value="posts">Posts</TabsTrigger>
           <TabsTrigger value="groups">Groups</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="posted" className="space-y-4">
+        <TabsContent value="posts" className="space-y-4">
           {isLoading ? (
             <div className="p-8 text-center">
               <div className="animate-pulse flex flex-col space-y-4">
@@ -456,33 +480,13 @@ export default function ProfilePage() {
                 <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
               </div>
             </div>
-          ) : postedIssues.length > 0 ? (
-            postedIssues.map((post) => <PostCard key={post.id} post={post} />)
+          ) : [...postedIssues, ...fixedIssues].length > 0 ? (
+            [...postedIssues, ...fixedIssues].map((post) => <PostCard key={post.id} post={post} />)
           ) : (
             <div className="p-8 text-center">
-              <p className="text-muted-foreground">You haven't posted any issues yet</p>
-              <Button className="mt-4" onClick={() => router.push("/post/new")}>
-                Post your first issue
-              </Button>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="fixing" className="space-y-4">
-          {isLoading ? (
-            <div className="p-8 text-center">
-              <div className="animate-pulse flex flex-col space-y-4">
-                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-              </div>
-            </div>
-          ) : fixedIssues.length > 0 ? (
-            fixedIssues.map((post) => <PostCard key={post.id} post={post} />)
-          ) : (
-            <div className="p-8 text-center">
-              <p className="text-muted-foreground">You haven't fixed any issues yet</p>
+              <p className="text-muted-foreground">No posts yet</p>
               <Button className="mt-4" onClick={() => router.push("/dashboard")}>
-                Find issues to fix
+                Start exploring issues
               </Button>
             </div>
           )}
