@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { Loader2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Loader2, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
 
 // Dynamic import for the map components to avoid SSR issues
@@ -39,15 +40,59 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [locationError, setLocationError] = useState<string | null>(null)
+  const [leafletLoaded, setLeafletLoaded] = useState(false)
 
   // Filter posts that have location data
   const postsWithLocation = posts.filter(
     (post) => post.latitude && post.longitude && !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
   )
 
+  // Load Leaflet when modal opens
+  useEffect(() => {
+    if (isOpen && typeof window !== "undefined") {
+      // Check if Leaflet is already loaded
+      if (window.L) {
+        setLeafletLoaded(true)
+        return
+      }
+
+      // Load Leaflet CSS and JS
+      const loadLeaflet = async () => {
+        try {
+          // Load CSS
+          if (!document.querySelector('link[href*="leaflet.css"]')) {
+            const link = document.createElement("link")
+            link.rel = "stylesheet"
+            link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+            document.head.appendChild(link)
+          }
+
+          // Load JS
+          if (!window.L) {
+            await new Promise((resolve, reject) => {
+              const script = document.createElement("script")
+              script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+              script.onload = resolve
+              script.onerror = reject
+              document.head.appendChild(script)
+            })
+          }
+
+          setLeafletLoaded(true)
+        } catch (error) {
+          console.error("Failed to load Leaflet:", error)
+          setLocationError("Failed to load map. Please try again.")
+          setIsLoading(false)
+        }
+      }
+
+      loadLeaflet()
+    }
+  }, [isOpen])
+
   // Get user's current location
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && leafletLoaded) {
       setIsLoading(true)
       setLocationError(null)
 
@@ -64,7 +109,7 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
         { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 },
       )
     }
-  }, [isOpen])
+  }, [isOpen, leafletLoaded])
 
   // Navigate to post detail page when marker is clicked
   const handleMarkerClick = (postId: string) => {
@@ -85,17 +130,64 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
     return [37.7749, -122.4194] as [number, number]
   }
 
+  // Create custom icons only when Leaflet is loaded
+  const createUserLocationIcon = () => {
+    if (!window.L) return null
+    return new window.L.DivIcon({
+      html: `
+        <div class="relative">
+          <div class="h-4 w-4 rounded-full bg-blue-500 animate-pulse"></div>
+          <div class="absolute -inset-1 rounded-full bg-blue-500 opacity-30"></div>
+        </div>
+      `,
+      className: "user-location-marker",
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    })
+  }
+
+  const createPostIcon = () => {
+    if (!window.L) return null
+    return new window.L.DivIcon({
+      html: `
+        <div class="flex items-center justify-center h-8 w-8 rounded-full bg-red-500 text-white shadow-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+        </div>
+      `,
+      className: "post-marker",
+      iconSize: [32, 32],
+      iconAnchor: [16, 32],
+    })
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[90vw] max-h-[90vh] p-0">
+        <DialogHeader className="absolute top-4 left-4 z-50">
+          <DialogTitle className="sr-only">Issue Locations Map</DialogTitle>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onClose}
+            className="h-8 w-8 rounded-full bg-white/90 hover:bg-white shadow-md"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </DialogHeader>
+
         <div className="h-[80vh] w-full relative">
-          {isLoading ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-50">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <span className="ml-2">Loading map...</span>
+          {isLoading || !leafletLoaded ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-40">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                <span>{!leafletLoaded ? "Loading map..." : "Getting your location..."}</span>
+              </div>
             </div>
           ) : locationError ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-50 p-4 text-center">
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-40 p-4 text-center">
               <div>
                 <p className="text-red-500 mb-2">{locationError}</p>
                 <p>Map will still show issue locations.</p>
@@ -103,7 +195,7 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
             </div>
           ) : null}
 
-          {!isLoading && (
+          {leafletLoaded && !isLoading && (
             <MapContainer center={getMapCenter()} zoom={13} style={{ height: "100%", width: "100%" }} className="z-0">
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -112,20 +204,7 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
 
               {userLocation && (
                 <>
-                  <Marker
-                    position={userLocation}
-                    icon={
-                      new (window as any).L.DivIcon({
-                        html: `
-                        <div class="relative">
-                          <div class="h-4 w-4 rounded-full bg-blue-500 animate-pulse"></div>
-                          <div class="absolute -inset-1 rounded-full bg-blue-500 opacity-30"></div>
-                        </div>
-                      `,
-                        className: "user-location-marker",
-                      })
-                    }
-                  >
+                  <Marker position={userLocation} icon={createUserLocationIcon()}>
                     <Popup>
                       <div className="text-sm font-medium">Your location</div>
                     </Popup>
@@ -138,19 +217,7 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
                 <Marker
                   key={post.id}
                   position={[Number(post.latitude), Number(post.longitude)]}
-                  icon={
-                    new (window as any).L.DivIcon({
-                      html: `
-                      <div class="flex items-center justify-center h-8 w-8 rounded-full bg-red-500 text-white shadow-lg transform -translate-x-1/2 -translate-y-1/2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
-                          <circle cx="12" cy="10" r="3"></circle>
-                        </svg>
-                      </div>
-                    `,
-                      className: "post-marker",
-                    })
-                  }
+                  icon={createPostIcon()}
                   eventHandlers={{
                     click: () => handleMarkerClick(post.id),
                   }}
