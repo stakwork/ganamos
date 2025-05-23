@@ -10,8 +10,9 @@ import { mockPosts } from "@/lib/mock-data"
 import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { Plus, X, Filter } from "lucide-react"
+import { Plus, X, Filter, Map } from "lucide-react"
 import type { Post } from "@/lib/types"
+import { MapModal } from "@/components/map-modal"
 
 interface ActiveFilters {
   count: number
@@ -36,6 +37,9 @@ export default function DashboardPage() {
 
   const [activeFilters, setActiveFilters] = useState<ActiveFilters | null>(null)
   const [filterCleared, setFilterCleared] = useState(false)
+
+  // Map modal state
+  const [isMapOpen, setIsMapOpen] = useState(false)
 
   // Add session guard with useEffect
   useEffect(() => {
@@ -268,18 +272,28 @@ export default function DashboardPage() {
       <div className="sticky top-0 z-10 bg-gradient-to-b from-background via-background to-transparent pb-4">
         <div className="container px-1 pt-6 mx-auto max-w-md">
           <div className="flex items-center justify-between">
-            {activeFilters && activeFilters.count > 0 ? (
-              <button
-                onClick={clearFilters}
-                className="flex items-center px-3 py-1 text-sm font-medium bg-blue-100 rounded-full text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800 transition-all"
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMapOpen(true)}
+                className="h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+                aria-label="View map"
               >
-                <Filter className="mr-1 h-3.5 w-3.5" />
-                {activeFilters.count} {activeFilters.count === 1 ? "Filter" : "Filters"}
-                <X className="ml-1 h-4 w-4" />
-              </button>
-            ) : (
-              <div className="w-9 h-9"></div>
-            )}
+                <Map className="h-5 w-5" />
+              </Button>
+
+              {activeFilters && activeFilters.count > 0 && (
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center px-3 py-1 text-sm font-medium bg-blue-100 rounded-full text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800 transition-all"
+                >
+                  <Filter className="mr-1 h-3.5 w-3.5" />
+                  {activeFilters.count} {activeFilters.count === 1 ? "Filter" : "Filters"}
+                  <X className="ml-1 h-4 w-4" />
+                </button>
+              )}
+            </div>
             <Button
               variant="ghost"
               onClick={handleSatsClick}
@@ -407,6 +421,9 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Map Modal */}
+      <MapModal isOpen={isMapOpen} onClose={() => setIsMapOpen(false)} posts={posts} />
 
       {/* Fixed position container that centers the button horizontally */}
       <div className="fixed bottom-20 left-0 right-0 z-50 flex justify-center pointer-events-none">

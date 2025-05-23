@@ -6,7 +6,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowDownIcon, ArrowUpIcon, HistoryIcon, ArrowLeftIcon } from "lucide-react"
+import { ArrowDownIcon, ArrowUpIcon, HistoryIcon } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { formatSatsValue } from "@/lib/utils"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -138,10 +138,6 @@ export default function WalletPage() {
     return (
       <div className="container max-w-md mx-auto py-8 px-4">
         <div className="flex items-center mb-6">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
-            <ArrowLeftIcon className="h-5 w-5" />
-            <span className="sr-only">Back</span>
-          </Button>
           <h1 className="text-2xl font-bold">Bitcoin Wallet</h1>
         </div>
 
@@ -161,10 +157,6 @@ export default function WalletPage() {
   return (
     <div className="container max-w-md mx-auto py-8 px-4">
       <div className="flex items-center mb-6">
-        <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
-          <ArrowLeftIcon className="h-5 w-5" />
-          <span className="sr-only">Back</span>
-        </Button>
         <h1 className="text-2xl font-bold">Bitcoin Wallet</h1>
       </div>
 
