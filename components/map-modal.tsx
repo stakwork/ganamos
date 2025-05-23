@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Loader2, X } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Loader2, X, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
 
@@ -41,6 +41,7 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [locationError, setLocationError] = useState<string | null>(null)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
+  const [locationAttempted, setLocationAttempted] = useState(false)
 
   // Filter posts that have location data
   const postsWithLocation = posts.filter(
@@ -91,25 +92,57 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
   }, [isOpen])
 
   // Get user's current location
-  useEffect(() => {
-    if (isOpen && leafletLoaded) {
-      setIsLoading(true)
-      setLocationError(null)
+  const getUserLocation = () => {
+    if (!leafletLoaded) return
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation([position.coords.latitude, position.coords.longitude])
+    setIsLoading(true)
+    setLocationError(null)
+    setLocationAttempted(true)
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation([position.coords.latitude, position.coords.longitude])
+        setIsLoading(false)
+      },
+      (error) => {
+        console.error("Error getting location:", error)
+
+        // Provide specific error messages based on error code
+        let errorMessage = "Couldn't access your location."
+
+        if (error.code === 1) {
+          // PERMISSION_DENIED
+          errorMessage = "Location permission denied. Please enable location access in your browser settings."
+        } else if (error.code === 2) {
+          // POSITION_UNAVAILABLE
+          errorMessage = "Your location is currently unavailable. The map will still show issue locations."
+        } else if (error.code === 3) {
+          // TIMEOUT
+          errorMessage = "Location request timed out. Please try again."
+        }
+
+        setLocationError(errorMessage)
+        setIsLoading(false)
+
+        // Continue showing the map even without user location
+        if (postsWithLocation.length > 0) {
           setIsLoading(false)
-        },
-        (error) => {
-          console.error("Error getting location:", error)
-          setLocationError("Couldn't access your location. Please check your permissions.")
-          setIsLoading(false)
-        },
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 },
-      )
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000, // Increased timeout
+        maximumAge: 0,
+      },
+    )
+  }
+
+  // Try to get location when map is opened
+  useEffect(() => {
+    if (isOpen && leafletLoaded && !locationAttempted) {
+      getUserLocation()
     }
-  }, [isOpen, leafletLoaded])
+  }, [isOpen, leafletLoaded, locationAttempted])
 
   // Navigate to post detail page when marker is clicked
   const handleMarkerClick = (postId: string) => {
@@ -163,11 +196,17 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
     })
   }
 
+  // Check if we should show the map
+  const shouldShowMap = leafletLoaded && (!isLoading || locationError)
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[90vw] max-h-[90vh] p-0">
-        <DialogHeader className="absolute top-4 left-4 z-50">
+        <DialogHeader className="absolute top-4 left-4 z-50 flex flex-row items-center gap-2">
           <DialogTitle className="sr-only">Issue Locations Map</DialogTitle>
+          <DialogDescription className="sr-only">
+            Map showing locations of community issues and your current location
+          </DialogDescription>
           <Button
             variant="outline"
             size="icon"
@@ -179,23 +218,35 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
         </DialogHeader>
 
         <div className="h-[80vh] w-full relative">
-          {isLoading || !leafletLoaded ? (
+          {!shouldShowMap ? (
             <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-40">
               <div className="text-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
                 <span>{!leafletLoaded ? "Loading map..." : "Getting your location..."}</span>
               </div>
             </div>
-          ) : locationError ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-40 p-4 text-center">
-              <div>
-                <p className="text-red-500 mb-2">{locationError}</p>
-                <p>Map will still show issue locations.</p>
-              </div>
-            </div>
           ) : null}
 
-          {leafletLoaded && !isLoading && (
+          {locationError && (
+            <div className="absolute top-4 right-4 z-50 bg-white/90 dark:bg-gray-800/90 p-3 rounded-lg shadow-md max-w-xs">
+              <p className="text-sm mb-2">{locationError}</p>
+              {locationError.includes("unavailable") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setLocationAttempted(false)
+                    getUserLocation()
+                  }}
+                  className="w-full text-xs"
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" /> Try Again
+                </Button>
+              )}
+            </div>
+          )}
+
+          {shouldShowMap && (
             <MapContainer center={getMapCenter()} zoom={13} style={{ height: "100%", width: "100%" }} className="z-0">
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -237,6 +288,17 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
                 </Marker>
               ))}
             </MapContainer>
+          )}
+
+          {shouldShowMap && postsWithLocation.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 z-40">
+              <div className="text-center p-4 max-w-xs">
+                <p className="font-medium mb-2">No issues with location data</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  None of the current issues have location information attached.
+                </p>
+              </div>
+            </div>
           )}
         </div>
       </DialogContent>
