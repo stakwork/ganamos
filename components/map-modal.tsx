@@ -1,33 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Loader2, X, RefreshCw } from "lucide-react"
+import { Loader2, X, RefreshCw, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
-
-// Dynamic import for the map components to avoid SSR issues
-import dynamic from "next/dynamic"
-
-const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false })
-const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false })
-const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false })
-const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), { ssr: false })
-const useMap = dynamic(() => import("react-leaflet").then((mod) => mod.useMap), { ssr: false })
-
-// Custom hook to set view to user location
-function SetViewToUserLocation({ userLocation }: { userLocation: [number, number] | null }) {
-  const map = useMap()
-
-  useEffect(() => {
-    if (userLocation) {
-      map.setView(userLocation, 13)
-    }
-  }, [map, userLocation])
-
-  return null
-}
 
 interface MapModalProps {
   isOpen: boolean
@@ -37,71 +15,117 @@ interface MapModalProps {
 
 export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
   const router = useRouter()
+  const mapRef = useRef<HTMLDivElement>(null)
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [locationError, setLocationError] = useState<string | null>(null)
-  const [leafletLoaded, setLeafletLoaded] = useState(false)
-  const [locationAttempted, setLocationAttempted] = useState(false)
+  const [mapInstance, setMapInstance] = useState<any>(null)
+  const [mapInitialized, setMapInitialized] = useState(false)
 
   // Filter posts that have location data
   const postsWithLocation = posts.filter(
     (post) => post.latitude && post.longitude && !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
   )
 
-  // Load Leaflet when modal opens
+  // Initialize map when modal opens
   useEffect(() => {
-    if (isOpen && typeof window !== "undefined") {
-      // Check if Leaflet is already loaded
-      if (window.L) {
-        setLeafletLoaded(true)
-        return
-      }
+    if (!isOpen || !mapRef.current || mapInitialized) return
 
-      // Load Leaflet CSS and JS
-      const loadLeaflet = async () => {
-        try {
-          // Load CSS
-          if (!document.querySelector('link[href*="leaflet.css"]')) {
-            const link = document.createElement("link")
-            link.rel = "stylesheet"
-            link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-            document.head.appendChild(link)
-          }
-
-          // Load JS
-          if (!window.L) {
-            await new Promise((resolve, reject) => {
-              const script = document.createElement("script")
-              script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-              script.onload = resolve
-              script.onerror = reject
-              document.head.appendChild(script)
-            })
-          }
-
-          setLeafletLoaded(true)
-        } catch (error) {
-          console.error("Failed to load Leaflet:", error)
-          setLocationError("Failed to load map. Please try again.")
-          setIsLoading(false)
-        }
-      }
-
-      loadLeaflet()
+    // Load Leaflet CSS
+    if (!document.querySelector('link[href*="leaflet.css"]')) {
+      const link = document.createElement("link")
+      link.rel = "stylesheet"
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      document.head.appendChild(link)
     }
-  }, [isOpen])
+
+    // Load Leaflet JS
+    const loadLeaflet = async () => {
+      try {
+        if (!window.L) {
+          await new Promise<void>((resolve, reject) => {
+            const script = document.createElement("script")
+            script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            script.onload = () => resolve()
+            script.onerror = () => reject(new Error("Failed to load Leaflet"))
+            document.head.appendChild(script)
+          })
+        }
+
+        // Initialize map after Leaflet is loaded
+        initializeMap()
+      } catch (error) {
+        console.error("Failed to load Leaflet:", error)
+        setLocationError("Failed to load map. Please try again.")
+        setIsLoading(false)
+      }
+    }
+
+    loadLeaflet()
+  }, [isOpen, mapInitialized])
+
+  // Initialize the map
+  const initializeMap = () => {
+    if (!window.L || !mapRef.current || mapInstance) return
+
+    try {
+      // Default center (will be updated later)
+      const defaultCenter = [37.7749, -122.4194]
+
+      // Create map instance
+      const map = window.L.map(mapRef.current).setView(defaultCenter, 13)
+
+      // Add tile layer
+      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map)
+
+      setMapInstance(map)
+      setMapInitialized(true)
+
+      // Get user location after map is initialized
+      getUserLocation(map)
+    } catch (error) {
+      console.error("Error initializing map:", error)
+      setLocationError("Failed to initialize map. Please try again.")
+      setIsLoading(false)
+    }
+  }
 
   // Get user's current location
-  const getUserLocation = () => {
-    if (!leafletLoaded) return
-
+  const getUserLocation = (map: any) => {
     setIsLoading(true)
     setLocationError(null)
-    setLocationAttempted(true)
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setUserLocation([position.coords.latitude, position.coords.longitude])
+        const userLoc: [number, number] = [position.coords.latitude, position.coords.longitude]
+        setUserLocation(userLoc)
+
+        // Add user marker
+        if (map) {
+          // Center map on user location
+          map.setView(userLoc, 13)
+
+          // Add user marker
+          const userIcon = window.L.divIcon({
+            html: `
+              <div class="relative">
+                <div class="h-4 w-4 rounded-full bg-blue-500 animate-pulse"></div>
+                <div class="absolute -inset-1 rounded-full bg-blue-500 opacity-30"></div>
+              </div>
+            `,
+            className: "user-location-marker",
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+          })
+
+          window.L.marker(userLoc, { icon: userIcon }).addTo(map).bindPopup("Your location")
+        }
+
+        // Add post markers
+        addPostMarkers(map)
+
         setIsLoading(false)
       },
       (error) => {
@@ -122,82 +146,94 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
         }
 
         setLocationError(errorMessage)
-        setIsLoading(false)
 
-        // Continue showing the map even without user location
-        if (postsWithLocation.length > 0) {
-          setIsLoading(false)
-        }
+        // Still add post markers even without user location
+        addPostMarkers(map)
+
+        setIsLoading(false)
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000, // Increased timeout
+        timeout: 10000,
         maximumAge: 0,
       },
     )
   }
 
-  // Try to get location when map is opened
+  // Add markers for posts with location data
+  const addPostMarkers = (map: any) => {
+    if (!map || !window.L) return
+
+    if (postsWithLocation.length === 0) return
+
+    // If no user location, center on first post
+    if (!userLocation && postsWithLocation.length > 0) {
+      const firstPost = postsWithLocation[0]
+      const postLoc: [number, number] = [Number(firstPost.latitude), Number(firstPost.longitude)]
+      map.setView(postLoc, 13)
+    }
+
+    // Add markers for all posts with location
+    postsWithLocation.forEach((post) => {
+      const postLoc: [number, number] = [Number(post.latitude), Number(post.longitude)]
+
+      const postIcon = window.L.divIcon({
+        html: `
+          <div class="flex items-center justify-center h-8 w-8 rounded-full bg-red-500 text-white shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+          </div>
+        `,
+        className: "post-marker",
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+      })
+
+      window.L.marker(postLoc, { icon: postIcon })
+        .addTo(map)
+        .bindPopup(`
+          <div class="p-1">
+            <h3 class="font-medium text-sm mb-1">${post.title || "Issue"}</h3>
+            <p class="text-xs">${post.description?.substring(0, 100) || ""}</p>
+            <button class="text-xs text-blue-600 mt-1 hover:underline post-link" data-post-id="${post.id}">
+              View details
+            </button>
+          </div>
+        `)
+        .on("popupopen", (e: any) => {
+          // Add click handler to the "View details" button
+          const popup = e.popup._contentNode
+          const button = popup.querySelector(".post-link")
+          if (button) {
+            button.addEventListener("click", () => {
+              const postId = button.getAttribute("data-post-id")
+              if (postId) {
+                onClose()
+                router.push(`/post/${postId}`)
+              }
+            })
+          }
+        })
+    })
+  }
+
+  // Retry getting location
+  const retryLocation = () => {
+    if (mapInstance) {
+      getUserLocation(mapInstance)
+    }
+  }
+
+  // Clean up when modal closes
   useEffect(() => {
-    if (isOpen && leafletLoaded && !locationAttempted) {
-      getUserLocation()
+    if (!isOpen && mapInstance) {
+      mapInstance.remove()
+      setMapInstance(null)
+      setMapInitialized(false)
     }
-  }, [isOpen, leafletLoaded, locationAttempted])
-
-  // Navigate to post detail page when marker is clicked
-  const handleMarkerClick = (postId: string) => {
-    onClose()
-    router.push(`/post/${postId}`)
-  }
-
-  // Calculate map center based on posts and user location
-  const getMapCenter = () => {
-    if (userLocation) return userLocation
-
-    if (postsWithLocation.length > 0) {
-      // Use the first post with location as center
-      return [Number(postsWithLocation[0].latitude), Number(postsWithLocation[0].longitude)] as [number, number]
-    }
-
-    // Default to a central location if no posts or user location
-    return [37.7749, -122.4194] as [number, number]
-  }
-
-  // Create custom icons only when Leaflet is loaded
-  const createUserLocationIcon = () => {
-    if (!window.L) return null
-    return new window.L.DivIcon({
-      html: `
-        <div class="relative">
-          <div class="h-4 w-4 rounded-full bg-blue-500 animate-pulse"></div>
-          <div class="absolute -inset-1 rounded-full bg-blue-500 opacity-30"></div>
-        </div>
-      `,
-      className: "user-location-marker",
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
-    })
-  }
-
-  const createPostIcon = () => {
-    if (!window.L) return null
-    return new window.L.DivIcon({
-      html: `
-        <div class="flex items-center justify-center h-8 w-8 rounded-full bg-red-500 text-white shadow-lg">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
-            <circle cx="12" cy="10" r="3"></circle>
-          </svg>
-        </div>
-      `,
-      className: "post-marker",
-      iconSize: [32, 32],
-      iconAnchor: [16, 32],
-    })
-  }
-
-  // Check if we should show the map
-  const shouldShowMap = leafletLoaded && (!isLoading || locationError)
+  }, [isOpen, mapInstance])
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -218,81 +254,30 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
         </DialogHeader>
 
         <div className="h-[80vh] w-full relative">
-          {!shouldShowMap ? (
+          {isLoading && !mapInitialized && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-40">
               <div className="text-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                <span>{!leafletLoaded ? "Loading map..." : "Getting your location..."}</span>
+                <span>Loading map...</span>
               </div>
             </div>
-          ) : null}
+          )}
 
           {locationError && (
             <div className="absolute top-4 right-4 z-50 bg-white/90 dark:bg-gray-800/90 p-3 rounded-lg shadow-md max-w-xs">
               <p className="text-sm mb-2">{locationError}</p>
               {locationError.includes("unavailable") && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setLocationAttempted(false)
-                    getUserLocation()
-                  }}
-                  className="w-full text-xs"
-                >
+                <Button variant="outline" size="sm" onClick={retryLocation} className="w-full text-xs">
                   <RefreshCw className="h-3 w-3 mr-1" /> Try Again
                 </Button>
               )}
             </div>
           )}
 
-          {shouldShowMap && (
-            <MapContainer center={getMapCenter()} zoom={13} style={{ height: "100%", width: "100%" }} className="z-0">
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-
-              {userLocation && (
-                <>
-                  <Marker position={userLocation} icon={createUserLocationIcon()}>
-                    <Popup>
-                      <div className="text-sm font-medium">Your location</div>
-                    </Popup>
-                  </Marker>
-                  <SetViewToUserLocation userLocation={userLocation} />
-                </>
-              )}
-
-              {postsWithLocation.map((post) => (
-                <Marker
-                  key={post.id}
-                  position={[Number(post.latitude), Number(post.longitude)]}
-                  icon={createPostIcon()}
-                  eventHandlers={{
-                    click: () => handleMarkerClick(post.id),
-                  }}
-                >
-                  <Popup>
-                    <div className="p-1">
-                      <h3 className="font-medium text-sm mb-1 line-clamp-1">{post.title || "Issue"}</h3>
-                      <p className="text-xs line-clamp-2">{post.description}</p>
-                      <button
-                        className="text-xs text-blue-600 mt-1 hover:underline"
-                        onClick={() => handleMarkerClick(post.id)}
-                      >
-                        View details
-                      </button>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-            </MapContainer>
-          )}
-
-          {shouldShowMap && postsWithLocation.length === 0 && (
+          {mapInitialized && postsWithLocation.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 z-40">
               <div className="text-center p-4 max-w-xs">
+                <MapPin className="h-12 w-12 mx-auto mb-2 text-gray-400" />
                 <p className="font-medium mb-2">No issues with location data</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   None of the current issues have location information attached.
@@ -300,6 +285,8 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
               </div>
             </div>
           )}
+
+          <div ref={mapRef} className="h-full w-full" />
         </div>
       </DialogContent>
     </Dialog>
