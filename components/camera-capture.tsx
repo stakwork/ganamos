@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useRef, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -12,6 +14,19 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
   const [error, setError] = useState<string | null>(null)
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment")
   const isMobile = useMobile()
+
+  // Safe area styles for the camera controls
+  const safeAreaStyles = {
+    position: "absolute",
+    bottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
+    left: "0",
+    right: "0",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "1rem",
+    zIndex: 50,
+  } as React.CSSProperties
 
   useEffect(() => {
     // Add a camera flag to the URL to help with navigation bar hiding
@@ -140,8 +155,8 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
               <video ref={videoRef} autoPlay playsInline muted className="w-full h-[85vh] object-cover" />
               <div className="absolute inset-0 pointer-events-none border-4 border-white border-opacity-50 rounded-lg m-4"></div>
 
-              {/* Overlay controls on the camera view */}
-              <div className="absolute bottom-6 inset-x-0 flex justify-center items-center gap-4">
+              {/* Overlay controls on the camera view - using inline styles for safe area */}
+              <div style={safeAreaStyles}>
                 <Button
                   type="button"
                   size="lg"

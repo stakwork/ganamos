@@ -259,7 +259,13 @@ export default function DashboardPage() {
     return null // Will redirect in useEffect
   }
 
-  if (loading || !user) {
+  // IMPORTANT CHANGE: Skip the full-screen loading state when we're coming from auth
+  // Only show loading state if we're not in the auth flow (sessionLoaded is true but still loading user data)
+  if (!sessionLoaded && (loading || !user)) {
+    // We're still in the auth flow, don't show another loading screen
+    return null
+  } else if (loading || !user) {
+    // We're not in the auth flow, but still loading user data (e.g., after a refresh)
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">Loading...</div>
