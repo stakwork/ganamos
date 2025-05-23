@@ -40,6 +40,8 @@ export interface Database {
           description: string
           image_url: string
           location: string
+          latitude: number | null
+          longitude: number | null
           reward: number
           claimed: boolean
           claimed_by: string | null
@@ -57,6 +59,8 @@ export interface Database {
           description: string
           image_url: string
           location: string
+          latitude?: number | null
+          longitude?: number | null
           reward: number
           claimed?: boolean
           claimed_by?: string | null
@@ -74,6 +78,8 @@ export interface Database {
           description?: string
           image_url?: string
           location?: string
+          latitude?: number | null
+          longitude?: number | null
           reward?: number
           claimed?: boolean
           claimed_by?: string | null
