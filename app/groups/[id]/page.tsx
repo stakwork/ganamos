@@ -189,14 +189,14 @@ export default function GroupPage({ params }: { params: { id: string } }) {
     }
 
     fetchGroupData()
-  }, [groupId, user, supabase, router, toast, activeTab, clearPendingForGroup])
+  }, [groupId, user, supabase, router, toast, activeTab])
 
   // Clear notification when switching to members tab
   useEffect(() => {
     if (activeTab === "members" && pendingMembers.length > 0 && userRole === "admin") {
       clearPendingForGroup(groupId)
     }
-  }, [activeTab, pendingMembers.length, userRole, groupId, clearPendingForGroup])
+  }, [activeTab, pendingMembers.length, userRole, groupId])
 
   const handleJoinRequest = async () => {
     if (!user || !group) return
