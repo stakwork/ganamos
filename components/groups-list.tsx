@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { CreateGroupDialog } from "@/components/create-group-dialog"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { useNotifications } from "@/components/notifications-provider"
 import type { Group } from "@/lib/types"
 
 export function GroupsList({ userId }: { userId: string }) {
@@ -18,6 +19,7 @@ export function GroupsList({ userId }: { userId: string }) {
   const router = useRouter()
   const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
+  const { pendingGroupIds } = useNotifications()
 
   useEffect(() => {
     async function fetchGroups() {
@@ -69,9 +71,18 @@ export function GroupsList({ userId }: { userId: string }) {
               .eq("group_id", group.id)
               .eq("status", "approved")
 
+            // Get pending request count for this group
+            const { count: pendingCount, error: pendingError } = await supabase
+              .from("group_members")
+              .select("*", { count: "exact", head: true })
+              .eq("group_id", group.id)
+              .eq("status", "pending")
+
             return {
               ...group,
               memberCount: error ? 0 : count || 0,
+              pendingCount: pendingError ? 0 : pendingCount || 0,
+              hasPendingRequests: pendingGroupIds.includes(group.id),
             }
           }),
         )
@@ -92,7 +103,7 @@ export function GroupsList({ userId }: { userId: string }) {
     if (userId) {
       fetchGroups()
     }
-  }, [userId, supabase, toast])
+  }, [userId, supabase, toast, pendingGroupIds])
 
   const handleGroupClick = (groupId: string) => {
     router.push(`/groups/${groupId}`)
@@ -110,28 +121,6 @@ export function GroupsList({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold">Your Groups</h2>
-        <Button size="sm" onClick={() => setShowCreateDialog(true)}>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="mr-1"
-          >
-            <path d="M12 5v14" />
-            <path d="M5 12h14" />
-          </svg>
-          New Group
-        </Button>
-      </div>
-
       {loading ? (
         <div className="space-y-3">
           <GroupSkeleton />
@@ -148,7 +137,10 @@ export function GroupsList({ userId }: { userId: string }) {
               <CardContent className="p-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-medium">{group.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium">{group.name}</h3>
+                      {group.hasPendingRequests && <span className="w-2 h-2 bg-red-500 rounded-full"></span>}
+                    </div>
                     {group.description && (
                       <p className="text-sm text-muted-foreground line-clamp-1">{group.description}</p>
                     )}
@@ -159,6 +151,11 @@ export function GroupsList({ userId }: { userId: string }) {
                       {group.created_by === userId && (
                         <Badge className="bg-green-100 text-green-800 hover:bg-green-200 border-green-200 text-xs">
                           Admin
+                        </Badge>
+                      )}
+                      {group.pendingCount > 0 && group.created_by === userId && (
+                        <Badge className="bg-red-100 text-red-800 hover:bg-red-200 border-red-200 text-xs">
+                          {group.pendingCount} pending
                         </Badge>
                       )}
                     </div>

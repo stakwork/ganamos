@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input"
 import { PostCard } from "@/components/post-card"
 import { useAuth } from "@/components/auth-provider"
+import { useNotifications } from "@/components/notifications-provider"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
@@ -23,6 +24,7 @@ export default function GroupPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
+  const { clearPendingForGroup } = useNotifications()
 
   const [group, setGroup] = useState<Group | null>(null)
   const [members, setMembers] = useState<GroupMember[]>([])
@@ -35,6 +37,7 @@ export default function GroupPage({ params }: { params: { id: string } }) {
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [inviteUrl, setInviteUrl] = useState("")
   const [copied, setCopied] = useState(false)
+  const [copiedGroupCode, setCopiedGroupCode] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -145,6 +148,12 @@ export default function GroupPage({ params }: { params: { id: string } }) {
             }
 
             setPendingMembers(pendingData)
+
+            // If there are pending members and we're viewing the members tab,
+            // clear the notification for this group
+            if (pendingData.length > 0 && activeTab === "members") {
+              clearPendingForGroup(groupId)
+            }
           }
 
           // Fetch group posts
@@ -180,7 +189,14 @@ export default function GroupPage({ params }: { params: { id: string } }) {
     }
 
     fetchGroupData()
-  }, [groupId, user, supabase, router, toast])
+  }, [groupId, user, supabase, router, toast, activeTab, clearPendingForGroup])
+
+  // Clear notification when switching to members tab
+  useEffect(() => {
+    if (activeTab === "members" && pendingMembers.length > 0 && userRole === "admin") {
+      clearPendingForGroup(groupId)
+    }
+  }, [activeTab, pendingMembers.length, userRole, groupId, clearPendingForGroup])
 
   const handleJoinRequest = async () => {
     if (!user || !group) return
@@ -266,6 +282,14 @@ export default function GroupPage({ params }: { params: { id: string } }) {
     navigator.clipboard.writeText(inviteUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const copyGroupCode = () => {
+    if (group?.group_code) {
+      navigator.clipboard.writeText(group.group_code)
+      setCopiedGroupCode(true)
+      setTimeout(() => setCopiedGroupCode(false), 2000)
+    }
   }
 
   const handleCreatePost = () => {
@@ -414,7 +438,21 @@ export default function GroupPage({ params }: { params: { id: string } }) {
           </svg>
           <span className="sr-only">Back</span>
         </Button>
-        <h1 className="text-2xl font-bold flex-1 truncate">{group.name}</h1>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold truncate">{group.name}</h1>
+          {userRole === "admin" && group.group_code && (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-sm text-muted-foreground">Code:</span>
+              <button
+                onClick={copyGroupCode}
+                className="font-mono text-sm font-bold bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                {group.group_code}
+              </button>
+              {copiedGroupCode && <span className="text-xs text-green-600 dark:text-green-400">Copied!</span>}
+            </div>
+          )}
+        </div>
         {userRole === "admin" && (
           <Button variant="outline" size="icon" onClick={() => setShowInviteDialog(true)}>
             <svg
@@ -440,7 +478,12 @@ export default function GroupPage({ params }: { params: { id: string } }) {
       <Tabs defaultValue="posts" className="w-full" onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2 mb-4 dark:bg-gray-800/50">
           <TabsTrigger value="posts">Posts</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
+          <TabsTrigger value="members" className="relative">
+            Members
+            {pendingMembers.length > 0 && userRole === "admin" && (
+              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="posts" className="space-y-4">
@@ -583,17 +626,33 @@ export default function GroupPage({ params }: { params: { id: string } }) {
       <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Invite Members</DialogTitle>
+            <DialogTitle>Share Group</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground mb-4">
-              Share this link with people you want to invite to your group:
-            </p>
-            <div className="flex items-center space-x-2">
-              <Input value={inviteUrl} readOnly />
-              <Button size="sm" onClick={copyInviteLink}>
-                {copied ? "Copied!" : "Copy"}
-              </Button>
+          <div className="py-4 space-y-4">
+            <div>
+              <p className="text-sm font-medium mb-2">Group Code</p>
+              <p className="text-sm text-muted-foreground mb-3">
+                Share this 4-character code for easy group discovery:
+              </p>
+              <div className="flex items-center space-x-2">
+                <div className="flex-1 p-3 bg-gray-50 dark:bg-gray-800 rounded-md text-center">
+                  <span className="font-mono text-2xl font-bold tracking-widest">{group?.group_code}</span>
+                </div>
+                <Button size="sm" onClick={copyGroupCode}>
+                  {copiedGroupCode ? "Copied!" : "Copy"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <p className="text-sm font-medium mb-2">Invite Link</p>
+              <p className="text-sm text-muted-foreground mb-3">Or share this direct link:</p>
+              <div className="flex items-center space-x-2">
+                <Input value={inviteUrl} readOnly className="text-xs" />
+                <Button size="sm" onClick={copyInviteLink}>
+                  {copied ? "Copied!" : "Copy"}
+                </Button>
+              </div>
             </div>
           </div>
           <DialogFooter>

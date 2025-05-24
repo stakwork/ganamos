@@ -6,6 +6,7 @@ import { ConditionalThemeProvider } from "@/components/conditional-theme-provide
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/components/auth-provider"
 import { BottomNav } from "@/components/bottom-nav"
+import { NotificationsProvider } from "@/components/notifications-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -36,11 +37,13 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <AuthProvider>
-          <ConditionalThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-            <main className="min-h-[calc(100vh-4rem)] pb-16 mx-auto">{children}</main>
-            <BottomNav />
-            <Toaster />
-          </ConditionalThemeProvider>
+          <NotificationsProvider>
+            <ConditionalThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+              <main className="min-h-[calc(100vh-4rem)] pb-16 mx-auto">{children}</main>
+              <BottomNav />
+              <Toaster />
+            </ConditionalThemeProvider>
+          </NotificationsProvider>
         </AuthProvider>
       </body>
     </html>

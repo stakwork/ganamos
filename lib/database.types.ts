@@ -100,6 +100,7 @@ export interface Database {
           created_at: string
           updated_at: string
           invite_code: string
+          group_code: string
         }
         Insert: {
           id?: string
@@ -109,6 +110,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           invite_code?: string
+          group_code?: string
         }
         Update: {
           id?: string
@@ -118,6 +120,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           invite_code?: string
+          group_code?: string
         }
       }
       group_members: {

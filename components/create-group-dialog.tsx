@@ -46,6 +46,9 @@ export function CreateGroupDialog({ open, onOpenChange, userId, onSuccess }: Cre
       const inviteCode = generateInviteCode()
       const now = new Date().toISOString()
 
+      // Generate a unique 4-character group code
+      const groupCode = generateGroupCode()
+
       // Create the group
       const { data: groupData, error: groupError } = await supabase
         .from("groups")
@@ -56,6 +59,7 @@ export function CreateGroupDialog({ open, onOpenChange, userId, onSuccess }: Cre
           created_at: now,
           updated_at: now,
           invite_code: inviteCode,
+          group_code: groupCode,
         })
         .select()
         .single()
@@ -105,6 +109,16 @@ export function CreateGroupDialog({ open, onOpenChange, userId, onSuccess }: Cre
     const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
     let result = ""
     for (let i = 0; i < 10; i++) {
+      result += characters.charAt(Math.floor(Math.random() * characters.length))
+    }
+    return result
+  }
+
+  // Generate a random 4-character group code
+  const generateGroupCode = () => {
+    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    let result = ""
+    for (let i = 0; i < 4; i++) {
       result += characters.charAt(Math.floor(Math.random() * characters.length))
     }
     return result

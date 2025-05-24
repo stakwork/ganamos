@@ -4,9 +4,11 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Home, Search, Wallet, User } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useNotifications } from "@/components/notifications-provider"
 
 export function BottomNav() {
   const pathname = usePathname()
+  const { hasPendingRequests } = useNotifications()
 
   // Don't show bottom nav on home page or auth pages
   if (pathname === "/" || pathname.startsWith("/auth")) {
@@ -21,8 +23,8 @@ export function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 z-50 w-full h-16 bg-white/80 backdrop-blur-md dark:bg-gray-900/80">
-    <div className="relative w-full max-w-md mx-auto h-full">
-      <div className="grid grid-cols-4 items-center h-full w-full px-6">
+      <div className="relative w-full max-w-md mx-auto h-full">
+        <div className="grid grid-cols-4 items-center h-full w-full px-6">
           {/* Home icon */}
           <Link
             href="/dashboard"
@@ -68,7 +70,10 @@ export function BottomNav() {
           {/* Profile icon */}
           <Link
             href="/profile"
-            className={cn("flex items-center justify-center", isActive("/profile") && "text-primary dark:text-primary")}
+            className={cn(
+              "flex items-center justify-center relative",
+              isActive("/profile") && "text-primary dark:text-primary",
+            )}
           >
             <User
               className={cn(
@@ -76,6 +81,7 @@ export function BottomNav() {
                 isActive("/profile") && "text-primary dark:text-primary",
               )}
             />
+            {hasPendingRequests && <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>}
           </Link>
         </div>
       </div>

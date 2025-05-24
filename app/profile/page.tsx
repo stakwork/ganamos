@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogTrigger } from "@/components/ui/dialog"
 import { PostCard } from "@/components/post-card"
 import { useAuth } from "@/components/auth-provider"
+import { useNotifications } from "@/components/notifications-provider"
 import { formatDistanceToNow } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -32,6 +33,7 @@ type ActivityItem = {
 
 export default function ProfilePage() {
   const { user, profile, loading, session, sessionLoaded, signOut } = useAuth()
+  const { hasPendingRequests } = useNotifications()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("activity")
   const [activities, setActivities] = useState<ActivityItem[]>([])
@@ -469,7 +471,10 @@ export default function ProfilePage() {
         <TabsList className="grid w-full grid-cols-3 mb-4 dark:bg-gray-800/50">
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="posts">Posts</TabsTrigger>
-          <TabsTrigger value="groups">Groups</TabsTrigger>
+          <TabsTrigger value="groups" className="relative">
+            Groups
+            {hasPendingRequests && <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="posts" className="space-y-4">
@@ -554,6 +559,44 @@ export default function ProfilePage() {
         </TabsContent>
 
         <TabsContent value="groups" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <Button size="sm" variant="outline" onClick={() => router.push("/groups/search")}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mr-1"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              Find Group
+            </Button>
+            <Button size="sm" variant="outline">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mr-1"
+              >
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
+              </svg>
+              New Group
+            </Button>
+          </div>
           <GroupsList userId={user.id} />
         </TabsContent>
       </Tabs>
