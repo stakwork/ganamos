@@ -72,10 +72,16 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        pop: {
+          "0%": { transform: "scale(1)", boxShadow: "none" },
+          "50%": { transform: "scale(1.08)", boxShadow: "0 0 10px rgba(245, 158, 11, 0.4)" },
+          "100%": { transform: "scale(1)", boxShadow: "none" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pop-glow": "pop 0.4s ease-in-out",
       },
     },
   },

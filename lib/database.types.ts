@@ -39,7 +39,7 @@ export interface Database {
           title: string
           description: string
           image_url: string
-          location: string
+          location: string | null
           latitude: number | null
           longitude: number | null
           reward: number
@@ -58,7 +58,7 @@ export interface Database {
           title: string
           description: string
           image_url: string
-          location: string
+          location?: string | null
           latitude?: number | null
           longitude?: number | null
           reward: number
@@ -77,7 +77,7 @@ export interface Database {
           title?: string
           description?: string
           image_url?: string
-          location?: string
+          location?: string | null
           latitude?: number | null
           longitude?: number | null
           reward?: number

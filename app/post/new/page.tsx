@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
-import { mockPosts } from "@/lib/mock-data"
 import { v4 as uuidv4 } from "@/lib/uuid"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
@@ -255,8 +254,8 @@ export default function NewPostPage() {
         imageUrl: image,
         image_url: image, // Add both formats for compatibility
         location: currentLocation?.name,
-        latitude: currentLocation?.lat,
-        longitude: currentLocation?.lng,
+        latitude: currentLocation ? currentLocation.lat : null,
+        longitude: currentLocation ? currentLocation.lng : null,
         reward,
         claimed: false,
         fixed: false,
@@ -274,9 +273,9 @@ export default function NewPostPage() {
             title: description.substring(0, 50), // Use first part of description as title for compatibility
             description,
             image_url: image,
-            location: currentLocation?.name || null,
-            latitude: currentLocation?.lat || null,
-            longitude: currentLocation?.lng || null,
+            location: currentLocation ? currentLocation.name : null,
+            latitude: currentLocation ? currentLocation.lat : null,
+            longitude: currentLocation ? currentLocation.lng : null,
             reward,
             claimed: false,
             fixed: false,
@@ -289,8 +288,7 @@ export default function NewPostPage() {
         }
       }
 
-      // Add to the beginning of the array to show it first in the feed
-      mockPosts.unshift(newPost)
+      // Remove: mockPosts.unshift(newPost)
 
       // Update user balance if reward is greater than 0
       if (profile && reward > 0) {
@@ -312,9 +310,9 @@ export default function NewPostPage() {
 
       // Navigate to the appropriate destination
       if (selectedGroupId) {
-        router.push(`/groups/${selectedGroupId}`)
+        router.push(`/groups/${selectedGroupId}?newPost=true`)
       } else {
-        router.push("/dashboard")
+        router.push("/dashboard?newPost=true")
       }
     } catch (error) {
       console.error("Error creating post:", error)
