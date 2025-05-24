@@ -49,7 +49,12 @@ export default function NewPostPage() {
   const [image, setImage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [step, setStep] = useState<"photo" | "details">("photo")
-  const [currentLocation, setCurrentLocation] = useState<{ name: string; lat: number; lng: number } | null>(null)
+  const [currentLocation, setCurrentLocation] = useState<{
+    name: string
+    lat: number
+    lng: number
+    displayName?: string
+  } | null>(null)
   const [isGettingLocation, setIsGettingLocation] = useState(false)
   const [userGroups, setUserGroups] = useState<Group[]>([])
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
@@ -144,7 +149,7 @@ export default function NewPostPage() {
     setStep("details")
   }
 
-  const handleGetLocation = () => {
+  const handleGetLocation = async () => {
     if (!navigator.geolocation) {
       toast({
         title: "Geolocation not supported",
@@ -157,13 +162,34 @@ export default function NewPostPage() {
     setIsGettingLocation(true)
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude } = position.coords
-        setCurrentLocation({
+
+        // Set initial location with coordinates
+        const locationData = {
           name: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
           lat: latitude,
           lng: longitude,
-        })
+          displayName: "Unknown", // Default fallback
+        }
+
+        try {
+          // Try to get city name via reverse geocoding
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+          )
+
+          if (response.ok) {
+            const data = await response.json()
+            const cityName = data.address?.city || data.address?.town || data.address?.village || "Unknown"
+            locationData.displayName = cityName
+          }
+        } catch (error) {
+          console.error("Reverse geocoding failed:", error)
+          // Keep the default "Unknown" fallback
+        }
+
+        setCurrentLocation(locationData)
         setIsGettingLocation(false)
         toast({
           title: "Location added",
@@ -440,7 +466,7 @@ export default function NewPostPage() {
                     </svg>
                     <div className="flex-1 min-w-0">
                       <span className="text-xs font-medium text-green-700 dark:text-green-400 block truncate">
-                        Location
+                        {currentLocation.displayName}
                       </span>
                     </div>
                   </div>
@@ -473,7 +499,7 @@ export default function NewPostPage() {
                     onClick={handleRemoveLocation}
                     className="text-xs h-6 px-2 ml-1 flex-shrink-0"
                   >
-                    Remove
+                    ×
                   </Button>
                 ) : (
                   <Button

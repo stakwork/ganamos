@@ -110,6 +110,15 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
 
         const imageSrc = canvas.toDataURL("image/jpeg")
         onCapture(imageSrc)
+
+        // Stop the camera immediately after taking photo
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop())
+        }
+        if (videoRef.current) {
+          videoRef.current.srcObject = null
+        }
+        setStream(null)
       }
     }
   }

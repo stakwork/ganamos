@@ -21,6 +21,8 @@ export function PostCard({ post }: { post: Post }) {
   const [profileAvatar, setProfileAvatar] = useState<string>("")
   const [isLoadingProfile, setIsLoadingProfile] = useState(true)
   const [userId, setUserId] = useState<string>("")
+  const [displayLocation, setDisplayLocation] = useState<string>("")
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false)
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -59,6 +61,43 @@ export function PostCard({ post }: { post: Post }) {
 
     fetchProfileData()
   }, [post.userId, post.user_id])
+
+  useEffect(() => {
+    const fetchCityName = async () => {
+      if (!post.location || !post.location.includes(",")) {
+        setDisplayLocation(post.location || "No location")
+        return
+      }
+
+      setIsLoadingLocation(true)
+      try {
+        const [lat, lng] = post.location.split(",").map((coord) => Number.parseFloat(coord.trim()))
+
+        if (isNaN(lat) || isNaN(lng)) {
+          setDisplayLocation(post.location)
+          return
+        }
+
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+
+        if (!response.ok) {
+          setDisplayLocation("Unknown")
+          return
+        }
+
+        const data = await response.json()
+        const cityName = data.address?.city || data.address?.town || data.address?.village || "Unknown"
+        setDisplayLocation(cityName)
+      } catch (error) {
+        console.error("Error fetching city name:", error)
+        setDisplayLocation("Unknown")
+      } finally {
+        setIsLoadingLocation(false)
+      }
+    }
+
+    fetchCityName()
+  }, [post.location])
 
   const handleClick = () => {
     router.push(`/post/${post.id}`)
@@ -224,7 +263,9 @@ export function PostCard({ post }: { post: Post }) {
                   <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
-                <span className="text-xs text-muted-foreground">{post.location || "No location"}</span>
+                <span className="text-xs text-muted-foreground">
+                  {isLoadingLocation ? "Loading..." : displayLocation}
+                </span>
               </div>
             )}
           </div>
