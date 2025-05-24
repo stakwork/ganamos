@@ -461,7 +461,11 @@ export default function ProfilePage() {
             </Dialog>
             <div className="p-3 text-center border rounded-lg dark:border-gray-800">
               <p className="text-sm text-muted-foreground">Issues Fixed</p>
-              <p className="text-xl font-bold">{fixedCount}</p>
+              {isLoading ? (
+                <div className="h-7 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mx-auto"></div>
+              ) : (
+                <p className="text-xl font-bold">{fixedCount}</p>
+              )}
             </div>
           </div>
         </CardContent>
@@ -473,7 +477,7 @@ export default function ProfilePage() {
           <TabsTrigger value="posts">Posts</TabsTrigger>
           <TabsTrigger value="groups" className="relative">
             Groups
-            {hasPendingRequests && <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>}
+            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
           </TabsTrigger>
         </TabsList>
 

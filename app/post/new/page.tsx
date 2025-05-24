@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
@@ -419,133 +418,141 @@ export default function NewPostPage() {
             />
           </div>
 
-          {/* Location Section */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-              {currentLocation ? (
-                <div className="flex items-center flex-1">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mr-2 text-green-600"
-                  >
-                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                    <circle cx="12" cy="10" r="3" />
-                  </svg>
-                  <div className="flex-1">
-                    <span className="text-sm font-medium text-green-700 dark:text-green-400">Location added</span>
-                    <p className="text-xs text-muted-foreground">{currentLocation.name}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mr-2 text-muted-foreground"
-                  >
-                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                    <circle cx="12" cy="10" r="3" />
-                  </svg>
-                  <span className="text-sm text-muted-foreground">No location added</span>
-                </div>
-              )}
-
-              {currentLocation ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRemoveLocation}
-                  className="text-xs h-7 px-2 ml-2"
-                >
-                  Remove
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGetLocation}
-                  className="text-xs h-7 px-2"
-                  disabled={isGettingLocation}
-                >
-                  {isGettingLocation ? (
-                    <div className="flex items-center">
-                      <svg
-                        className="animate-spin -ml-1 mr-1 h-3 w-3"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Getting...
+          {/* Location and Visibility Row */}
+          <div className="flex gap-2">
+            {/* Location Section */}
+            <div className="flex-1">
+              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg h-12">
+                {currentLocation ? (
+                  <div className="flex items-center flex-1">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-1 text-green-600 flex-shrink-0"
+                    >
+                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                      <circle cx="12" cy="10" r="3" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-medium text-green-700 dark:text-green-400 block truncate">
+                        Location
+                      </span>
                     </div>
-                  ) : (
-                    "Add Location"
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center flex-1">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-1 text-muted-foreground flex-shrink-0"
+                    >
+                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                      <circle cx="12" cy="10" r="3" />
+                    </svg>
+                    <span className="text-xs text-muted-foreground">No location</span>
+                  </div>
+                )}
 
-          {userGroups.length > 0 && (
-            <div className="space-y-2">
-              <Select
-                value={selectedGroupId || "public"}
-                onValueChange={(value) => setSelectedGroupId(value === "public" ? null : value)}
-              >
-                <SelectTrigger className="w-full h-auto p-3">
-                  <div className="flex items-start space-x-3 w-full">
-                    <div className="mt-0.5">
-                      {selectedGroupId ? (
+                {currentLocation ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRemoveLocation}
+                    className="text-xs h-6 px-2 ml-1 flex-shrink-0"
+                  >
+                    Remove
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGetLocation}
+                    className="text-xs h-6 px-2 flex-shrink-0"
+                    disabled={isGettingLocation}
+                  >
+                    {isGettingLocation ? "..." : "Add"}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Visibility Section */}
+            <div className="flex-1">
+              {userGroups.length > 0 ? (
+                <Select
+                  value={selectedGroupId || "public"}
+                  onValueChange={(value) => setSelectedGroupId(value === "public" ? null : value)}
+                >
+                  <SelectTrigger className="w-full h-12 p-3">
+                    <div className="flex items-center space-x-2 w-full">
+                      <div className="flex-shrink-0">
+                        {selectedGroupId ? (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="text-orange-600"
+                          >
+                            <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                            <path d="m7 11V7a5 5 0 0 1 10 0v4" />
+                          </svg>
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="text-green-600"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                            <path d="M2 12h20" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <div className="font-medium text-xs truncate">
+                          {selectedGroupId
+                            ? userGroups.find((g) => g.id === selectedGroupId)?.name || "Group"
+                            : "Public"}
+                        </div>
+                      </div>
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">
+                      <div className="flex items-center space-x-3 py-1">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="text-orange-600"
-                        >
-                          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                          <path d="m7 11V7a5 5 0 0 1 10 0v4" />
-                        </svg>
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="20"
-                          height="20"
+                          width="18"
+                          height="18"
                           viewBox="0 0 24 24"
                           fill="none"
                           stroke="currentColor"
@@ -558,72 +565,62 @@ export default function NewPostPage() {
                           <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
                           <path d="M2 12h20" />
                         </svg>
-                      )}
-                    </div>
-                    <div className="flex-1 text-left">
-                      <div className="font-medium">
-                        {selectedGroupId ? userGroups.find((g) => g.id === selectedGroupId)?.name || "Group" : "Public"}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {selectedGroupId ? "Only group members can see this post" : "Anyone can see this post"}
-                      </div>
-                    </div>
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">
-                    <div className="flex items-center space-x-3 py-1">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="text-green-600"
-                      >
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-                        <path d="M2 12h20" />
-                      </svg>
-                      <div>
-                        <div className="font-medium">Public</div>
-                        <div className="text-xs text-muted-foreground">Anyone can see this post</div>
-                      </div>
-                    </div>
-                  </SelectItem>
-                  {userGroups.map((group) => (
-                    <SelectItem key={group.id} value={group.id}>
-                      <div className="flex items-center space-x-3 py-1">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="18"
-                          height="18"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="text-orange-600"
-                        >
-                          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                          <path d="m7 11V7a5 5 0 0 1 10 0v4" />
-                        </svg>
                         <div>
-                          <div className="font-medium">{group.name}</div>
-                          <div className="text-xs text-muted-foreground">Only group members can see this post</div>
+                          <div className="font-medium">Public</div>
+                          <div className="text-xs text-muted-foreground">Anyone can see this post</div>
                         </div>
                       </div>
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    {userGroups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        <div className="flex items-center space-x-3 py-1">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="text-orange-600"
+                          >
+                            <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                            <path d="m7 11V7a5 5 0 0 1 10 0v4" />
+                          </svg>
+                          <div>
+                            <div className="font-medium">{group.name}</div>
+                            <div className="text-xs text-muted-foreground">Only group members can see this post</div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="flex items-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg h-12">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-green-600 mr-2 flex-shrink-0"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                    <path d="M2 12h20" />
+                  </svg>
+                  <span className="text-xs font-medium">Public</span>
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -641,14 +638,54 @@ export default function NewPostPage() {
               </div>
               <span className="text-lg font-medium">{formatSatsValue(reward)}</span>
             </div>
-            <Slider
-              id="reward"
-              min={0}
-              max={10000}
-              step={500}
-              value={[reward]}
-              onValueChange={(value) => setReward(value[0])}
-            />
+
+            <div className="grid grid-cols-6 gap-1">
+              {[0, 500, 1000, 2000, 5000].map((amount) => (
+                <Button
+                  key={amount}
+                  type="button"
+                  variant={reward === amount ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setReward(amount)}
+                  className="text-xs h-10 flex-1"
+                >
+                  {amount === 0 ? "0" : formatSatsValue(amount).replace(" sats", "")}
+                </Button>
+              ))}
+              <Button
+                type="button"
+                variant={![0, 500, 1000, 2000, 5000].includes(reward) ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  // Focus on custom input if it exists, otherwise set to a custom value
+                  const customInput = document.getElementById("custom-reward") as HTMLInputElement
+                  if (customInput) {
+                    customInput.focus()
+                  } else {
+                    setReward(3000) // Set to a custom value not in the preset options
+                  }
+                }}
+                className="text-xs h-10 flex-1 text-muted-foreground"
+              >
+                Custom
+              </Button>
+            </div>
+
+            {![0, 500, 1000, 2000, 5000].includes(reward) && (
+              <div className="space-y-2">
+                <input
+                  id="custom-reward"
+                  type="number"
+                  value={reward}
+                  onChange={(e) => setReward(Number(e.target.value) || 0)}
+                  placeholder="Enter custom amount"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                  min="0"
+                  max="50000"
+                />
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <p className="text-xs text-muted-foreground mr-1">Your current balance:</p>
