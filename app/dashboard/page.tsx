@@ -10,9 +10,10 @@ import { mockPosts } from "@/lib/mock-data"
 import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { Plus, X, Filter, Map } from "lucide-react"
+import { Plus, X, Filter, Map, User } from "lucide-react"
 import type { Post } from "@/lib/types"
 import { MapModal } from "@/components/map-modal"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface ActiveFilters {
   count: number
@@ -24,7 +25,7 @@ interface ActiveFilters {
 }
 
 export default function DashboardPage() {
-  const { user, profile, loading, session, sessionLoaded } = useAuth()
+  const { user, profile, loading, session, sessionLoaded, isConnectedAccount } = useAuth()
   const router = useRouter()
   const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
   const [posts, setPosts] = useState<Post[]>([])
@@ -279,6 +280,16 @@ export default function DashboardPage() {
         <div className="container px-1 pt-6 mx-auto max-w-md">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
+              {/* Show connected account avatar if using a connected account */}
+              {isConnectedAccount && profile && (
+                <Avatar className="h-8 w-8 border-2 border-amber-500">
+                  <AvatarImage src={profile.avatar_url || undefined} alt={profile.name} />
+                  <AvatarFallback>
+                    <User className="h-4 w-4" />
+                  </AvatarFallback>
+                </Avatar>
+              )}
+
               <Button
                 variant="ghost"
                 size="icon"

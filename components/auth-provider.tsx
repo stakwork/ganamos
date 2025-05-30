@@ -22,9 +22,19 @@ type AuthContextType = {
   updateProfile: (updates: Partial<Profile>) => Promise<void>
   updateBalance: (newBalance: number) => Promise<void>
   refreshProfile: () => Promise<void>
+  // New account switching functionality
+  activeUserId: string | null
+  isConnectedAccount: boolean
+  switchToAccount: (userId: string) => Promise<void>
+  resetToMainAccount: () => Promise<void>
+  connectedAccounts: Profile[]
+  fetchConnectedAccounts: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+// Local storage key for active user
+const ACTIVE_USER_KEY = "ganamos_active_user_id"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -35,6 +45,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
+
+  // New state for account switching
+  const [activeUserId, setActiveUserId] = useState<string | null>(null)
+  const [isConnectedAccount, setIsConnectedAccount] = useState(false)
+  const [connectedAccounts, setConnectedAccounts] = useState<Profile[]>([])
 
   // Fetch user profile
   const fetchProfile = async (userId: string) => {
@@ -91,13 +106,125 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    console.log("Refreshing profile for user:", user.id)
-    const profileData = await fetchProfile(user.id)
+    // If we're using a connected account, fetch that profile instead
+    const profileId = activeUserId || user.id
+
+    console.log("Refreshing profile for user:", profileId)
+    const profileData = await fetchProfile(profileId)
     if (profileData) {
       console.log("Profile refreshed. New balance:", profileData.balance)
       setProfile(profileData)
     } else {
       console.log("Failed to refresh profile")
+    }
+  }
+
+  // Fetch connected accounts
+  const fetchConnectedAccounts = async () => {
+    if (!user) return
+
+    try {
+      // Get accounts where the current user is the primary user
+      const { data, error } = await supabase
+        .from("connected_accounts")
+        .select("connected_user_id, profiles:connected_user_id(*)")
+        .eq("primary_user_id", user.id)
+
+      if (error) {
+        console.error("Error fetching connected accounts:", error)
+        return
+      }
+
+      if (data && data.length > 0) {
+        // Extract the profile data from the joined query
+        const accounts = data.map((item) => item.profiles as Profile)
+        setConnectedAccounts(accounts)
+        console.log("Connected accounts:", accounts)
+      } else {
+        setConnectedAccounts([])
+      }
+    } catch (error) {
+      console.error("Error in fetchConnectedAccounts:", error)
+    }
+  }
+
+  // Switch to a connected account
+  const switchToAccount = async (userId: string) => {
+    if (!user) return
+
+    try {
+      // Verify this is a valid connected account
+      const { data, error } = await supabase
+        .from("connected_accounts")
+        .select("*")
+        .eq("primary_user_id", user.id)
+        .eq("connected_user_id", userId)
+        .single()
+
+      if (error || !data) {
+        toast({
+          title: "Error",
+          description: "This account is not connected to your profile",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Fetch the profile for the connected account
+      const profileData = await fetchProfile(userId)
+      if (!profileData) {
+        toast({
+          title: "Error",
+          description: "Could not load connected account profile",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Set the active user ID in localStorage
+      localStorage.setItem(ACTIVE_USER_KEY, userId)
+
+      // Update state
+      setActiveUserId(userId)
+      setIsConnectedAccount(true)
+      setProfile(profileData)
+
+      toast({
+        title: "Account Switched",
+        description: `Now using ${profileData.name}'s account`,
+      })
+    } catch (error) {
+      console.error("Error switching accounts:", error)
+      toast({
+        title: "Error",
+        description: "Failed to switch accounts",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Reset to main account
+  const resetToMainAccount = async () => {
+    if (!user) return
+
+    try {
+      // Clear the active user ID from localStorage
+      localStorage.removeItem(ACTIVE_USER_KEY)
+
+      // Fetch the main user's profile
+      const profileData = await fetchProfile(user.id)
+
+      // Update state
+      setActiveUserId(null)
+      setIsConnectedAccount(false)
+      setProfile(profileData)
+
+      toast({
+        title: "Account Reset",
+        description: "Returned to your main account",
+      })
+    } catch (error) {
+      console.error("Error resetting to main account:", error)
     }
   }
 
@@ -126,8 +253,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(initialSession?.user || null)
 
         if (initialSession?.user) {
-          const profileData = await fetchProfile(initialSession.user.id)
-          setProfile(profileData)
+          // Check if we have an active user ID in localStorage
+          const storedActiveUserId = localStorage.getItem(ACTIVE_USER_KEY)
+
+          if (storedActiveUserId && storedActiveUserId !== initialSession.user.id) {
+            // Verify this is a valid connected account
+            const { data } = await supabase
+              .from("connected_accounts")
+              .select("*")
+              .eq("primary_user_id", initialSession.user.id)
+              .eq("connected_user_id", storedActiveUserId)
+              .single()
+
+            if (data) {
+              // Valid connected account, use it
+              setActiveUserId(storedActiveUserId)
+              setIsConnectedAccount(true)
+              const profileData = await fetchProfile(storedActiveUserId)
+              setProfile(profileData)
+
+              // Also fetch connected accounts
+              fetchConnectedAccounts()
+            } else {
+              // Invalid connected account, use main account
+              localStorage.removeItem(ACTIVE_USER_KEY)
+              const profileData = await fetchProfile(initialSession.user.id)
+              setProfile(profileData)
+            }
+          } else {
+            // No active user ID or it's the same as the main user, use main account
+            const profileData = await fetchProfile(initialSession.user.id)
+            setProfile(profileData)
+
+            // Fetch connected accounts
+            fetchConnectedAccounts()
+          }
         }
       } catch (error) {
         console.error("Error during auth initialization:", error)
@@ -148,6 +308,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log("User signed in - User:", newSession?.user?.email)
         } else if (event === "SIGNED_OUT") {
           console.log("User signed out")
+          // Clear active user on sign out
+          localStorage.removeItem(ACTIVE_USER_KEY)
+          setActiveUserId(null)
+          setIsConnectedAccount(false)
+          setConnectedAccounts([])
         } else if (event === "TOKEN_REFRESHED") {
           console.log(
             "Token refreshed - New expiry:",
@@ -159,10 +324,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(newSession?.user || null)
 
         if (newSession?.user) {
+          // On sign in, always use the main account first
           const profileData = await fetchProfile(newSession.user.id)
           setProfile(profileData)
+          setActiveUserId(null)
+          setIsConnectedAccount(false)
+          localStorage.removeItem(ACTIVE_USER_KEY)
+
+          // Fetch connected accounts
+          fetchConnectedAccounts()
         } else {
           setProfile(null)
+          setConnectedAccounts([])
         }
       })
 
@@ -188,7 +361,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           event: "UPDATE",
           schema: "public",
           table: "profiles",
-          filter: `id=eq.${user.id}`,
+          filter: `id=eq.${activeUserId || user.id}`,
         },
         async (payload) => {
           console.log("Profile updated:", payload.new)
@@ -201,7 +374,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       profileSubscription.unsubscribe()
     }
-  }, [user, supabase])
+  }, [user, activeUserId, supabase])
 
   // Sign in with Google
   const signInWithGoogle = async () => {
@@ -302,6 +475,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sign out
   const signOut = async () => {
     try {
+      // Clear active user on sign out
+      localStorage.removeItem(ACTIVE_USER_KEY)
+      setActiveUserId(null)
+      setIsConnectedAccount(false)
+      setConnectedAccounts([])
+
       await supabase.auth.signOut()
       router.push("/")
     } catch (error) {
@@ -315,7 +494,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       console.log("Updating profile:", updates)
-      const { error } = await supabase.from("profiles").update(updates).eq("id", user.id)
+      // Update the profile of the active user (connected or main)
+      const profileId = activeUserId || user.id
+      const { error } = await supabase.from("profiles").update(updates).eq("id", profileId)
 
       if (error) throw error
 
@@ -335,13 +516,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       console.log("Updating balance from", profile.balance, "to", newBalance)
+      // Update the balance of the active user (connected or main)
+      const profileId = activeUserId || user.id
       const { error } = await supabase
         .from("profiles")
         .update({
           balance: newBalance,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", user.id)
+        .eq("id", profileId)
 
       if (error) {
         console.error("Balance update error:", error)
@@ -379,6 +562,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateProfile,
         updateBalance,
         refreshProfile,
+        // New account switching functionality
+        activeUserId,
+        isConnectedAccount,
+        switchToAccount,
+        resetToMainAccount,
+        connectedAccounts,
+        fetchConnectedAccounts,
       }}
     >
       {children}

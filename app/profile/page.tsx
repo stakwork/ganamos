@@ -20,6 +20,14 @@ import { useToast } from "@/hooks/use-toast"
 import { AvatarSelector } from "@/components/avatar-selector"
 import { GroupsList } from "@/components/groups-list"
 import type { Post } from "@/lib/types"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { AddConnectedAccountDialog } from "@/components/add-connected-account-dialog"
 
 type ActivityItem = {
   id: string
@@ -31,7 +39,19 @@ type ActivityItem = {
 }
 
 export default function ProfilePage() {
-  const { user, profile, loading, session, sessionLoaded, signOut } = useAuth()
+  const {
+    user,
+    profile,
+    loading,
+    session,
+    sessionLoaded,
+    signOut,
+    isConnectedAccount,
+    switchToAccount,
+    resetToMainAccount,
+    connectedAccounts,
+    fetchConnectedAccounts,
+  } = useAuth()
   const { hasPendingRequests } = useNotifications()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("activity")
@@ -53,6 +73,7 @@ export default function ProfilePage() {
   const [hasMorePosts, setHasMorePosts] = useState(false)
   const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false)
   const ACTIVITIES_PER_PAGE = 10
+  const [showAddAccountDialog, setShowAddAccountDialog] = useState(false)
 
   // Cache for posts data to avoid redundant processing
   const postsCache = useRef<Post[]>([])
@@ -305,6 +326,31 @@ export default function ProfilePage() {
     }
   }, [fetchUserPosts, postsPage, isLoadingMorePosts, processPosts])
 
+  // const fetchConnectedAccounts = useCallback(async () => {
+  //   if (!user) return
+
+  //   try {
+  //     const { data, error } = await supabase
+  //       .from("connected_accounts")
+  //       .select(`
+  //         id,
+  //         connected_user_id,
+  //         profiles!connected_accounts_connected_user_id_fkey (
+  //           id,
+  //           name,
+  //           email,
+  //           avatar_url
+  //         )
+  //       `)
+  //       .eq("primary_user_id", user.id)
+
+  //     if (error) throw error
+  //     setConnectedAccounts(data || [])
+  //   } catch (error) {
+  //     console.error("Error fetching connected accounts:", error)
+  //   }
+  // }, [user, supabase])
+
   // Initial data loading
   useEffect(() => {
     if (loading || !user || initialDataLoaded.current) return
@@ -349,6 +395,10 @@ export default function ProfilePage() {
       initialDataLoaded.current = false
     }
   }, [user, loading, activeTab, fetchBitcoinPrice, fetchUserPosts, processPosts, generateActivities])
+
+  useEffect(() => {
+    fetchConnectedAccounts()
+  }, [fetchConnectedAccounts])
 
   // Handle tab changes
   const handleTabChange = useCallback(
@@ -417,7 +467,154 @@ export default function ProfilePage() {
                 <p className="text-sm text-muted-foreground">{profile.email}</p>
               </div>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-9 w-9 rounded-md">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="6" r="1" />
+                      <circle cx="12" cy="12" r="1" />
+                      <circle cx="12" cy="18" r="1" />
+                    </svg>
+                    <span className="sr-only">Open menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {/* Primary Account */}
+                  <DropdownMenuItem
+                    onClick={() => (!isConnectedAccount ? null : resetToMainAccount())}
+                    className={!isConnectedAccount ? "bg-muted" : "cursor-pointer"}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center">
+                        <div className="w-6 h-6 mr-2 overflow-hidden rounded-full">
+                          <Image
+                            src={user?.user_metadata?.avatar_url || "/placeholder.svg?height=24&width=24"}
+                            alt={user?.user_metadata?.full_name || "Main Account"}
+                            width={24}
+                            height={24}
+                            className="object-cover"
+                          />
+                        </div>
+                        <span>{user?.user_metadata?.full_name || "Main Account"} (You)</span>
+                      </div>
+                      {!isConnectedAccount && (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                      )}
+                    </div>
+                  </DropdownMenuItem>
+
+                  {/* Connected Accounts */}
+                  {connectedAccounts.map((account) => (
+                    <DropdownMenuItem
+                      key={account.id}
+                      onClick={() =>
+                        isConnectedAccount && profile?.id === account.id ? null : switchToAccount(account.id)
+                      }
+                      className={isConnectedAccount && profile?.id === account.id ? "bg-muted" : "cursor-pointer"}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center">
+                          <div className="w-6 h-6 mr-2 overflow-hidden rounded-full">
+                            <Image
+                              src={account.avatar_url || "/placeholder.svg?height=24&width=24"}
+                              alt={account.name}
+                              width={24}
+                              height={24}
+                              className="object-cover"
+                            />
+                          </div>
+                          <span>{account.name}</span>
+                        </div>
+                        {isConnectedAccount && profile?.id === account.id && (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M20 6 9 17l-5-5" />
+                          </svg>
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem onClick={() => setShowAddAccountDialog(true)}>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-2"
+                    >
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <line x1="19" y1="8" x2="24" y2="13" />
+                      <line x1="24" y1="8" x2="19" y2="13" />
+                    </svg>
+                    Add Connected Account
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem onClick={signOut}>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-2"
+                    >
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16,17 21,12 16,7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    Log Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
           <Separator className="my-4 dark:bg-gray-800" />
@@ -639,13 +836,13 @@ export default function ProfilePage() {
           <GroupsList userId={user.id} />
         </TabsContent>
       </Tabs>
-      <div className="mt-8">
-        <Button variant="outline" className="w-full dark:border-gray-700" onClick={signOut}>
-          Log Out
-        </Button>
-      </div>
 
       <AvatarSelector isOpen={showAvatarSelector} onOpenChange={setShowAvatarSelector} />
+      <AddConnectedAccountDialog
+        open={showAddAccountDialog}
+        onOpenChange={setShowAddAccountDialog}
+        onAccountAdded={fetchConnectedAccounts}
+      />
     </div>
   )
 }

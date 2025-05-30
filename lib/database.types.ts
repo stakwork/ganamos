@@ -164,6 +164,29 @@ export interface Database {
           updated_at?: string
         }
       }
+      connected_accounts: {
+        Row: {
+          id: string
+          primary_user_id: string
+          connected_user_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          primary_user_id: string
+          connected_user_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          primary_user_id?: string
+          connected_user_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
       transactions: {
         Row: {
           id: string
@@ -214,3 +237,4 @@ export type Post = Database["public"]["Tables"]["posts"]["Row"]
 export type Transaction = Database["public"]["Tables"]["transactions"]["Row"]
 export type Group = Database["public"]["Tables"]["groups"]["Row"]
 export type GroupMember = Database["public"]["Tables"]["group_members"]["Row"]
+export type ConnectedAccount = Database["public"]["Tables"]["connected_accounts"]["Row"]
