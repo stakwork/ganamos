@@ -103,21 +103,9 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
           // Check if the current user is an admin of this group
           if (adminGroupIds.includes(group_id)) {
             // Fetch the requesting user's name
-            let userName = "Someone"
-            try {
-              const { data: userData, error } = await supabase
-                .from("profiles")
-                .select("name")
-                .eq("id", user_id)
-                .single()
-              if (error) {
-                console.error("Error fetching user profile:", error)
-              } else {
-                userName = userData?.name || "Someone"
-              }
-            } catch (error) {
-              console.error("Failed to fetch user profile:", error)
-            }
+            const { data: userData } = await supabase.from("profiles").select("name").eq("id", user_id).single()
+
+            const userName = userData?.name || "Someone"
 
             // Show toast notification
             toast({
@@ -146,7 +134,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user, adminGroupIds, supabase, toast, router])
+  }, [user, adminGroupIds, supabase, toast, router, pendingGroupIds])
 
   // Function to clear pending indicator for a specific group
   const clearPendingForGroup = (groupId: string) => {

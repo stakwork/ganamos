@@ -105,32 +105,6 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     fetchPost()
   }, [params.id, toast, supabase])
 
-  // Fetch the profile of the user who fixed the issue
-  useEffect(() => {
-    const fetchFixerProfile = async () => {
-      if (!post || !post.fixed || (!post.claimed_by && !post.claimedBy)) return
-
-      const fixerId = post.claimed_by || post.claimedBy
-
-      try {
-        const { data, error } = await supabase.from("profiles").select("name, avatar_url").eq("id", fixerId).single()
-
-        if (error) {
-          console.error("Error fetching fixer profile:", error)
-          return
-        }
-
-        if (data) {
-          setFixerProfile(data)
-        }
-      } catch (error) {
-        console.error("Error in fetchFixerProfile:", error)
-      }
-    }
-
-    fetchFixerProfile()
-  }, [post, supabase])
-
   // Update location when it changes
   useEffect(() => {
     const handleStorageChange = () => {
@@ -180,12 +154,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           fixed_at: nowIso,
           fixedImageUrl: fixImage,
           fixed_image_url: fixImage,
-          // Set claimed info if not already set
-          claimed: true,
-          claimedBy: user.id,
-          claimed_by: user.id,
-          claimedAt: post.claimedAt || now,
-          claimed_at: post.claimed_at || nowIso,
+          fixed_by: user.id,
         }
 
         // Update in Supabase if possible
@@ -195,16 +164,22 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             .update({
               fixed: true,
               fixed_at: nowIso,
+              fixed_by: user.id,
               fixed_image_url: fixImage,
-              claimed: true,
-              claimed_by: user.id,
-              claimed_at: post.claimed_at || nowIso,
             })
             .eq("id", post.id)
 
           if (error) {
             console.error("Error updating post in Supabase:", error)
           }
+
+          // Increment the user's fixed issues count
+          await supabase
+            .from("profiles")
+            .update({
+              fixed_issues_count: (profile.fixed_issues_count || 0) + 1,
+            })
+            .eq("id", user.id)
         }
 
         // Update the post in the mockPosts array
@@ -438,7 +413,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   }
 
   // Check if the current user is the post creator
-  const isPostCreator = user && (post.userId === user.id || post.user_id === user.id)
+  // const isPostCreator = user && (post.userId === user.id || post.user_id === user.id)
 
   return (
     <div className="container px-4 py-6 mx-auto max-w-md">
@@ -557,14 +532,14 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               <div>
                 <p className="font-medium">Reward</p>
                 <p className="text-2xl font-bold">{formatSatsValue(post.reward)}</p>
-                {post.fixed && fixerProfile && (
+                {post.fixed && post.fixed_by && (
                   <div className="flex items-center mt-1">
                     <p className="text-xs text-muted-foreground mr-1">Earned by</p>
                     <div className="flex items-center">
                       <Avatar className="h-4 w-4 mr-1">
                         <AvatarImage
-                          src={fixerProfile.avatar_url || "/placeholder.svg"}
-                          alt={fixerProfile.name || "User"}
+                          src={fixerProfile?.avatar_url || "/placeholder.svg"}
+                          alt={fixerProfile?.name || "User"}
                         />
                         <AvatarFallback>{getFixerInitials()}</AvatarFallback>
                       </Avatar>

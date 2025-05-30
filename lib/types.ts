@@ -10,11 +10,9 @@ export interface Post {
   latitude?: number // Add optional latitude
   longitude?: number // Add optional longitude
   reward: number
-  claimed: boolean
-  claimed_by?: string
-  claimed_at?: string
   fixed: boolean
   fixed_at?: string
+  fixed_by?: string
   createdAt?: Date
   created_at?: string
   group_id?: string

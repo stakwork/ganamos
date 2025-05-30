@@ -11,10 +11,9 @@ import { Dialog, DialogTrigger } from "@/components/ui/dialog"
 import { PostCard } from "@/components/post-card"
 import { useAuth } from "@/components/auth-provider"
 import { useNotifications } from "@/components/notifications-provider"
-import { formatDistanceToNow } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { formatSatsValue } from "@/lib/utils"
+import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
 import { mockPosts } from "@/lib/mock-data"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
@@ -24,7 +23,7 @@ import type { Post } from "@/lib/types"
 
 type ActivityItem = {
   id: string
-  type: "post" | "claim" | "fix" | "reward"
+  type: "post" | "fix" | "reward"
   postId: string
   postTitle: string
   timestamp: Date
@@ -43,14 +42,16 @@ export default function ProfilePage() {
   const [fixedIssues, setFixedIssues] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isActivityLoading, setIsActivityLoading] = useState(false)
-  const [fixedCount, setFixedCount] = useState(0)
-  const [bitcoinPrice, setBitcoinPrice] = useState(64000) // Default fallback price
+  const [bitcoinPrice, setBitcoinPrice] = useState(64000)
   const [isPriceLoading, setIsPriceLoading] = useState(true)
   const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
   const [activitiesPage, setActivitiesPage] = useState(1)
   const [hasMoreActivities, setHasMoreActivities] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [postsPage, setPostsPage] = useState(1)
+  const [hasMorePosts, setHasMorePosts] = useState(false)
+  const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false)
   const ACTIVITIES_PER_PAGE = 10
 
   // Cache for posts data to avoid redundant processing
@@ -68,43 +69,8 @@ export default function ProfilePage() {
     }
   }, [session, sessionLoaded, router])
 
-  // Memoize the fetchFixedCount function to avoid recreating it on each render
-  const fetchFixedCount = useCallback(async () => {
-    if (!user) return
-
-    try {
-      console.log("🔍 Fetching fixed count for user:", user.id)
-      // Enhanced logging before API call
-      console.log("Session before fetchFixedCount:", !!session)
-      if (session) {
-        console.log("Session expiry:", new Date(session.expires_at! * 1000).toISOString())
-      }
-
-      const { data, error, count } = await supabase
-        .from("posts")
-        .select("*", { count: "exact", head: true }) // Use head: true to only get count, not data
-        .eq("claimed_by", user.id)
-        .eq("fixed", true)
-
-      if (!error) {
-        console.log(`🔍 Found ${count} fixed issues`)
-        setFixedCount(count || 0)
-      } else {
-        console.error("Error fetching fixed count:", error)
-        // Fall back to mock data for fixed count
-        const mockFixedCount = mockPosts.filter(
-          (post) => (post.claimed_by === user.id || post.claimedBy === user.id) && post.fixed === true,
-        ).length
-        setFixedCount(mockFixedCount)
-      }
-    } catch (error) {
-      console.error("Error in fetchFixedCount:", error)
-    }
-  }, [user, supabase, session])
-
   // Fetch the current Bitcoin price - memoized to prevent unnecessary re-creation
   const fetchBitcoinPrice = useCallback(async () => {
-    // Only fetch once per session
     if (bitcoinPriceFetched.current) return
 
     try {
@@ -123,7 +89,6 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error("Error fetching Bitcoin price:", error)
-      // Keep using the default price
     } finally {
       setIsPriceLoading(false)
     }
@@ -131,65 +96,90 @@ export default function ProfilePage() {
 
   // Calculate USD value from satoshis
   const calculateUsdValue = (sats: number) => {
-    // 1 BTC = 100,000,000 satoshis
     const btcAmount = sats / 100000000
     const usdValue = btcAmount * bitcoinPrice
     return usdValue.toFixed(2)
   }
 
   // Fetch all posts related to the user in a single query
-  const fetchUserPosts = useCallback(async () => {
-    if (!user || !supabase) return null
+  const fetchUserPosts = useCallback(
+    async (page = 1) => {
+      if (!user || !supabase) return { posts: [], hasMore: false }
 
-    try {
-      console.log("🔍 Fetching all user-related posts in a single query")
-      // Enhanced logging before API call
-      console.log("Session before fetchUserPosts:", !!session)
-      if (session) {
-        console.log("Session expiry:", new Date(session.expires_at! * 1000).toISOString())
+      try {
+        console.log("🔍 Fetching user-related posts")
+        console.log("Session before fetchUserPosts:", !!session)
+        if (session) {
+          console.log("Session expiry:", new Date(session.expires_at! * 1000).toISOString())
+        }
+
+        const limit = 5
+        const offset = (page - 1) * limit
+
+        const { data, error } = await supabase
+          .from("posts")
+          .select("*")
+          .or(`user_id.eq.${user.id},fixed_by.eq.${user.id}`)
+          .order("created_at", { ascending: false })
+          .limit(limit)
+          .range(offset, offset + limit - 1)
+
+        if (error) {
+          console.error("Error fetching user posts:", error)
+          return { posts: [], hasMore: false }
+        }
+
+        // Deduplicate posts by id in case a user both created and fixed the same post
+        const uniquePosts = data
+          ? data.filter((post, index, self) => index === self.findIndex((p) => p.id === post.id))
+          : []
+
+        // Check if there are more posts
+        const { count } = await supabase
+          .from("posts")
+          .select("*", { count: "exact", head: true })
+          .or(`user_id.eq.${user.id},fixed_by.eq.${user.id}`)
+
+        console.log(`🔍 Found ${uniquePosts.length} unique user-related posts`)
+        return {
+          posts: uniquePosts,
+          hasMore: (count || 0) > page * limit,
+        }
+      } catch (error) {
+        console.error("Error in fetchUserPosts:", error)
+        return { posts: [], hasMore: false }
       }
-
-      const { data, error } = await supabase
-        .from("posts")
-        .select("*")
-        .or(`user_id.eq.${user.id},claimed_by.eq.${user.id}`)
-        .order("created_at", { ascending: false })
-
-      if (error) {
-        console.error("Error fetching user posts:", error)
-        return null
-      }
-
-      console.log(`🔍 Found ${data.length} user-related posts`)
-      return data
-    } catch (error) {
-      console.error("Error in fetchUserPosts:", error)
-      return null
-    }
-  }, [user, supabase, session])
+    },
+    [user, supabase, session],
+  )
 
   // Process posts into different categories (posted, fixed, activities)
   const processPosts = useCallback(
-    (posts: Post[]) => {
+    (posts: Post[], append = false) => {
       if (!user || !posts) return
 
       console.log("🔍 Processing posts into categories")
 
       // Filter posted issues
       const posted = posts.filter((post) => post.user_id === user.id || post.userId === user.id)
-      setPostedIssues(posted)
-
       // Filter fixed issues
-      const fixed = posts.filter(
-        (post) => (post.claimed_by === user.id || post.claimedBy === user.id) && post.fixed === true,
-      )
-      setFixedIssues(fixed)
+      const fixed = posts.filter((post) => post.fixed_by === user.id)
+
+      // Update state based on append flag
+      if (append) {
+        setPostedIssues((prev) => [...prev, ...posted])
+        setFixedIssues((prev) => [...prev, ...fixed])
+      } else {
+        setPostedIssues(posted)
+        setFixedIssues(fixed)
+      }
 
       // Store in cache for later use
-      postsCache.current = posts
-
-      // Update fixed count
-      setFixedCount(fixed.length)
+      if (!append) {
+        postsCache.current = posts
+      } else {
+        postsCache.current = [...postsCache.current, ...posts]
+      }
 
       return { posted, fixed }
     },
@@ -219,24 +209,9 @@ export default function ProfilePage() {
           })
         })
 
-      // Posts claimed by the user
-      posts
-        .filter((post) => post.claimed_by === user.id || post.claimedBy === user.id)
-        .forEach((post) => {
-          if (post.claimed_at || post.claimedAt) {
-            userActivities.push({
-              id: `claim-${post.id}`,
-              type: "claim",
-              postId: post.id,
-              postTitle: post.title,
-              timestamp: new Date(post.claimed_at || post.claimedAt),
-            })
-          }
-        })
-
       // Posts fixed by the user
       posts
-        .filter((post) => (post.claimed_by === user.id || post.claimedBy === user.id) && post.fixed === true)
+        .filter((post) => post.fixed_by === user.id && post.fixed === true)
         .forEach((post) => {
           if (post.fixed_at || post.fixedAt) {
             userActivities.push({
@@ -299,7 +274,7 @@ export default function ProfilePage() {
       setIsLoadingMore(false)
     } else {
       // Fallback to fetching if cache is empty
-      fetchUserPosts().then((posts) => {
+      fetchUserPosts().then(({ posts }) => {
         if (posts) {
           generateActivities(posts, nextPage)
         }
@@ -307,6 +282,28 @@ export default function ProfilePage() {
       })
     }
   }, [activitiesPage, fetchUserPosts, generateActivities, isLoadingMore])
+
+  // Add Load More Posts Function
+  const handleLoadMorePosts = useCallback(async () => {
+    if (isLoadingMorePosts) return
+
+    setIsLoadingMorePosts(true)
+    const nextPage = postsPage + 1
+
+    try {
+      const { posts, hasMore } = await fetchUserPosts(nextPage)
+
+      if (posts.length > 0) {
+        processPosts(posts, true) // true = append mode
+        setHasMorePosts(hasMore)
+        setPostsPage(nextPage)
+      }
+    } catch (error) {
+      console.error("Error loading more posts:", error)
+    } finally {
+      setIsLoadingMorePosts(false)
+    }
+  }, [fetchUserPosts, postsPage, isLoadingMorePosts, processPosts])
 
   // Initial data loading
   useEffect(() => {
@@ -318,27 +315,22 @@ export default function ProfilePage() {
       // Fetch Bitcoin price (only once)
       fetchBitcoinPrice()
 
-      // Fetch all user posts in a single query
-      const posts = await fetchUserPosts()
+      // Fetch user posts immediately regardless of active tab
+      const { posts, hasMore } = await fetchUserPosts(1)
 
-      if (posts) {
+      if (posts.length > 0) {
         // Process posts into different categories
         processPosts(posts)
+        setHasMorePosts(hasMore)
 
-        // Generate initial activities
+        // Generate initial activities if on activity tab
         if (activeTab === "activity") {
           generateActivities(posts, 1)
         }
       } else {
         // Fallback to mock data
         console.log("🔍 Using mock data")
-        const mockUserPosts = mockPosts.filter(
-          (post) =>
-            post.userId === user.id ||
-            post.user_id === user.id ||
-            post.claimed_by === user.id ||
-            post.claimedBy === user.id,
-        )
+        const mockUserPosts = mockPosts.filter((post) => post.userId === user.id || post.user_id === user.id)
         processPosts(mockUserPosts)
 
         if (activeTab === "activity") {
@@ -461,11 +453,7 @@ export default function ProfilePage() {
             </Dialog>
             <div className="p-3 text-center border rounded-lg dark:border-gray-800">
               <p className="text-sm text-muted-foreground">Issues Fixed</p>
-              {isLoading ? (
-                <div className="h-7 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mx-auto"></div>
-              ) : (
-                <p className="text-xl font-bold">{fixedCount}</p>
-              )}
+              <p className="text-xl font-bold">{profile.fixed_issues_count || 0}</p>
             </div>
           </div>
         </CardContent>
@@ -477,7 +465,7 @@ export default function ProfilePage() {
           <TabsTrigger value="posts">Posts</TabsTrigger>
           <TabsTrigger value="groups" className="relative">
             Groups
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            {hasPendingRequests && <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>}
           </TabsTrigger>
         </TabsList>
 
@@ -490,7 +478,54 @@ export default function ProfilePage() {
               </div>
             </div>
           ) : [...postedIssues, ...fixedIssues].length > 0 ? (
-            [...postedIssues, ...fixedIssues].map((post) => <PostCard key={post.id} post={post} />)
+            <>
+              <div className="space-y-4">
+                {[...postedIssues, ...fixedIssues]
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .map((post) => (
+                    <PostCard key={post.id} post={post} />
+                  ))}
+              </div>
+
+              {hasMorePosts && (
+                <div className="mt-6 text-center">
+                  <Button
+                    variant="outline"
+                    onClick={handleLoadMorePosts}
+                    disabled={isLoadingMorePosts}
+                    className="w-full"
+                  >
+                    {isLoadingMorePosts ? (
+                      <div className="flex items-center justify-center">
+                        <svg
+                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Loading...
+                      </div>
+                    ) : (
+                      "Load More"
+                    )}
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="p-8 text-center">
               <p className="text-muted-foreground">No posts yet</p>
@@ -630,7 +665,7 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
       // Check if the date is valid
       if (isNaN(activity.timestamp.getTime())) return "Recently"
 
-      return formatDistanceToNow(activity.timestamp, { addSuffix: true })
+      return formatTimeAgo(activity.timestamp)
     } catch (error) {
       console.error("Error formatting date:", error)
       return "Recently"
@@ -679,8 +714,6 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
   switch (activity.type) {
     case "post":
       return <p className="font-medium">You posted a new issue</p>
-    case "claim":
-      return <p className="font-medium">You claimed an issue</p>
     case "fix":
       return <p className="font-medium">You fixed an issue</p>
     case "reward":
@@ -709,30 +742,6 @@ function ActivityIcon({ type }: { type: string }) {
           >
             <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
             <circle cx="12" cy="13" r="3" />
-          </svg>
-        </div>
-      )
-    case "claim":
-      return (
-        <div className="p-2 bg-purple-100 rounded-full dark:bg-purple-950/50">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-purple-600 dark:text-purple-400"
-          >
-            <path d="M11 12H3" />
-            <path d="M16 6H3" />
-            <path d="M16 18H3" />
-            <path d="M18 6h.01" />
-            <path d="M18 12h.01" />
-            <path d="M18 18h.01" />
           </svg>
         </div>
       )

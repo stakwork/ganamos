@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
@@ -40,10 +40,6 @@ export default function DashboardPage() {
 
   // Map modal state
   const [isMapOpen, setIsMapOpen] = useState(false)
-
-  // Add after existing state declarations
-  const [previousBalance, setPreviousBalance] = useState<number | null>(null)
-  const [isAnimating, setIsAnimating] = useState(false)
 
   // Add session guard with useEffect
   useEffect(() => {
@@ -96,24 +92,6 @@ export default function DashboardPage() {
     return () => window.removeEventListener("storage", handleStorageChange)
   }, [user, loading, router])
 
-  // Check for newPost parameter and refresh if present
-  const searchParams = useSearchParams()
-  const newPost = searchParams?.get("newPost")
-
-  useEffect(() => {
-    if (newPost === "true") {
-      // Clear the URL parameter
-      const url = new URL(window.location.href)
-      url.searchParams.delete("newPost")
-      window.history.replaceState({}, "", url.toString())
-
-      // Force refresh posts
-      setCurrentPage(1)
-      setPosts([])
-      fetchPosts(1, activeFilters)
-    }
-  }, [newPost, activeFilters])
-
   // Effect to handle filter cleared state
   useEffect(() => {
     if (filterCleared) {
@@ -121,20 +99,6 @@ export default function DashboardPage() {
       setFilterCleared(false)
     }
   }, [filterCleared])
-
-  // Add this useEffect after the existing useEffects
-  useEffect(() => {
-    if (profile?.balance !== undefined && previousBalance !== null) {
-      if (profile.balance > previousBalance) {
-        setIsAnimating(true)
-        setTimeout(() => setIsAnimating(false), 400)
-      }
-      setPreviousBalance(profile.balance)
-    } else if (profile?.balance !== undefined && previousBalance === null) {
-      // Set initial balance without animation
-      setPreviousBalance(profile.balance)
-    }
-  }, [profile?.balance, previousBalance])
 
   const clearFilters = () => {
     localStorage.removeItem("activeFilters")
@@ -339,9 +303,7 @@ export default function DashboardPage() {
             <Button
               variant="ghost"
               onClick={handleSatsClick}
-              className={`flex items-center px-3 py-1 text-sm font-medium bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900 transition-all ${
-                isAnimating ? "animate-pop-glow" : ""
-              }`}
+              className="flex items-center px-3 py-1 text-sm font-medium bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
             >
               <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="mr-1" />
               {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}

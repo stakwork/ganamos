@@ -156,10 +156,6 @@ export default function WalletPage() {
 
   return (
     <div className="container max-w-md mx-auto py-8 px-4">
-      <div className="flex items-center mb-6">
-        <h1 className="text-2xl font-bold">Bitcoin Wallet</h1>
-      </div>
-
       <Card className="mb-6 border dark:border-gray-800">
         <CardContent className="p-6">
           <div className="flex flex-col items-center">
@@ -176,14 +172,14 @@ export default function WalletPage() {
         <Link href="/wallet/deposit" className="w-full">
           <Button variant="outline" className="w-full h-24 flex flex-col items-center justify-center gap-2">
             <ArrowDownIcon className="h-6 w-6 text-green-500" />
-            <span>Deposit</span>
+            <span>Receive</span>
           </Button>
         </Link>
 
         <Link href="/wallet/withdraw" className="w-full">
           <Button variant="outline" className="w-full h-24 flex flex-col items-center justify-center gap-2">
             <ArrowUpIcon className="h-6 w-6 text-red-500" />
-            <span>Withdraw</span>
+            <span>Send</span>
           </Button>
         </Link>
       </div>

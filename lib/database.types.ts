@@ -12,6 +12,7 @@ export interface Database {
           balance: number
           created_at: string
           updated_at: string
+          fixed_issues_count: number
         }
         Insert: {
           id: string
@@ -21,6 +22,7 @@ export interface Database {
           balance?: number
           created_at?: string
           updated_at?: string
+          fixed_issues_count?: number
         }
         Update: {
           id?: string
@@ -30,6 +32,7 @@ export interface Database {
           balance?: number
           created_at?: string
           updated_at?: string
+          fixed_issues_count?: number
         }
       }
       posts: {
@@ -39,7 +42,7 @@ export interface Database {
           title: string
           description: string
           image_url: string
-          location: string | null
+          location: string
           latitude: number | null
           longitude: number | null
           reward: number
@@ -49,6 +52,7 @@ export interface Database {
           fixed: boolean
           fixed_at: string | null
           fixed_image_url: string | null
+          fixed_by: string | null
           created_at: string
           group_id: string | null
         }
@@ -58,7 +62,7 @@ export interface Database {
           title: string
           description: string
           image_url: string
-          location?: string | null
+          location: string
           latitude?: number | null
           longitude?: number | null
           reward: number
@@ -68,6 +72,7 @@ export interface Database {
           fixed?: boolean
           fixed_at?: string | null
           fixed_image_url?: string | null
+          fixed_by?: string | null
           created_at?: string
           group_id?: string | null
         }
@@ -77,7 +82,7 @@ export interface Database {
           title?: string
           description?: string
           image_url?: string
-          location?: string | null
+          location?: string
           latitude?: number | null
           longitude?: number | null
           reward?: number
@@ -87,6 +92,7 @@ export interface Database {
           fixed?: boolean
           fixed_at?: string | null
           fixed_image_url?: string | null
+          fixed_by?: string | null
           created_at?: string
           group_id?: string | null
         }

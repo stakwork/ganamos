@@ -63,6 +63,7 @@ export default function NewPostPage() {
   const router = useRouter()
   const { user, profile, updateBalance } = useAuth()
   const supabase = createBrowserSupabaseClient()
+  const [showKeypad, setShowKeypad] = useState(false)
 
   // Check if there's a selected group from localStorage
   useEffect(() => {
@@ -378,24 +379,37 @@ export default function NewPostPage() {
 
   return (
     <div className="container px-4 py-6 mx-auto max-w-md">
-      <div className="flex items-center mb-6">
-        <Button variant="ghost" size="icon" onClick={handleBack} className="mr-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="m15 18-6-6 6-6" />
-          </svg>
-          <span className="sr-only">Back</span>
-        </Button>
-        <h1 className="text-2xl font-bold">Post Issue</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <Button variant="ghost" size="icon" onClick={handleBack} className="mr-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            <span className="sr-only">Back</span>
+          </Button>
+          <h1 className="text-2xl font-bold">Post Issue</h1>
+        </div>
+
+        {/* Bitcoin Balance Pill */}
+        <button
+          onClick={() => router.push("/wallet")}
+          className="flex items-center space-x-1 bg-[#3E1C09] text-[#FDE68A] px-3 py-1.5 rounded-full text-sm font-medium hover:bg-[#2D1507] transition-colors"
+        >
+          <div className="w-4 h-4 relative">
+            <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="object-contain" />
+          </div>
+          <span>{formatSatsValue(profile?.balance || 0)}</span>
+        </button>
       </div>
 
       {step === "photo" ? (
@@ -556,7 +570,7 @@ export default function NewPostPage() {
                             className="text-green-600"
                           >
                             <circle cx="12" cy="12" r="10" />
-                            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                            <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
                             <path d="M2 12h20" />
                           </svg>
                         )}
@@ -586,7 +600,7 @@ export default function NewPostPage() {
                           className="text-green-600"
                         >
                           <circle cx="12" cy="12" r="10" />
-                          <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                          <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
                           <path d="M2 12h20" />
                         </svg>
                         <div>
@@ -637,7 +651,7 @@ export default function NewPostPage() {
                     className="text-green-600 mr-2 flex-shrink-0"
                   >
                     <circle cx="12" cy="12" r="10" />
-                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                    <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
                     <path d="M2 12h20" />
                   </svg>
                   <span className="text-xs font-medium">Public</span>
@@ -646,11 +660,127 @@ export default function NewPostPage() {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="mr-2">Reward</div>
-                <div className="w-4 h-4 mr-1 relative">
+          <div className="space-y-6">
+            {/* Apple Cash Style Reward Selector */}
+            <div className="flex flex-col items-center space-y-4 py-6">
+              <div className="flex items-center justify-between w-full max-w-xs">
+                {/* Minus Button */}
+                <button
+                  type="button"
+                  onMouseDown={() => {
+                    setReward(Math.max(0, reward - 500))
+                    const interval = setInterval(() => {
+                      setReward((prev) => Math.max(0, prev - 500))
+                    }, 150)
+
+                    const handleMouseUp = () => {
+                      clearInterval(interval)
+                      document.removeEventListener("mouseup", handleMouseUp)
+                      document.removeEventListener("mouseleave", handleMouseUp)
+                    }
+
+                    document.addEventListener("mouseup", handleMouseUp)
+                    document.addEventListener("mouseleave", handleMouseUp)
+                  }}
+                  onTouchStart={() => {
+                    setReward(Math.max(0, reward - 500))
+                    const interval = setInterval(() => {
+                      setReward((prev) => Math.max(0, prev - 500))
+                    }, 150)
+
+                    const handleTouchEnd = () => {
+                      clearInterval(interval)
+                      document.removeEventListener("touchend", handleTouchEnd)
+                      document.removeEventListener("touchcancel", handleTouchEnd)
+                    }
+
+                    document.addEventListener("touchend", handleTouchEnd)
+                    document.addEventListener("touchcancel", handleTouchEnd)
+                  }}
+                  className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-gray-600 dark:text-gray-300"
+                  >
+                    <path d="M5 12h14" />
+                  </svg>
+                </button>
+
+                {/* Central Amount Display */}
+                <button
+                  type="button"
+                  onClick={() => setShowKeypad(!showKeypad)}
+                  className="w-32 text-center hover:opacity-80 transition-opacity"
+                >
+                  <span className="text-5xl font-light text-gray-900 dark:text-white">
+                    {reward === 0 ? "0" : formatSatsValue(reward).replace(" sats", "").replace(".0", "")}
+                  </span>
+                </button>
+
+                {/* Plus Button */}
+                <button
+                  type="button"
+                  onMouseDown={() => {
+                    setReward(reward + 500)
+                    const interval = setInterval(() => {
+                      setReward((prev) => prev + 500)
+                    }, 150)
+
+                    const handleMouseUp = () => {
+                      clearInterval(interval)
+                      document.removeEventListener("mouseup", handleMouseUp)
+                      document.removeEventListener("mouseleave", handleMouseUp)
+                    }
+
+                    document.addEventListener("mouseup", handleMouseUp)
+                    document.addEventListener("mouseleave", handleMouseUp)
+                  }}
+                  onTouchStart={() => {
+                    setReward(reward + 500)
+                    const interval = setInterval(() => {
+                      setReward((prev) => prev + 500)
+                    }, 150)
+
+                    const handleTouchEnd = () => {
+                      clearInterval(interval)
+                      document.removeEventListener("touchend", handleTouchEnd)
+                      document.removeEventListener("touchcancel", handleTouchEnd)
+                    }
+
+                    document.addEventListener("touchend", handleTouchEnd)
+                    document.addEventListener("touchcancel", handleTouchEnd)
+                  }}
+                  className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-gray-600 dark:text-gray-300"
+                  >
+                    <path d="M12 5v14m-7-7h14" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Bitcoin and Sats Label */}
+              <div className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                <div className="w-4 h-4 relative">
                   <Image
                     src="/images/bitcoin-logo.png"
                     alt="Bitcoin"
@@ -659,76 +789,24 @@ export default function NewPostPage() {
                     className="object-contain"
                   />
                 </div>
+                <span>sats reward</span>
               </div>
-              <span className="text-lg font-medium">{formatSatsValue(reward)}</span>
-            </div>
 
-            <div className="grid grid-cols-6 gap-1">
-              {[0, 500, 1000, 2000, 5000].map((amount) => (
-                <Button
-                  key={amount}
-                  type="button"
-                  variant={reward === amount ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setReward(amount)}
-                  className="text-xs h-10 flex-1"
-                >
-                  {amount === 0 ? "0" : formatSatsValue(amount).replace(" sats", "")}
-                </Button>
-              ))}
-              <Button
-                type="button"
-                variant={![0, 500, 1000, 2000, 5000].includes(reward) ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  // Focus on custom input if it exists, otherwise set to a custom value
-                  const customInput = document.getElementById("custom-reward") as HTMLInputElement
-                  if (customInput) {
-                    customInput.focus()
-                  } else {
-                    setReward(3000) // Set to a custom value not in the preset options
-                  }
-                }}
-                className="text-xs h-10 flex-1 text-muted-foreground"
-              >
-                Custom
-              </Button>
-            </div>
-
-            {![0, 500, 1000, 2000, 5000].includes(reward) && (
-              <div className="space-y-2">
-                <input
-                  id="custom-reward"
-                  type="number"
-                  value={reward}
-                  onChange={(e) => setReward(Number(e.target.value) || 0)}
-                  placeholder="Enter custom amount"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                  min="0"
-                  max="50000"
-                />
-              </div>
-            )}
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <p className="text-xs text-muted-foreground mr-1">Your current balance:</p>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 mr-1 relative">
-                    <Image
-                      src="/images/bitcoin-logo.png"
-                      alt="Bitcoin"
-                      width={12}
-                      height={12}
-                      className="object-contain"
-                    />
-                  </div>
-                  <span className="text-xs">{formatSatsValue(profile?.balance || 0)}</span>
+              {/* Custom Input Field */}
+              {showKeypad && (
+                <div className="w-full max-w-xs">
+                  <input
+                    type="number"
+                    value={reward}
+                    onChange={(e) => setReward(Number(e.target.value) || 0)}
+                    placeholder="Enter amount"
+                    className="w-full px-4 py-3 text-center text-lg border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                    min="0"
+                    max="50000"
+                    autoFocus
+                  />
                 </div>
-              </div>
-              <Button type="button" variant="outline" size="sm" onClick={navigateToWallet} className="text-xs h-7 px-2">
-                Add Sats
-              </Button>
+              )}
             </div>
           </div>
 

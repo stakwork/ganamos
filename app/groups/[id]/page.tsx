@@ -189,14 +189,14 @@ export default function GroupPage({ params }: { params: { id: string } }) {
     }
 
     fetchGroupData()
-  }, [groupId, user, supabase, router, toast])
+  }, [groupId, user, supabase, router, toast, activeTab, clearPendingForGroup])
 
   // Clear notification when switching to members tab
   useEffect(() => {
     if (activeTab === "members" && pendingMembers.length > 0 && userRole === "admin") {
       clearPendingForGroup(groupId)
     }
-  }, [activeTab, pendingMembers.length, userRole, groupId])
+  }, [activeTab, pendingMembers.length, userRole, groupId, clearPendingForGroup])
 
   const handleJoinRequest = async () => {
     if (!user || !group) return
@@ -481,7 +481,7 @@ export default function GroupPage({ params }: { params: { id: string } }) {
           <TabsTrigger value="members" className="relative">
             Members
             {pendingMembers.length > 0 && userRole === "admin" && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
             )}
           </TabsTrigger>
         </TabsList>
@@ -535,54 +535,9 @@ export default function GroupPage({ params }: { params: { id: string } }) {
         </TabsContent>
 
         <TabsContent value="members" className="space-y-4">
-          {userRole === "admin" && pendingMembers.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="font-medium">Pending Requests ({pendingMembers.length})</h3>
-              {pendingMembers.map((member) => (
-                <Card key={member.id} className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="relative w-10 h-10 mr-3 overflow-hidden rounded-full">
-                          <Image
-                            src={member.profile?.avatar_url || "/placeholder.svg?height=40&width=40"}
-                            alt={member.profile?.name || "Member"}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <div>
-                          <p className="font-medium">{member.profile?.name || "Unknown Member"}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Requested {formatDistanceToNow(new Date(member.created_at), { addSuffix: true })}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 px-2 text-xs"
-                          onClick={() => handleMemberAction(member.id, "reject")}
-                        >
-                          Reject
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="h-8 px-2 text-xs"
-                          onClick={() => handleMemberAction(member.id, "approve")}
-                        >
-                          Approve
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          <Separator className="my-4" />
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-medium">Members ({members.length})</h2>
+          </div>
 
           <div className="space-y-3">
             {members.map((member) => (
@@ -615,6 +570,56 @@ export default function GroupPage({ params }: { params: { id: string } }) {
               </Card>
             ))}
           </div>
+
+          {userRole === "admin" && pendingMembers.length > 0 && (
+            <>
+              <Separator className="my-4" />
+              <div className="space-y-3">
+                <h3 className="font-medium">Pending Requests ({pendingMembers.length})</h3>
+                {pendingMembers.map((member) => (
+                  <Card key={member.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="relative w-10 h-10 mr-3 overflow-hidden rounded-full">
+                            <Image
+                              src={member.profile?.avatar_url || "/placeholder.svg?height=40&width=40"}
+                              alt={member.profile?.name || "Member"}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                          <div>
+                            <p className="font-medium">{member.profile?.name || "Unknown Member"}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Requested {formatDistanceToNow(new Date(member.created_at), { addSuffix: true })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2 text-xs"
+                            onClick={() => handleMemberAction(member.id, "reject")}
+                          >
+                            Reject
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-8 px-2 text-xs"
+                            onClick={() => handleMemberAction(member.id, "approve")}
+                          >
+                            Approve
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
         </TabsContent>
       </Tabs>
 

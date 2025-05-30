@@ -1,27 +1,38 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Loader2, X, RefreshCw, MapPin, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
+import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
 
 interface MapModalProps {
   isOpen: boolean
   onClose: () => void
   posts: Post[]
+  centerPost?: Post // Optional post to center the map on
 }
 
-export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
+// Declare google as a global type to avoid linting errors
+declare global {
+  interface Window {
+    google?: any
+  }
+}
+
+export function MapModal({ isOpen, onClose, posts, centerPost }: MapModalProps) {
   const router = useRouter()
   const mapRef = useRef<HTMLDivElement>(null)
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [locationError, setLocationError] = useState<string | null>(null)
-  const [mapInstance, setMapInstance] = useState<any>(null)
+  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null)
   const [mapInitialized, setMapInitialized] = useState(false)
   const [loadingStep, setLoadingStep] = useState<string>("Initializing...")
+  const [selectedPost, setSelectedPost] = useState<Post | null>(centerPost || null)
 
   // Filter posts that have location data
   const postsWithLocation = posts.filter(
@@ -37,65 +48,54 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
     setLocationError(null)
     setLoadingStep("Loading map library...")
 
-    loadLeaflet()
+    loadGoogleMaps()
   }, [isOpen, mapInitialized])
 
-  // Load Leaflet with better error handling
-  const loadLeaflet = async () => {
+  // Load Google Maps with better error handling
+  const loadGoogleMaps = async () => {
     try {
-      console.log("Starting Leaflet loading process...")
+      console.log("Starting Google Maps loading process...")
 
       // Check if already loaded
-      if (window.L) {
-        console.log("Leaflet already loaded")
+      if (window.google && window.google.maps) {
+        console.log("Google Maps already loaded")
         setLoadingStep("Initializing map...")
         initializeMap()
         return
       }
 
-      // Load CSS first
-      if (!document.querySelector('link[href*="leaflet.css"]')) {
-        console.log("Loading Leaflet CSS...")
-        const link = document.createElement("link")
-        link.rel = "stylesheet"
-        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        link.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        link.crossOrigin = ""
-        document.head.appendChild(link)
-      }
-
-      // Load JavaScript
-      console.log("Loading Leaflet JavaScript...")
+      // Load Google Maps JavaScript API
+      console.log("Loading Google Maps JavaScript API...")
       setLoadingStep("Loading map components...")
 
       await new Promise<void>((resolve, reject) => {
         // Check if script already exists
-        const existingScript = document.querySelector('script[src*="leaflet.js"]')
+        const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
         if (existingScript) {
           existingScript.remove()
         }
 
         const script = document.createElement("script")
-        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-        script.crossOrigin = ""
+        script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBB01qY-IIgvTwrwvmjLACpg2wzEOAr1q4&libraries=places`
+        script.async = true
+        script.defer = true
 
         script.onload = () => {
-          console.log("Leaflet script loaded successfully")
+          console.log("Google Maps script loaded successfully")
           // Give it a moment to initialize
           setTimeout(() => {
-            if (window.L) {
-              console.log("Leaflet is available on window.L")
+            if (window.google && window.google.maps) {
+              console.log("Google Maps is available")
               resolve()
             } else {
-              console.error("Leaflet loaded but window.L is not available")
-              reject(new Error("Leaflet failed to initialize"))
+              console.error("Google Maps loaded but not available")
+              reject(new Error("Google Maps failed to initialize"))
             }
           }, 100)
         }
 
         script.onerror = (error) => {
-          console.error("Failed to load Leaflet script:", error)
+          console.error("Failed to load Google Maps script:", error)
           reject(new Error("Failed to load map library"))
         }
 
@@ -105,14 +105,14 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
         }, 10000)
 
         document.head.appendChild(script)
-        console.log("Leaflet script element added to DOM")
+        console.log("Google Maps script element added to DOM")
       })
 
-      console.log("Leaflet loaded, initializing map...")
+      console.log("Google Maps loaded, initializing map...")
       setLoadingStep("Setting up map...")
       initializeMap()
     } catch (error) {
-      console.error("Error loading Leaflet:", error)
+      console.error("Error loading Google Maps:", error)
       setLocationError(`Failed to load map: ${error instanceof Error ? error.message : "Unknown error"}`)
       setIsLoading(false)
     }
@@ -122,8 +122,8 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
   const initializeMap = () => {
     console.log("Initializing map...")
 
-    if (!window.L) {
-      console.error("window.L is not available")
+    if (!window.google || !window.google.maps) {
+      console.error("Google Maps is not available")
       setLocationError("Map library not loaded properly")
       setIsLoading(false)
       return
@@ -145,34 +145,45 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
       console.log("Creating map instance...")
       setLoadingStep("Creating map...")
 
-      // Default center (will be updated later)
-      const defaultCenter: [number, number] = [37.7749, -122.4194]
+      // Determine center location
+      let defaultCenter = { lat: 37.7749, lng: -122.4194 } // Default fallback
+
+      // If we have a centerPost, use its location
+      if (centerPost && centerPost.latitude && centerPost.longitude) {
+        defaultCenter = { lat: Number(centerPost.latitude), lng: Number(centerPost.longitude) }
+        console.log("Centering map on specific post:", defaultCenter)
+      } else if (postsWithLocation.length > 0) {
+        // Otherwise use first post with location
+        const firstPost = postsWithLocation[0]
+        defaultCenter = { lat: Number(firstPost.latitude), lng: Number(firstPost.longitude) }
+      }
 
       // Create map instance
-      const map = window.L.map(mapRef.current, {
+      const map = new window.google.maps.Map(mapRef.current, {
         center: defaultCenter,
-        zoom: 13,
+        zoom: 15, // Higher zoom when centering on specific location
+        mapTypeId: window.google.maps.MapTypeId.ROADMAP,
         zoomControl: true,
+        mapTypeControl: false,
+        scaleControl: true,
+        streetViewControl: false,
+        rotateControl: false,
+        fullscreenControl: false,
       })
 
-      console.log("Map instance created, adding tile layer...")
-
-      // Add tile layer
-      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-      }).addTo(map)
-
-      console.log("Tile layer added, setting state...")
+      console.log("Map instance created")
 
       setMapInstance(map)
       setMapInitialized(true)
 
-      console.log("Map initialized successfully, getting user location...")
-      setLoadingStep("Getting your location...")
+      // Add click listener to map to deselect markers
+      map.addListener("click", () => {
+        setSelectedPost(null)
+      })
 
-      // Get user location after map is initialized
-      getUserLocation(map)
+      // Skip user location and go straight to adding post markers
+      addPostMarkers(map)
+      setIsLoading(false)
     } catch (error) {
       console.error("Error initializing map:", error)
       setLocationError(`Failed to create map: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -180,75 +191,65 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
     }
   }
 
-  // Get user's current location
-  const getUserLocation = (map: any) => {
-    console.log("Getting user location...")
+  // Format sats for pin display (simplified version)
+  const formatSatsForPin = (sats: number): string => {
+    if (sats === 0) return "0"
+    if (sats < 1000) return sats.toString()
 
-    if (!navigator.geolocation) {
-      console.error("Geolocation not supported")
-      setLocationError("Geolocation is not supported by this browser")
-      addPostMarkers(map)
-      setIsLoading(false)
-      return
+    const inK = sats / 1000
+    if (inK === Math.floor(inK)) {
+      return `${Math.floor(inK)}k`
     }
+    return `${inK.toFixed(1)}k`.replace(".0k", "k")
+  }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        console.log("Location obtained:", position.coords)
-        const userLoc: [number, number] = [position.coords.latitude, position.coords.longitude]
-        setUserLocation(userLoc)
+  // Create custom Airbnb-style oval marker icon
+  const createCustomMarkerIcon = (post: Post, isSelected: boolean) => {
+    const rewardText = formatSatsForPin(post.reward)
+    const backgroundColor = isSelected ? "#FEF3C7" : "#ffffff"
+    const textColor = isSelected ? "#000000" : "#000000"
+    const bitcoinColor = "#F7931A"
+    const borderColor = "#d1d5db"
 
-        // Add user marker and center map
-        if (map && window.L) {
-          console.log("Adding user marker and centering map...")
-          map.setView(userLoc, 13)
+    // Calculate width based on text length with proper padding
+    const textWidth = rewardText.length * 7 + 12 // Approximate width calculation with more right padding
+    const totalWidth = 24 + textWidth // Bitcoin symbol + text + padding
 
-          const userIcon = window.L.divIcon({
-            html: `
-              <div class="relative">
-                <div class="h-4 w-4 rounded-full bg-blue-500 animate-pulse"></div>
-                <div class="absolute -inset-1 rounded-full bg-blue-500 opacity-30"></div>
-              </div>
-            `,
-            className: "user-location-marker",
-            iconSize: [16, 16],
-            iconAnchor: [8, 8],
-          })
+    return {
+      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+      <svg width="${totalWidth}" height="32" viewBox="0 0 ${totalWidth} 32" xmlns="http://www.w3.org/2000/svg">
+        <!-- Oval background with shadow -->
+        <rect x="1" y="1" width="${totalWidth - 2}" height="30" rx="15" ry="15" 
+              fill="${backgroundColor}" 
+              stroke="#d1d5db" 
+              strokeWidth="1" />
+        <!-- Bitcoin symbol - adjusted position and size -->
+        <text x="12" y="20" textAnchor="middle" fontFamily="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" fontSize="8" fontWeight="900" fill="${bitcoinColor}">₿</text>
+        <!-- Reward amount - adjusted position -->
+        <text x="24" y="20" fontFamily="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" fontSize="12" fontWeight="500" fill="${textColor}">${rewardText}</text>
+      </svg>
+    `)}`,
+      scaledSize: new window.google.maps.Size(totalWidth, 32),
+      anchor: new window.google.maps.Point(totalWidth / 2, 16),
+    }
+  }
 
-          window.L.marker(userLoc, { icon: userIcon }).addTo(map).bindPopup("Your location")
-        }
-
-        addPostMarkers(map)
-        setIsLoading(false)
-      },
-      (error) => {
-        console.error("Error getting location:", error)
-
-        let errorMessage = "Couldn't access your location."
-        if (error.code === 1) {
-          errorMessage = "Location permission denied. Please enable location access in your browser settings."
-        } else if (error.code === 2) {
-          errorMessage = "Your location is currently unavailable. The map will still show issue locations."
-        } else if (error.code === 3) {
-          errorMessage = "Location request timed out. Please try again."
-        }
-
-        setLocationError(errorMessage)
-        addPostMarkers(map)
-        setIsLoading(false)
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      },
-    )
+  // Format date for preview card
+  const formatPostDate = (post: Post) => {
+    try {
+      if (!post.createdAt && !post.created_at) return "Recently"
+      const date = new Date(post.createdAt || post.created_at)
+      if (isNaN(date.getTime())) return "Recently"
+      return formatTimeAgo(date)
+    } catch (error) {
+      return "Recently"
+    }
   }
 
   // Add markers for posts with location data
-  const addPostMarkers = (map: any) => {
-    if (!map || !window.L) {
-      console.error("Map or Leaflet not available for adding post markers")
+  const addPostMarkers = (map: google.maps.Map) => {
+    if (!map || !window.google) {
+      console.error("Map or Google Maps not available for adding post markers")
       return
     }
 
@@ -259,58 +260,64 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
       return
     }
 
-    // If no user location, center on first post
-    if (!userLocation && postsWithLocation.length > 0) {
-      const firstPost = postsWithLocation[0]
-      const postLoc: [number, number] = [Number(firstPost.latitude), Number(firstPost.longitude)]
-      map.setView(postLoc, 13)
-    }
+    // Store markers for updating their styles
+    const markers: { [key: string]: google.maps.Marker } = {}
 
     // Add markers for all posts with location
     postsWithLocation.forEach((post, index) => {
-      const postLoc: [number, number] = [Number(post.latitude), Number(post.longitude)]
+      const postLoc = { lat: Number(post.latitude), lng: Number(post.longitude) }
+      const isSelected = selectedPost && post.id === selectedPost.id
 
-      const postIcon = window.L.divIcon({
-        html: `
-          <div class="flex items-center justify-center h-8 w-8 rounded-full bg-red-500 text-white shadow-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
-              <circle cx="12" cy="10" r="3"></circle>
-            </svg>
-          </div>
-        `,
-        className: "post-marker",
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
+      const marker = new window.google.maps.Marker({
+        position: postLoc,
+        map: map,
+        title: post.title || "Issue",
+        icon: createCustomMarkerIcon(post, isSelected),
       })
 
-      window.L.marker(postLoc, { icon: postIcon })
-        .addTo(map)
-        .bindPopup(`
-          <div class="p-1">
-            <h3 class="font-medium text-sm mb-1">${post.title || "Issue"}</h3>
-            <p class="text-xs">${post.description?.substring(0, 100) || ""}</p>
-            <button class="text-xs text-blue-600 mt-1 hover:underline post-link" data-post-id="${post.id}">
-              View details
-            </button>
-          </div>
-        `)
-        .on("popupopen", (e: any) => {
-          const popup = e.popup._contentNode
-          const button = popup.querySelector(".post-link")
-          if (button) {
-            button.addEventListener("click", () => {
-              const postId = button.getAttribute("data-post-id")
-              if (postId) {
-                onClose()
-                router.push(`/post/${postId}`)
-              }
-            })
-          }
+      markers[post.id] = marker
+
+      // Add click listener to marker
+      marker.addListener("click", (e: any) => {
+        e.stop() // Prevent map click event
+        setSelectedPost(post)
+
+        // Update all marker styles
+        postsWithLocation.forEach((p) => {
+          const isNowSelected = p.id === post.id
+          markers[p.id].setIcon(createCustomMarkerIcon(p, isNowSelected))
         })
+      })
 
       console.log(`Added marker ${index + 1} for post: ${post.title}`)
     })
+
+    // Update markers when selectedPost changes
+    const updateMarkerStyles = () => {
+      postsWithLocation.forEach((post) => {
+        const isSelected = selectedPost && post.id === selectedPost.id
+        if (markers[post.id]) {
+          markers[post.id].setIcon(createCustomMarkerIcon(post, isSelected))
+        }
+      })
+    }
+
+    // Call updateMarkerStyles when selectedPost changes
+    updateMarkerStyles()
+  }
+
+  // Handle preview card click
+  const handlePreviewCardClick = () => {
+    if (selectedPost) {
+      onClose()
+      router.push(`/post/${selectedPost.id}`)
+    }
+  }
+
+  // Handle preview card close
+  const handlePreviewCardClose = (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent card click
+    setSelectedPost(null)
   }
 
   // Retry loading the map
@@ -321,26 +328,33 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
     setMapInitialized(false)
     setMapInstance(null)
     setLoadingStep("Retrying...")
-    loadLeaflet()
+    loadGoogleMaps()
   }
 
   // Clean up when modal closes
   useEffect(() => {
     if (!isOpen && mapInstance) {
       console.log("Cleaning up map instance...")
-      mapInstance.remove()
       setMapInstance(null)
       setMapInitialized(false)
-      setUserLocation(null)
+      setSelectedPost(null)
       setLocationError(null)
       setIsLoading(true)
     }
   }, [isOpen, mapInstance])
 
+  // Update marker styles when selectedPost changes
+  useEffect(() => {
+    if (mapInstance && mapInitialized) {
+      // This will trigger a re-render of markers with updated styles
+      addPostMarkers(mapInstance)
+    }
+  }, [selectedPost])
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[90vw] max-h-[90vh] p-0">
-        <DialogHeader className="absolute top-4 left-4 z-50 flex flex-row items-center gap-2">
+        <DialogHeader className="absolute top-4 right-4 z-50 flex flex-row items-center gap-2">
           <DialogTitle className="sr-only">Issue Locations Map</DialogTitle>
           <DialogDescription className="sr-only">
             Map showing locations of community issues and your current location
@@ -349,7 +363,7 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
             variant="outline"
             size="icon"
             onClick={onClose}
-            className="h-8 w-8 rounded-full bg-white/90 hover:bg-white shadow-md"
+            className="h-8 w-8 rounded-full bg-white hover:bg-gray-50 shadow-lg border-gray-200 text-gray-600 hover:text-gray-800"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -366,7 +380,7 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
           )}
 
           {locationError && (
-            <div className="absolute top-4 right-4 z-50 bg-white/90 dark:bg-gray-800/90 p-3 rounded-lg shadow-md max-w-xs">
+            <div className="absolute top-4 left-4 z-50 bg-white/90 dark:bg-gray-800/90 p-3 rounded-lg shadow-md max-w-xs">
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
                 <div>
@@ -391,7 +405,43 @@ export function MapModal({ isOpen, onClose, posts }: MapModalProps) {
             </div>
           )}
 
-          <div ref={mapRef} className="h-full w-full" />
+          <div ref={mapRef} className="h-full w-full rounded-lg overflow-hidden" />
+
+          {/* Airbnb-style Preview Card */}
+          {selectedPost && (
+            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-80 max-w-[calc(100vw-2rem)]">
+              <div
+                className="bg-white rounded-xl shadow-lg p-3 cursor-pointer hover:shadow-xl transition-shadow relative"
+                onClick={handlePreviewCardClick}
+              >
+                {/* Close button */}
+                <button
+                  onClick={handlePreviewCardClose}
+                  className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors z-10"
+                >
+                  <X className="w-3 h-3 text-gray-600" />
+                </button>
+
+                <div className="flex gap-3">
+                  <img
+                    src={selectedPost.imageUrl || selectedPost.image_url || "/placeholder.svg"}
+                    alt="Issue"
+                    className="w-16 h-16 rounded-lg object-cover bg-gray-100 flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0 pr-6">
+                    <p className="font-medium text-sm text-gray-900 line-clamp-2 mb-2">
+                      {selectedPost.description || "No description available"}
+                    </p>
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="font-semibold text-orange-500">₿</span>
+                      <span className="font-medium text-xs text-gray-700">{formatSatsValue(selectedPost.reward)}</span>
+                    </div>
+                    <div className="text-xs text-gray-500">{formatPostDate(selectedPost)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

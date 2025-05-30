@@ -81,7 +81,7 @@ export function BottomNav() {
                 isActive("/profile") && "text-primary dark:text-primary",
               )}
             />
-            {hasPendingRequests && <span className="absolute top-0 right-4 w-2 h-2 bg-red-500 rounded-full"></span>}
+            {hasPendingRequests && <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>}
           </Link>
         </div>
       </div>
