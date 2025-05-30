@@ -23,16 +23,15 @@ export function AvatarSelector({ isOpen, onOpenChange }: AvatarSelectorProps) {
   const [selectedTab, setSelectedTab] = useState("gallery")
   const [isUploading, setIsUploading] = useState(false)
 
-  // Anime avatar options
-  const animeAvatars = [
-    "/images/avatars/anime-1.png",
-    "/images/avatars/anime-2.png",
-    "/images/avatars/anime-3.png",
-    "/images/avatars/anime-4.png",
-    "/images/avatars/anime-5.png",
-    "/images/avatars/anime-6.png",
-    "/images/avatars/anime-7.png",
-    "/images/avatars/anime-8.png",
+  // Studio Ghibli-style animal avatar options
+  const ghibliAvatars = [
+    "/images/avatars/ghibli-1.png", // Fox
+    "/images/avatars/ghibli-2.png", // Bunny
+    "/images/avatars/ghibli-3.png", // Owl
+    "/images/avatars/ghibli-4.png", // Cat
+    "/images/avatars/ghibli-5.png", // Deer
+    "/images/avatars/ghibli-6.png", // Bear
+    "/images/avatars/ghibli-7.png", // Swan
   ]
 
   const handleSelectAvatar = async (avatarUrl: string) => {
@@ -110,7 +109,7 @@ export function AvatarSelector({ isOpen, onOpenChange }: AvatarSelectorProps) {
 
           <TabsContent value="gallery" className="mt-4">
             <div className="grid grid-cols-4 gap-2">
-              {animeAvatars.map((avatar, index) => (
+              {ghibliAvatars.map((avatar, index) => (
                 <div
                   key={index}
                   className="relative w-16 h-16 overflow-hidden rounded-full cursor-pointer hover:opacity-80 transition-opacity"
@@ -118,9 +117,10 @@ export function AvatarSelector({ isOpen, onOpenChange }: AvatarSelectorProps) {
                 >
                   <Image
                     src={avatar || "/placeholder.svg"}
-                    alt={`Avatar option ${index + 1}`}
+                    alt={`Studio Ghibli animal avatar ${index + 1}`}
                     fill
                     className="object-cover"
+                    sizes="64px"
                   />
                 </div>
               ))}
