@@ -1,4 +1,4 @@
-export function LoadingSpinner({ message = "" }: { message?: string }) {
+export function LoadingSpinner({ message = "Loading..." }: { message?: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-screen">
       <div className="mb-4">
@@ -16,7 +16,7 @@ export function LoadingSpinner({ message = "" }: { message?: string }) {
           ></path>
         </svg>
       </div>
-      {message && <p className="text-lg font-medium text-center">{message}</p>}
+      <p className="text-lg font-medium text-center">{message}</p>
     </div>
   )
 }
