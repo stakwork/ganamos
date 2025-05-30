@@ -51,6 +51,7 @@ export default function ProfilePage() {
     resetToMainAccount,
     connectedAccounts,
     fetchConnectedAccounts,
+    activeUserId,
   } = useAuth()
   const { hasPendingRequests } = useNotifications()
   const router = useRouter()
@@ -81,6 +82,8 @@ export default function ProfilePage() {
   const initialDataLoaded = useRef(false)
   // Track if Bitcoin price has been fetched
   const bitcoinPriceFetched = useRef(false)
+  // Track the current active user to detect changes
+  const currentActiveUser = useRef<string | null>(null)
 
   // Add session guard with useEffect
   useEffect(() => {
@@ -89,6 +92,29 @@ export default function ProfilePage() {
       router.push("/auth/login")
     }
   }, [session, sessionLoaded, router])
+
+  // Detect when active user changes and reset data
+  useEffect(() => {
+    const newActiveUser = activeUserId || user?.id || null
+
+    if (currentActiveUser.current !== newActiveUser && newActiveUser) {
+      console.log("Active user changed, resetting data:", currentActiveUser.current, "->", newActiveUser)
+
+      // Reset all data
+      setActivities([])
+      setPostedIssues([])
+      setFixedIssues([])
+      setActivitiesPage(1)
+      setPostsPage(1)
+      setHasMoreActivities(false)
+      setHasMorePosts(false)
+      postsCache.current = []
+      initialDataLoaded.current = false
+
+      // Update the tracked user
+      currentActiveUser.current = newActiveUser
+    }
+  }, [activeUserId, user?.id])
 
   // Fetch the current Bitcoin price - memoized to prevent unnecessary re-creation
   const fetchBitcoinPrice = useCallback(async () => {
@@ -134,13 +160,17 @@ export default function ProfilePage() {
           console.log("Session expiry:", new Date(session.expires_at! * 1000).toISOString())
         }
 
+        // Use the active user ID (connected account or main account)
+        const currentUserId = activeUserId || user.id
+        console.log("Fetching posts for user:", currentUserId)
+
         const limit = 5
         const offset = (page - 1) * limit
 
         const { data, error } = await supabase
           .from("posts")
           .select("*")
-          .or(`user_id.eq.${user.id},fixed_by.eq.${user.id}`)
+          .or(`user_id.eq.${currentUserId},fixed_by.eq.${currentUserId}`)
           .order("created_at", { ascending: false })
           .limit(limit)
           .range(offset, offset + limit - 1)
@@ -159,7 +189,7 @@ export default function ProfilePage() {
         const { count } = await supabase
           .from("posts")
           .select("*", { count: "exact", head: true })
-          .or(`user_id.eq.${user.id},fixed_by.eq.${user.id}`)
+          .or(`user_id.eq.${currentUserId},fixed_by.eq.${currentUserId}`)
 
         console.log(`🔍 Found ${uniquePosts.length} unique user-related posts`)
         return {
@@ -171,7 +201,7 @@ export default function ProfilePage() {
         return { posts: [], hasMore: false }
       }
     },
-    [user, supabase, session],
+    [user, supabase, session, activeUserId],
   )
 
   // Process posts into different categories (posted, fixed, activities)
@@ -181,10 +211,13 @@ export default function ProfilePage() {
 
       console.log("🔍 Processing posts into categories")
 
+      // Use the active user ID (connected account or main account)
+      const currentUserId = activeUserId || user.id
+
       // Filter posted issues
-      const posted = posts.filter((post) => post.user_id === user.id || post.userId === user.id)
+      const posted = posts.filter((post) => post.user_id === currentUserId || post.userId === currentUserId)
       // Filter fixed issues
-      const fixed = posts.filter((post) => post.fixed_by === user.id)
+      const fixed = posts.filter((post) => post.fixed_by === currentUserId)
 
       // Update state based on append flag
       if (append) {
@@ -204,7 +237,7 @@ export default function ProfilePage() {
 
       return { posted, fixed }
     },
-    [user],
+    [user, activeUserId],
   )
 
   // Generate activities from posts with pagination
@@ -215,11 +248,14 @@ export default function ProfilePage() {
       setIsActivityLoading(true)
       console.log("🔍 Generating activities from posts")
 
+      // Use the active user ID (connected account or main account)
+      const currentUserId = activeUserId || user.id
+
       const userActivities: ActivityItem[] = []
 
       // Posts created by the user
       posts
-        .filter((post) => post.userId === user.id || post.user_id === user.id)
+        .filter((post) => post.userId === currentUserId || post.user_id === currentUserId)
         .forEach((post) => {
           userActivities.push({
             id: `post-${post.id}`,
@@ -232,7 +268,7 @@ export default function ProfilePage() {
 
       // Posts fixed by the user
       posts
-        .filter((post) => post.fixed_by === user.id && post.fixed === true)
+        .filter((post) => post.fixed_by === currentUserId && post.fixed === true)
         .forEach((post) => {
           if (post.fixed_at || post.fixedAt) {
             userActivities.push({
@@ -279,7 +315,7 @@ export default function ProfilePage() {
       setActivitiesPage(page)
       setIsActivityLoading(false)
     },
-    [user],
+    [user, activeUserId],
   )
 
   // Load more activities
@@ -326,31 +362,6 @@ export default function ProfilePage() {
     }
   }, [fetchUserPosts, postsPage, isLoadingMorePosts, processPosts])
 
-  // const fetchConnectedAccounts = useCallback(async () => {
-  //   if (!user) return
-
-  //   try {
-  //     const { data, error } = await supabase
-  //       .from("connected_accounts")
-  //       .select(`
-  //         id,
-  //         connected_user_id,
-  //         profiles!connected_accounts_connected_user_id_fkey (
-  //           id,
-  //           name,
-  //           email,
-  //           avatar_url
-  //         )
-  //       `)
-  //       .eq("primary_user_id", user.id)
-
-  //     if (error) throw error
-  //     setConnectedAccounts(data || [])
-  //   } catch (error) {
-  //     console.error("Error fetching connected accounts:", error)
-  //   }
-  // }, [user, supabase])
-
   // Initial data loading
   useEffect(() => {
     if (loading || !user || initialDataLoaded.current) return
@@ -376,7 +387,10 @@ export default function ProfilePage() {
       } else {
         // Fallback to mock data
         console.log("🔍 Using mock data")
-        const mockUserPosts = mockPosts.filter((post) => post.userId === user.id || post.user_id === user.id)
+        const currentUserId = activeUserId || user.id
+        const mockUserPosts = mockPosts.filter(
+          (post) => post.userId === currentUserId || post.user_id === currentUserId,
+        )
         processPosts(mockUserPosts)
 
         if (activeTab === "activity") {
@@ -394,7 +408,7 @@ export default function ProfilePage() {
     return () => {
       initialDataLoaded.current = false
     }
-  }, [user, loading, activeTab, fetchBitcoinPrice, fetchUserPosts, processPosts, generateActivities])
+  }, [user, loading, activeTab, fetchBitcoinPrice, fetchUserPosts, processPosts, generateActivities, activeUserId])
 
   useEffect(() => {
     fetchConnectedAccounts()
@@ -412,6 +426,9 @@ export default function ProfilePage() {
     },
     [activities.length, generateActivities],
   )
+
+  // Check if current profile is a child account
+  const isChildAccount = profile?.email?.endsWith("@ganamos.app") || false
 
   // Session guard with early return
   if (sessionLoaded && !session) {
@@ -464,7 +481,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <h2 className="text-xl font-bold">{profile.name}</h2>
-                <p className="text-sm text-muted-foreground">{profile.email}</p>
+                {!isChildAccount && <p className="text-sm text-muted-foreground">{profile.email}</p>}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -833,7 +850,7 @@ export default function ProfilePage() {
               New Group
             </Button>
           </div>
-          <GroupsList userId={user.id} />
+          <GroupsList userId={activeUserId || user.id} />
         </TabsContent>
       </Tabs>
 
