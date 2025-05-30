@@ -293,7 +293,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("Error during auth initialization:", error)
       } finally {
         setLoading(false)
-        setSessionLoaded(true) // Mark session as loaded regardless of outcome
+        setSessionLoaded(true) // Mark session as loaded after ALL async operations are complete
       }
 
       // Set up auth state change listener

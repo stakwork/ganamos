@@ -35,7 +35,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [showNoteDialog, setShowNoteDialog] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
-  const { user, profile, updateBalance } = useAuth()
+  const { user, profile, updateBalance, activeUserId } = useAuth()
   const supabase = createBrowserSupabaseClient()
   const [displayLocation, setDisplayLocation] = useState<string>("")
 
@@ -196,6 +196,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         const now = new Date()
         const nowIso = now.toISOString()
 
+        // Use the active user ID (connected account or main account)
+        const currentUserId = activeUserId || user.id
+
         const updatedPost = {
           ...post,
           fixed: true,
@@ -203,7 +206,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           fixed_at: nowIso,
           fixedImageUrl: fixImage,
           fixed_image_url: fixImage,
-          fixed_by: user.id,
+          fixed_by: currentUserId,
           fixer_note: fixerNote || null,
         }
 
@@ -214,7 +217,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             .update({
               fixed: true,
               fixed_at: nowIso,
-              fixed_by: user.id,
+              fixed_by: currentUserId,
               fixed_image_url: fixImage,
               fixer_note: fixerNote || null,
             })
@@ -224,13 +227,13 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             console.error("Error updating post in Supabase:", error)
           }
 
-          // Increment the user's fixed issues count
+          // Increment the correct user's fixed issues count
           await supabase
             .from("profiles")
             .update({
               fixed_issues_count: (profile.fixed_issues_count || 0) + 1,
             })
-            .eq("id", user.id)
+            .eq("id", currentUserId)
         }
 
         // Update the post in the mockPosts array
@@ -261,7 +264,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             const { data: updatedProfile, error } = await supabase
               .from("profiles")
               .select("balance")
-              .eq("id", user.id)
+              .eq("id", currentUserId)
               .single()
 
             if (error) {

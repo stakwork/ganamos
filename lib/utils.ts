@@ -8,9 +8,11 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatSatsValue(sats: number): string {
   if (sats >= 1000000) {
-    return `${(sats / 1000000).toFixed(1)}M sats`
+    const millions = sats / 1000000
+    return millions % 1 === 0 ? `${millions}M sats` : `${millions.toFixed(1)}M sats`
   } else if (sats >= 1000) {
-    return `${(sats / 1000).toFixed(1)}k sats`
+    const thousands = sats / 1000
+    return thousands % 1 === 0 ? `${thousands}k sats` : `${thousands.toFixed(1)}k sats`
   } else {
     return `${sats} sats`
   }
