@@ -12,8 +12,8 @@ import type { Post } from "@/lib/types"
 import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { reverseGeocode } from "@/lib/geocoding"
 import { MapModal } from "@/components/map-modal"
+import { reverseGeocode } from "@/lib/geocoding"
 
 export function PostCard({ post }: { post: Post }) {
   const router = useRouter()
@@ -22,7 +22,6 @@ export function PostCard({ post }: { post: Post }) {
   const [profileAvatar, setProfileAvatar] = useState<string>("")
   const [isLoadingProfile, setIsLoadingProfile] = useState(true)
   const [userId, setUserId] = useState<string>("")
-  const [locationName, setLocationName] = useState<string>("")
   const [isMapOpen, setIsMapOpen] = useState(false)
 
   useEffect(() => {
@@ -63,9 +62,18 @@ export function PostCard({ post }: { post: Post }) {
     fetchProfileData()
   }, [post.userId, post.user_id])
 
-  // Handle location display - convert coordinates to readable name if needed
+  // Handle location display - use stored city or convert coordinates to readable name if needed
+  const [locationName, setLocationName] = useState<string>("")
+
   useEffect(() => {
     const handleLocation = async () => {
+      // First priority: use stored city if available
+      if (post.city) {
+        setLocationName(post.city)
+        return
+      }
+
+      // Second priority: use location field
       if (post.location) {
         // Check if location is already a readable name (not coordinates)
         const coordinatePattern = /^-?\d+\.\d+,\s*-?\d+\.\d+$/
@@ -97,7 +105,7 @@ export function PostCard({ post }: { post: Post }) {
     }
 
     handleLocation()
-  }, [post.location, post.latitude, post.longitude])
+  }, [post.city, post.location, post.latitude, post.longitude])
 
   const handleClick = () => {
     router.push(`/post/${post.id}`)

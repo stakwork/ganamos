@@ -221,7 +221,7 @@ export function MapModal({ isOpen, onClose, posts, centerPost }: MapModalProps) 
         <!-- Oval background with shadow -->
         <rect x="1" y="1" width="${totalWidth - 2}" height="30" rx="15" ry="15" 
               fill="${backgroundColor}" 
-              stroke="#d1d5db" 
+              stroke="#F7931A" 
               strokeWidth="1" />
         <!-- Bitcoin symbol - adjusted position and size -->
         <text x="12" y="20" textAnchor="middle" fontFamily="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" fontSize="8" fontWeight="900" fill="${bitcoinColor}">₿</text>

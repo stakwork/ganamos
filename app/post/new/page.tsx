@@ -289,6 +289,7 @@ export default function NewPostPage() {
         createdAt: now,
         created_at: now.toISOString(), // Add both formats for compatibility
         group_id: selectedGroupId,
+        city: currentLocation?.displayName || null,
       }
 
       // Save to Supabase if available
@@ -308,6 +309,7 @@ export default function NewPostPage() {
             fixed: false,
             created_at: now.toISOString(),
             group_id: selectedGroupId,
+            city: currentLocation ? currentLocation.displayName : null,
           })
         } catch (error) {
           console.error("Error saving post to Supabase:", error)

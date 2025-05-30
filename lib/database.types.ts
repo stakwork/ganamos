@@ -55,6 +55,7 @@ export interface Database {
           fixed_by: string | null
           created_at: string
           group_id: string | null
+          city: string | null
         }
         Insert: {
           id?: string
@@ -75,6 +76,7 @@ export interface Database {
           fixed_by?: string | null
           created_at?: string
           group_id?: string | null
+          city?: string | null
         }
         Update: {
           id?: string
@@ -95,6 +97,7 @@ export interface Database {
           fixed_by?: string | null
           created_at?: string
           group_id?: string | null
+          city?: string | null
         }
       }
       groups: {

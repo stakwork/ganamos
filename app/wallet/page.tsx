@@ -49,7 +49,7 @@ function TransactionHistory() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-4">
+      <div className="flex justify-center py-2">
         <LoadingSpinner />
       </div>
     )
