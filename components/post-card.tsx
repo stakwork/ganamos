@@ -221,7 +221,7 @@ export function PostCard({ post }: { post: Post }) {
         <CardContent className="p-4">
           <div className="flex flex-col space-y-3">
             <div>
-              <p className="text-sm line-clamp-3" onClick={handleClick}>
+              <p className="text-base truncate cursor-pointer" onClick={handleClick}>
                 {post.description}
               </p>
             </div>

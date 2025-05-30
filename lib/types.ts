@@ -16,6 +16,7 @@ export interface Post {
   createdAt?: Date
   created_at?: string
   group_id?: string
+  fixer_note?: string
 }
 
 export interface User {

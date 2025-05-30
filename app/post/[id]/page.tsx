@@ -16,7 +16,11 @@ import { formatSatsValue } from "@/lib/utils"
 import { BitcoinLogo } from "@/components/bitcoin-logo"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import type { Post } from "@/lib/types"
+import { reverseGeocode } from "@/lib/geocoding"
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [post, setPost] = useState<Post | null>(null)
@@ -27,10 +31,13 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [showBeforeAfter, setShowBeforeAfter] = useState(false)
   const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
   const [fixerProfile, setFixerProfile] = useState<{ name: string; avatar_url: string | null } | null>(null)
+  const [fixerNote, setFixerNote] = useState("")
+  const [showNoteDialog, setShowNoteDialog] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
   const { user, profile, updateBalance } = useAuth()
   const supabase = createBrowserSupabaseClient()
+  const [displayLocation, setDisplayLocation] = useState<string>("")
 
   // Force hide bottom nav when camera is shown
   useEffect(() => {
@@ -115,6 +122,40 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     return () => window.removeEventListener("storage", handleStorageChange)
   }, [])
 
+  // Convert coordinates to city name if needed
+  useEffect(() => {
+    const convertLocation = async () => {
+      if (post) {
+        // First try to use stored city
+        if (post.city) {
+          setDisplayLocation(post.city)
+          return
+        }
+
+        // Fall back to existing location field
+        if (post.location && !post.location.includes(",")) {
+          setDisplayLocation(post.location)
+          return
+        }
+
+        // Last resort: convert coordinates to city
+        if (post.latitude && post.longitude) {
+          try {
+            const cityName = await reverseGeocode(post.latitude, post.longitude)
+            setDisplayLocation(cityName)
+          } catch (error) {
+            console.error("Error converting coordinates to city:", error)
+            setDisplayLocation(post.location || "Unknown location")
+          }
+        } else {
+          setDisplayLocation(post.location || "Unknown location")
+        }
+      }
+    }
+
+    convertLocation()
+  }, [post])
+
   const handleCaptureFixImage = (imageSrc: string) => {
     setFixImage(imageSrc)
     setShowCamera(false)
@@ -124,6 +165,14 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const handleRetakePhoto = () => {
     setShowBeforeAfter(false)
     setShowCamera(true)
+  }
+
+  const handleSaveNote = () => {
+    setShowNoteDialog(false)
+    toast({
+      title: "Note saved",
+      description: "Your note has been added to the fix",
+    })
   }
 
   const handleSubmitFix = async () => {
@@ -155,6 +204,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           fixedImageUrl: fixImage,
           fixed_image_url: fixImage,
           fixed_by: user.id,
+          fixer_note: fixerNote || null,
         }
 
         // Update in Supabase if possible
@@ -166,6 +216,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               fixed_at: nowIso,
               fixed_by: user.id,
               fixed_image_url: fixImage,
+              fixer_note: fixerNote || null,
             })
             .eq("id", post.id)
 
@@ -333,58 +384,130 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             </svg>
             <span className="sr-only">Back</span>
           </Button>
-          <h1 className="text-2xl font-bold">Before & After</h1>
+          <h1 className="text-2xl font-bold">Submit fix</h1>
         </div>
 
         <div className="space-y-6">
-          <div>
-            <h2 className="text-lg font-medium mb-2">Before</h2>
-            <div className="relative w-full h-64 overflow-hidden rounded-lg">
-              <Image
-                src={post.imageUrl || post.image_url || "/placeholder.svg"}
-                alt="Before"
-                fill
-                className="object-cover"
-              />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="relative w-full h-48 overflow-hidden rounded-lg">
+                <Image
+                  src={post.imageUrl || post.image_url || "/placeholder.svg"}
+                  alt="Before"
+                  fill
+                  className="object-cover"
+                />
+                <div className="absolute top-2 left-2">
+                  <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">Before</span>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div>
-            <h2 className="text-lg font-medium mb-2">After</h2>
-            <div className="relative w-full h-64 overflow-hidden rounded-lg">
-              <Image src={fixImage || "/placeholder.svg"} alt="After" fill className="object-cover" />
-              <div className="absolute top-2 right-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleRetakePhoto}
-                  className="bg-black/50 hover:bg-black/70 text-white border-0"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mr-1"
+            <div>
+              <div className="relative w-full h-48 overflow-hidden rounded-lg">
+                <Image src={fixImage || "/placeholder.svg"} alt="After" fill className="object-cover" />
+                <div className="absolute top-2 left-2">
+                  <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">After</span>
+                </div>
+                <div className="absolute top-2 right-2 flex space-x-1">
+                  <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="bg-black/50 hover:bg-black/70 text-white border-0 p-2"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Add a note</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="note">Note (optional)</Label>
+                          <Textarea
+                            id="note"
+                            placeholder="Add any details about how you fixed this issue..."
+                            value={fixerNote}
+                            onChange={(e) => setFixerNote(e.target.value)}
+                            className="mt-1"
+                            rows={4}
+                          />
+                        </div>
+                        <div className="flex justify-end space-x-2">
+                          <Button variant="outline" onClick={() => setShowNoteDialog(false)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={handleSaveNote}>Save note</Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleRetakePhoto}
+                    className="bg-black/50 hover:bg-black/70 text-white border-0 p-2"
                   >
-                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  Retake
-                </Button>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
+          <div className="space-y-3">
+            <div>
+              <h3 className="font-semibold text-lg">{post.title}</h3>
+            </div>
 
+            <div className="flex items-center p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg">
+              <div className="p-2 mr-3 bg-amber-100 rounded-full dark:bg-amber-950/50">
+                <BitcoinLogo size={16} />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Reward</p>
+                <p className="text-lg font-bold">{formatSatsValue(post.reward)}</p>
+              </div>
+            </div>
+
+            {fixerNote && (
+              <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                <p className="text-sm font-medium mb-1">Your note:</p>
+                <p className="text-sm text-muted-foreground">{fixerNote}</p>
+              </div>
+            )}
+          </div>
           <Button
             onClick={handleSubmitFix}
             disabled={submittingFix}
-            className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             {submittingFix ? (
               <div className="flex items-center">
@@ -501,7 +624,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
             <circle cx="12" cy="10" r="3" />
           </svg>
-          <span className="mr-3">{post.location}</span>
+          <span className="mr-3">{displayLocation}</span>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"
@@ -521,6 +644,14 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         </div>
         <p className="mt-4">{post.description}</p>
       </div>
+
+      {/* Show fixer note if it exists */}
+      {post.fixed && post.fixer_note && (
+        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border">
+          <h3 className="font-medium mb-2">Fixer's note:</h3>
+          <p className="text-sm text-muted-foreground">{post.fixer_note}</p>
+        </div>
+      )}
 
       <Card className="mb-6 border dark:border-gray-800">
         <CardContent className="p-4">

@@ -56,6 +56,7 @@ export interface Database {
           created_at: string
           group_id: string | null
           city: string | null
+          fixer_note: string | null
         }
         Insert: {
           id?: string
@@ -77,6 +78,7 @@ export interface Database {
           created_at?: string
           group_id?: string | null
           city?: string | null
+          fixer_note?: string | null
         }
         Update: {
           id?: string
@@ -98,6 +100,7 @@ export interface Database {
           created_at?: string
           group_id?: string | null
           city?: string | null
+          fixer_note?: string | null
         }
       }
       groups: {
