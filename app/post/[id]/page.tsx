@@ -188,16 +188,38 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     setSubmittingFix(true)
 
     try {
-      // In a real app, this would be an API call to verify the fix with AI
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      console.log("🔍 FIX SUBMISSION - Starting AI verification process")
+
+      // Call Groq API to verify the fix
+      const verificationResponse = await fetch("/api/verify-fix", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          beforeImage: post?.imageUrl || post?.image_url,
+          afterImage: fixImage,
+          description: post?.description,
+          title: post?.title,
+        }),
+      })
+
+      console.log("🔍 FIX SUBMISSION - Verification API response status:", verificationResponse.status)
+
+      if (!verificationResponse.ok) {
+        throw new Error("Failed to verify fix with AI")
+      }
+
+      const verificationResult = await verificationResponse.json()
+      console.log("🔍 FIX SUBMISSION - AI Verification Result:", verificationResult)
+
+      // For now, continue with existing logic regardless of AI result
+      // TODO: Implement confidence-based logic in next phase
 
       // Update the local state
       if (post && user && profile) {
         const now = new Date()
         const nowIso = now.toISOString()
-
-        // Use the active user ID (connected account or main account)
-        const currentUserId = activeUserId || user.id
 
         const updatedPost = {
           ...post,
@@ -206,7 +228,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           fixed_at: nowIso,
           fixedImageUrl: fixImage,
           fixed_image_url: fixImage,
-          fixed_by: currentUserId,
+          fixed_by: activeUserId || user.id,
           fixer_note: fixerNote || null,
         }
 
@@ -217,7 +239,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             .update({
               fixed: true,
               fixed_at: nowIso,
-              fixed_by: currentUserId,
+              fixed_by: activeUserId || user.id,
               fixed_image_url: fixImage,
               fixer_note: fixerNote || null,
             })
@@ -227,13 +249,13 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             console.error("Error updating post in Supabase:", error)
           }
 
-          // Increment the correct user's fixed issues count
+          // Increment the user's fixed issues count
           await supabase
             .from("profiles")
             .update({
               fixed_issues_count: (profile.fixed_issues_count || 0) + 1,
             })
-            .eq("id", currentUserId)
+            .eq("id", activeUserId || user.id)
         }
 
         // Update the post in the mockPosts array
@@ -264,7 +286,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             const { data: updatedProfile, error } = await supabase
               .from("profiles")
               .select("balance")
-              .eq("id", currentUserId)
+              .eq("id", user.id)
               .single()
 
             if (error) {
@@ -290,6 +312,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
       // Navigate back to dashboard after successful fix
       router.push("/dashboard")
     } catch (error) {
+      console.error("🔍 FIX SUBMISSION - Error during verification:", error)
       toast({
         title: "Error",
         description: "Could not verify the fix",
@@ -645,7 +668,6 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           </svg>
           <span>{formatDistanceToNow(new Date(post.createdAt || post.created_at), { addSuffix: true })}</span>
         </div>
-        <p className="mt-4">{post.description}</p>
       </div>
 
       {/* Show fixer note if it exists */}
@@ -678,6 +700,21 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                         <AvatarFallback>{getFixerInitials()}</AvatarFallback>
                       </Avatar>
                       <span className="text-xs font-medium">{formatFixerName()}</span>
+                    </div>
+                  </div>
+                )}
+                {!post.fixed && post.created_by && post.created_by_avatar && (
+                  <div className="flex items-center mt-1">
+                    <p className="text-xs text-muted-foreground mr-1">Created by</p>
+                    <div className="flex items-center">
+                      <Avatar className="h-4 w-4 mr-1">
+                        <AvatarImage
+                          src={post.created_by_avatar || "/placeholder.svg"}
+                          alt={post.created_by || "User"}
+                        />
+                        <AvatarFallback>{post.created_by?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs font-medium">{post.created_by}</span>
                     </div>
                   </div>
                 )}

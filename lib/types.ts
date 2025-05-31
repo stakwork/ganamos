@@ -13,6 +13,8 @@ export interface Post {
   fixed: boolean
   fixed_at?: string
   fixed_by?: string
+  created_by?: string // Add this line
+  created_by_avatar?: string
   createdAt?: Date
   created_at?: string
   group_id?: string

@@ -11,55 +11,22 @@ import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
 import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { MapModal } from "@/components/map-modal"
 import { reverseGeocode } from "@/lib/geocoding"
 
 export function PostCard({ post }: { post: Post }) {
   const router = useRouter()
   const [imageError, setImageError] = useState(false)
-  const [profileName, setProfileName] = useState<string>("")
-  const [profileAvatar, setProfileAvatar] = useState<string>("")
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
   const [userId, setUserId] = useState<string>("")
   const [isMapOpen, setIsMapOpen] = useState(false)
 
   useEffect(() => {
-    const fetchProfileData = async () => {
-      try {
-        const postUserId = post.userId || post.user_id
-        if (!postUserId) {
-          setIsLoadingProfile(false)
-          return
-        }
-
-        setUserId(postUserId)
-
-        const supabase = createBrowserSupabaseClient()
-        const { data, error } = await supabase.from("profiles").select("name, avatar_url").eq("id", postUserId).single()
-
-        if (error) {
-          console.error("Error fetching profile:", error)
-          setIsLoadingProfile(false)
-          return
-        }
-
-        if (data) {
-          // Format name as first name and last initial
-          const nameParts = data.name?.split(" ") || []
-          const firstName = nameParts[0] || ""
-          const lastInitial = nameParts.length > 1 ? `${nameParts[nameParts.length - 1].charAt(0)}.` : ""
-          setProfileName(`${firstName} ${lastInitial}`)
-          setProfileAvatar(data.avatar_url || "")
-        }
-        setIsLoadingProfile(false)
-      } catch (error) {
-        console.error("Error in fetchProfileData:", error)
-        setIsLoadingProfile(false)
-      }
+    const postUserId = post.userId || post.user_id
+    if (!postUserId) {
+      return
     }
 
-    fetchProfileData()
+    setUserId(postUserId)
   }, [post.userId, post.user_id])
 
   // Handle location display - use stored city or convert coordinates to readable name if needed
@@ -150,8 +117,8 @@ export function PostCard({ post }: { post: Post }) {
   }
 
   const getInitials = () => {
-    if (!profileName) return "U"
-    return profileName
+    if (!post.created_by) return "U"
+    return post.created_by
       .split(" ")
       .map((part) => part.charAt(0))
       .join("")
@@ -230,12 +197,10 @@ export function PostCard({ post }: { post: Post }) {
             <div className="flex items-center">
               <div className="flex items-center cursor-pointer hover:opacity-80" onClick={handleProfileClick}>
                 <Avatar className="h-6 w-6 mr-2">
-                  <AvatarImage src={profileAvatar || "/placeholder.svg"} alt={profileName || "User"} />
+                  <AvatarImage src={post.created_by_avatar || "/placeholder.svg"} alt={post.created_by || "User"} />
                   <AvatarFallback>{getInitials()}</AvatarFallback>
                 </Avatar>
-                <span className="text-sm font-medium">
-                  {isLoadingProfile ? "Loading..." : profileName || "Anonymous"}
-                </span>
+                <span className="text-sm font-medium">{post.created_by || "Anonymous"}</span>
               </div>
             </div>
           </div>

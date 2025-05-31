@@ -57,6 +57,8 @@ export interface Database {
           group_id: string | null
           city: string | null
           fixer_note: string | null
+          created_by: string | null
+          created_by_avatar: string | null
         }
         Insert: {
           id?: string
@@ -79,6 +81,8 @@ export interface Database {
           group_id?: string | null
           city?: string | null
           fixer_note?: string | null
+          created_by?: string | null
+          created_by_avatar?: string | null
         }
         Update: {
           id?: string
@@ -101,6 +105,8 @@ export interface Database {
           group_id?: string | null
           city?: string | null
           fixer_note?: string | null
+          created_by?: string | null
+          created_by_avatar?: string | null
         }
       }
       groups: {

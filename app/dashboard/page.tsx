@@ -292,12 +292,12 @@ export default function DashboardPage() {
 
               <Button
                 variant="ghost"
-                size="icon"
                 onClick={() => setIsMapOpen(true)}
-                className="h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+                className="flex items-center gap-1 h-9 px-3 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
                 aria-label="View map"
               >
-                <Map className="h-5 w-5" />
+                <Map className="h-4 w-4" />
+                <span className="text-sm font-medium">Map</span>
               </Button>
 
               {activeFilters && activeFilters.count > 0 && (

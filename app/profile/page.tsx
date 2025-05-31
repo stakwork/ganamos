@@ -362,7 +362,7 @@ export default function ProfilePage() {
     }
   }, [fetchUserPosts, postsPage, isLoadingMorePosts, processPosts])
 
-  // Initial data loading - now includes activeUserId dependency
+  // Initial data loading
   useEffect(() => {
     if (loading || !user || initialDataLoaded.current) return
 
