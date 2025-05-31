@@ -109,6 +109,41 @@ export interface Database {
           created_by_avatar?: string | null
         }
       }
+      pending_fixes: {
+        Row: {
+          id: string
+          post_id: string
+          fixer_id: string
+          fix_image_url: string
+          fixer_note: string | null
+          confidence_score: number
+          ai_reasoning: string | null
+          created_at: string
+          status: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          fixer_id: string
+          fix_image_url: string
+          fixer_note?: string | null
+          confidence_score: number
+          ai_reasoning?: string | null
+          created_at?: string
+          status?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          fixer_id?: string
+          fix_image_url?: string
+          fixer_note?: string | null
+          confidence_score?: number
+          ai_reasoning?: string | null
+          created_at?: string
+          status?: string
+        }
+      }
       groups: {
         Row: {
           id: string
@@ -240,6 +275,7 @@ export interface Database {
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
 export type Post = Database["public"]["Tables"]["posts"]["Row"]
+export type PendingFix = Database["public"]["Tables"]["pending_fixes"]["Row"]
 export type Transaction = Database["public"]["Tables"]["transactions"]["Row"]
 export type Group = Database["public"]["Tables"]["groups"]["Row"]
 export type GroupMember = Database["public"]["Tables"]["group_members"]["Row"]

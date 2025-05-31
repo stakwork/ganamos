@@ -1,1009 +1,355 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { Dialog, DialogTrigger } from "@/components/ui/dialog"
-import { PostCard } from "@/components/post-card"
-import { useAuth } from "@/components/auth-provider"
-import { useNotifications } from "@/components/notifications-provider"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useSession } from "next-auth/react"
+import { useEffect, useState } from "react"
+import { Post } from "@/components/post"
+import { supabase } from "@/lib/supabase"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
-import { mockPosts } from "@/lib/mock-data"
-import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { useToast } from "@/hooks/use-toast"
-import { AvatarSelector } from "@/components/avatar-selector"
-import { GroupsList } from "@/components/groups-list"
-import type { Post } from "@/lib/types"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
-import { AddConnectedAccountDialog } from "@/components/add-connected-account-dialog"
+import { useRouter } from "next/navigation"
+import type { Group, Post as PostType, Profile } from "@/lib/database.types"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { useToast } from "@/components/ui/use-toast"
+import { cn } from "@/lib/utils"
+import { Calendar } from "@/components/calendar"
+import { CalendarIcon } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import type { PendingFix } from "@/lib/database.types"
 
-type ActivityItem = {
+interface Activity {
   id: string
-  type: "post" | "fix" | "reward"
-  postId: string
-  postTitle: string
-  timestamp: Date
-  amount?: number
+  created_at: string
+  type: string
+  post_id: string
+  post_title: string
 }
 
-export default function ProfilePage() {
-  const {
-    user,
-    profile,
-    loading,
-    session,
-    sessionLoaded,
-    signOut,
-    isConnectedAccount,
-    switchToAccount,
-    resetToMainAccount,
-    connectedAccounts,
-    fetchConnectedAccounts,
-    activeUserId,
-  } = useAuth()
-  const { hasPendingRequests } = useNotifications()
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString)
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+  })
+}
+
+const ProfilePage = () => {
+  const { data: session } = useSession()
+  const user = session?.user
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [posts, setPosts] = useState<PostType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [userGroups, setUserGroups] = useState<Group[]>([])
+  const [activity, setActivity] = useState<Activity[]>([])
+  const [pendingReviews, setPendingReviews] = useState<PendingFix[]>([])
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState("activity")
-  const [activities, setActivities] = useState<ActivityItem[]>([])
-  const [showQrDialog, setShowQrDialog] = useState(false)
-  const [showAvatarSelector, setShowAvatarSelector] = useState(false)
-  const [postedIssues, setPostedIssues] = useState<Post[]>([])
-  const [fixedIssues, setFixedIssues] = useState<Post[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [isActivityLoading, setIsActivityLoading] = useState(false)
-  const [bitcoinPrice, setBitcoinPrice] = useState(64000)
-  const [isPriceLoading, setIsPriceLoading] = useState(true)
-  const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
-  const [activitiesPage, setActivitiesPage] = useState(1)
-  const [hasMoreActivities, setHasMoreActivities] = useState(false)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [postsPage, setPostsPage] = useState(1)
-  const [hasMorePosts, setHasMorePosts] = useState(false)
-  const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false)
-  const ACTIVITIES_PER_PAGE = 10
-  const [showAddAccountDialog, setShowAddAccountDialog] = useState(false)
+  const [date, setDate] = useState<Date | undefined>(new Date())
 
-  // Cache for posts data to avoid redundant processing
-  const postsCache = useRef<Post[]>([])
-  // Track if initial data has been loaded
-  const initialDataLoaded = useRef(false)
-  // Track if Bitcoin price has been fetched
-  const bitcoinPriceFetched = useRef(false)
-  // Track the current active user to detect changes
-  const currentActiveUser = useRef<string | null>(null)
-
-  // Add session guard with useEffect
   useEffect(() => {
-    if (sessionLoaded && !session) {
-      console.log("Profile - No session after loading, redirecting to login")
-      router.push("/auth/login")
-    }
-  }, [session, sessionLoaded, router])
+    if (!user) return
 
-  // Detect when active user changes and reset data
-  useEffect(() => {
-    const newActiveUser = activeUserId || user?.id || null
-
-    if (currentActiveUser.current !== newActiveUser && newActiveUser) {
-      console.log("Active user changed, resetting data:", currentActiveUser.current, "->", newActiveUser)
-
-      // Reset all data
-      setActivities([])
-      setPostedIssues([])
-      setFixedIssues([])
-      setActivitiesPage(1)
-      setPostsPage(1)
-      setHasMoreActivities(false)
-      setHasMorePosts(false)
-      postsCache.current = []
-      initialDataLoaded.current = false
-
-      // Update the tracked user
-      currentActiveUser.current = newActiveUser
-    }
-  }, [activeUserId, user?.id])
-
-  // Fetch the current Bitcoin price - memoized to prevent unnecessary re-creation
-  const fetchBitcoinPrice = useCallback(async () => {
-    if (bitcoinPriceFetched.current) return
-
-    try {
-      setIsPriceLoading(true)
-      console.log("🔍 Fetching Bitcoin price from CoinMarketCap")
-
-      const response = await fetch("/api/bitcoin-price")
-      const data = await response.json()
-
-      if (data.price) {
-        console.log(`🔍 Current Bitcoin price: $${data.price}`)
-        setBitcoinPrice(data.price)
-        bitcoinPriceFetched.current = true
-      } else {
-        console.warn("No price data returned, using fallback price")
-      }
-    } catch (error) {
-      console.error("Error fetching Bitcoin price:", error)
-    } finally {
-      setIsPriceLoading(false)
-    }
-  }, [])
-
-  // Calculate USD value from satoshis
-  const calculateUsdValue = (sats: number) => {
-    const btcAmount = sats / 100000000
-    const usdValue = btcAmount * bitcoinPrice
-    return usdValue.toFixed(2)
-  }
-
-  // Fetch all posts related to the user in a single query
-  const fetchUserPosts = useCallback(
-    async (page = 1) => {
-      if (!user || !supabase) return { posts: [], hasMore: false }
-
+    const fetchProfile = async () => {
       try {
-        console.log("🔍 Fetching user-related posts")
-        console.log("Session before fetchUserPosts:", !!session)
-        if (session) {
-          console.log("Session expiry:", new Date(session.expires_at! * 1000).toISOString())
+        setLoading(true)
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single()
+
+        if (profileError) {
+          throw profileError
         }
 
-        // Use the active user ID (connected account or main account)
-        const currentUserId = activeUserId || user.id
-        console.log("Fetching posts for user:", currentUserId)
+        setProfile(profileData)
+      } catch (error: any) {
+        console.error("Error fetching profile:", error.message)
+        toast({
+          title: "Error fetching profile",
+          description: error.message,
+          variant: "destructive",
+        })
+      }
+    }
 
-        const limit = 5
-        const offset = (page - 1) * limit
-
-        const { data, error } = await supabase
+    const fetchUserPosts = async () => {
+      try {
+        const { data: postsData, error: postsError } = await supabase
           .from("posts")
           .select("*")
-          .or(`user_id.eq.${currentUserId},fixed_by.eq.${currentUserId}`)
+          .eq("user_id", user.id)
           .order("created_at", { ascending: false })
-          .limit(limit)
-          .range(offset, offset + limit - 1)
 
-        if (error) {
-          console.error("Error fetching user posts:", error)
-          return { posts: [], hasMore: false }
+        if (postsError) {
+          throw postsError
         }
 
-        // Deduplicate posts by id in case a user both created and fixed the same post
-        const uniquePosts = data
-          ? data.filter((post, index, self) => index === self.findIndex((p) => p.id === post.id))
-          : []
+        setPosts(postsData)
+      } catch (error: any) {
+        console.error("Error fetching posts:", error.message)
+      }
+    }
 
-        // Check if there are more posts
-        const { count } = await supabase
-          .from("posts")
-          .select("*", { count: "exact", head: true })
-          .or(`user_id.eq.${currentUserId},fixed_by.eq.${currentUserId}`)
+    const fetchUserGroups = async () => {
+      try {
+        const { data: groupsData, error: groupsError } = await supabase
+          .from("groups")
+          .select("*")
+          .contains("members", [user.id])
 
-        console.log(`🔍 Found ${uniquePosts.length} unique user-related posts`)
-        return {
-          posts: uniquePosts,
-          hasMore: (count || 0) > page * limit,
+        if (groupsError) {
+          throw groupsError
         }
+
+        setUserGroups(groupsData || [])
+      } catch (error: any) {
+        console.error("Error fetching groups:", error.message)
+      }
+    }
+
+    const fetchActivity = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("activity")
+          .select(`*, posts (title)`)
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+
+        if (error) throw error
+
+        const enrichedActivity = data.map((item) => ({
+          id: item.id,
+          created_at: item.created_at,
+          type: item.type,
+          post_id: item.post_id,
+          post_title: (item.posts as { title: string })?.title || "Unknown Post",
+        }))
+
+        setActivity(enrichedActivity)
+      } catch (error: any) {
+        console.error("Error fetching activity:", error.message)
+      }
+    }
+
+    const fetchPendingReviews = async () => {
+      if (!user) return
+
+      try {
+        const { data, error } = await supabase
+          .from("pending_fixes")
+          .select(`
+            *,
+            post:posts!inner(title, user_id),
+            fixer_profile:profiles!fixer_id(name, avatar_url)
+          `)
+          .eq("post.user_id", user.id)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+
+        if (error) throw error
+        setPendingReviews(data || [])
       } catch (error) {
-        console.error("Error in fetchUserPosts:", error)
-        return { posts: [], hasMore: false }
+        console.error("Error fetching pending reviews:", error)
       }
-    },
-    [user, supabase, session, activeUserId],
-  )
-
-  // Process posts into different categories (posted, fixed, activities)
-  const processPosts = useCallback(
-    (posts: Post[], append = false) => {
-      if (!user || !posts) return
-
-      console.log("🔍 Processing posts into categories")
-
-      // Use the active user ID (connected account or main account)
-      const currentUserId = activeUserId || user.id
-
-      // Filter posted issues
-      const posted = posts.filter((post) => post.user_id === currentUserId || post.userId === currentUserId)
-      // Filter fixed issues
-      const fixed = posts.filter((post) => post.fixed_by === currentUserId)
-
-      // Update state based on append flag
-      if (append) {
-        setPostedIssues((prev) => [...prev, ...posted])
-        setFixedIssues((prev) => [...prev, ...fixed])
-      } else {
-        setPostedIssues(posted)
-        setFixedIssues(fixed)
-      }
-
-      // Store in cache for later use
-      if (!append) {
-        postsCache.current = posts
-      } else {
-        postsCache.current = [...postsCache.current, ...posts]
-      }
-
-      return { posted, fixed }
-    },
-    [user, activeUserId],
-  )
-
-  // Generate activities from posts with pagination
-  const generateActivities = useCallback(
-    (posts: Post[], page: number) => {
-      if (!user || !posts) return
-
-      setIsActivityLoading(true)
-      console.log("🔍 Generating activities from posts")
-
-      // Use the active user ID (connected account or main account)
-      const currentUserId = activeUserId || user.id
-
-      const userActivities: ActivityItem[] = []
-
-      // Posts created by the user
-      posts
-        .filter((post) => post.userId === currentUserId || post.user_id === currentUserId)
-        .forEach((post) => {
-          userActivities.push({
-            id: `post-${post.id}`,
-            type: "post",
-            postId: post.id,
-            postTitle: post.title,
-            timestamp: new Date(post.createdAt || post.created_at),
-          })
-        })
-
-      // Posts fixed by the user
-      posts
-        .filter((post) => post.fixed_by === currentUserId && post.fixed === true)
-        .forEach((post) => {
-          if (post.fixed_at || post.fixedAt) {
-            userActivities.push({
-              id: `fix-${post.id}`,
-              type: "fix",
-              postId: post.id,
-              postTitle: post.title,
-              timestamp: new Date(post.fixed_at || post.fixedAt),
-            })
-
-            userActivities.push({
-              id: `reward-${post.id}`,
-              type: "reward",
-              postId: post.id,
-              postTitle: post.title,
-              timestamp: new Date(post.fixed_at || post.fixedAt),
-              amount: post.reward,
-            })
-          }
-        })
-
-      // Sort by timestamp (newest first)
-      userActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-
-      const totalActivities = userActivities.length
-      console.log(`🔍 Generated ${totalActivities} total activity items`)
-
-      // Calculate pagination
-      const itemsPerPage = ACTIVITIES_PER_PAGE
-      const start = (page - 1) * itemsPerPage
-      const end = start + itemsPerPage
-      const pageActivities = userActivities.slice(start, end)
-
-      // Check if there are more activities to load
-      setHasMoreActivities(end < totalActivities)
-
-      // Update the activities state based on the page
-      if (page === 1) {
-        setActivities(pageActivities)
-      } else {
-        setActivities((prev) => [...prev, ...pageActivities])
-      }
-
-      setActivitiesPage(page)
-      setIsActivityLoading(false)
-    },
-    [user, activeUserId],
-  )
-
-  // Load more activities
-  const handleLoadMore = useCallback(() => {
-    if (isLoadingMore) return
-
-    setIsLoadingMore(true)
-    const nextPage = activitiesPage + 1
-
-    // Use cached posts to generate more activities
-    if (postsCache.current.length > 0) {
-      generateActivities(postsCache.current, nextPage)
-      setIsLoadingMore(false)
-    } else {
-      // Fallback to fetching if cache is empty
-      fetchUserPosts().then(({ posts }) => {
-        if (posts) {
-          generateActivities(posts, nextPage)
-        }
-        setIsLoadingMore(false)
-      })
-    }
-  }, [activitiesPage, fetchUserPosts, generateActivities, isLoadingMore])
-
-  // Add Load More Posts Function
-  const handleLoadMorePosts = useCallback(async () => {
-    if (isLoadingMorePosts) return
-
-    setIsLoadingMorePosts(true)
-    const nextPage = postsPage + 1
-
-    try {
-      const { posts, hasMore } = await fetchUserPosts(nextPage)
-
-      if (posts.length > 0) {
-        processPosts(posts, true) // true = append mode
-        setHasMorePosts(hasMore)
-        setPostsPage(nextPage)
-      }
-    } catch (error) {
-      console.error("Error loading more posts:", error)
-    } finally {
-      setIsLoadingMorePosts(false)
-    }
-  }, [fetchUserPosts, postsPage, isLoadingMorePosts, processPosts])
-
-  // Initial data loading
-  useEffect(() => {
-    if (loading || !user || initialDataLoaded.current) return
-
-    const loadInitialData = async () => {
-      setIsLoading(true)
-
-      // Fetch Bitcoin price (only once)
-      fetchBitcoinPrice()
-
-      // Fetch user posts immediately regardless of active tab
-      const { posts, hasMore } = await fetchUserPosts(1)
-
-      if (posts.length > 0) {
-        // Process posts into different categories
-        processPosts(posts)
-        setHasMorePosts(hasMore)
-
-        // Generate initial activities if on activity tab
-        if (activeTab === "activity") {
-          generateActivities(posts, 1)
-        }
-      } else {
-        // Fallback to mock data
-        console.log("🔍 Using mock data")
-        const currentUserId = activeUserId || user.id
-        const mockUserPosts = mockPosts.filter(
-          (post) => post.userId === currentUserId || post.user_id === currentUserId,
-        )
-        processPosts(mockUserPosts)
-
-        if (activeTab === "activity") {
-          generateActivities(mockUserPosts, 1)
-        }
-      }
-
-      initialDataLoaded.current = true
-      setIsLoading(false)
     }
 
-    loadInitialData()
+    fetchProfile()
+    fetchUserPosts()
+    fetchUserGroups()
+    fetchPendingReviews()
+    fetchActivity()
+    setLoading(false)
+  }, [session?.user, user?.id, toast])
 
-    // Cleanup function
-    return () => {
-      initialDataLoaded.current = false
-    }
-  }, [user, loading, activeTab, fetchBitcoinPrice, fetchUserPosts, processPosts, generateActivities, activeUserId])
-
-  useEffect(() => {
-    fetchConnectedAccounts()
-  }, [fetchConnectedAccounts])
-
-  // Handle tab changes
-  const handleTabChange = useCallback(
-    (value: string) => {
-      setActiveTab(value)
-
-      // If we're switching to activity tab and don't have activities yet
-      if (value === "activity" && activities.length === 0 && postsCache.current.length > 0) {
-        generateActivities(postsCache.current, 1)
-      }
-    },
-    [activities.length, generateActivities],
-  )
-
-  // Check if current profile is a child account
-  const isChildAccount = profile?.email?.endsWith("@ganamos.app") || false
-
-  // Session guard with early return
-  if (sessionLoaded && !session) {
-    return null // Will redirect in useEffect
+  if (loading) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="flex items-center space-x-4 mb-4">
+          <Skeleton className="h-12 w-12 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-[250px]" />
+            <Skeleton className="h-4 w-[200px]" />
+          </div>
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      </div>
+    )
   }
 
-  if (loading || !user || !profile) {
+  if (!profile) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">Loading...</div>
+      <div className="container mx-auto p-4">
+        <p>Could not load profile.</p>
       </div>
     )
   }
 
   return (
-    <div className="container px-4 py-6 mx-auto max-w-md">
-      <div className="mb-6"></div>
-
-      <Card className="mb-6 border dark:border-gray-800">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div
-                className="relative w-16 h-16 mr-4 overflow-hidden rounded-full cursor-pointer"
-                onClick={() => setShowAvatarSelector(true)}
-              >
-                <Image
-                  src={profile.avatar_url || "/placeholder.svg?height=64&width=64"}
-                  alt={profile.name || "User"}
-                  fill
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 transition-opacity hover:bg-opacity-30">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="white"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="opacity-0 transition-opacity hover:opacity-100"
-                  >
-                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-                    <circle cx="12" cy="13" r="3" />
-                  </svg>
-                </div>
-              </div>
-              <div>
-                <h2 className="text-xl font-bold">{profile.name}</h2>
-                {!isChildAccount && <p className="text-sm text-muted-foreground">{profile.email}</p>}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" className="h-9 w-9 rounded-md">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="6" r="1" />
-                      <circle cx="12" cy="12" r="1" />
-                      <circle cx="12" cy="18" r="1" />
-                    </svg>
-                    <span className="sr-only">Open menu</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {/* Primary Account */}
-                  <DropdownMenuItem
-                    onClick={() => (!isConnectedAccount ? null : resetToMainAccount())}
-                    className={!isConnectedAccount ? "bg-muted" : "cursor-pointer"}
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center">
-                        <div className="w-6 h-6 mr-2 overflow-hidden rounded-full">
-                          <Image
-                            src={user?.user_metadata?.avatar_url || "/placeholder.svg?height=24&width=24"}
-                            alt={user?.user_metadata?.full_name || "Main Account"}
-                            width={24}
-                            height={24}
-                            className="object-cover"
-                          />
-                        </div>
-                        <span>{user?.user_metadata?.full_name || "Main Account"} (You)</span>
-                      </div>
-                      {!isConnectedAccount && (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M20 6 9 17l-5-5" />
-                        </svg>
-                      )}
-                    </div>
-                  </DropdownMenuItem>
-
-                  {/* Connected Accounts */}
-                  {connectedAccounts.map((account) => (
-                    <DropdownMenuItem
-                      key={account.id}
-                      onClick={() =>
-                        isConnectedAccount && profile?.id === account.id ? null : switchToAccount(account.id)
-                      }
-                      className={isConnectedAccount && profile?.id === account.id ? "bg-muted" : "cursor-pointer"}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center">
-                          <div className="w-6 h-6 mr-2 overflow-hidden rounded-full">
-                            <Image
-                              src={account.avatar_url || "/placeholder.svg?height=24&width=24"}
-                              alt={account.name}
-                              width={24}
-                              height={24}
-                              className="object-cover"
-                            />
-                          </div>
-                          <span>{account.name}</span>
-                        </div>
-                        {isConnectedAccount && profile?.id === account.id && (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M20 6 9 17l-5-5" />
-                          </svg>
-                        )}
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem onClick={() => setShowAddAccountDialog(true)}>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="mr-2"
-                    >
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <line x1="19" y1="8" x2="24" y2="13" />
-                      <line x1="24" y1="8" x2="19" y2="13" />
-                    </svg>
-                    Add Connected Account
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem onClick={signOut}>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="mr-2"
-                    >
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <polyline points="16,17 21,12 16,7" />
-                      <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                    Log Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+    <div className="container mx-auto py-10">
+      <div className="mb-8 flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Avatar>
+            <AvatarImage src={profile.avatar_url || "/placeholder.svg"} alt={profile.name} />
+            <AvatarFallback>{profile.name?.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <h2 className="text-2xl font-semibold">{profile.name}</h2>
+            <p className="text-muted-foreground">{profile.email}</p>
           </div>
+        </div>
+        <Button onClick={() => router.push("/account")}>Edit Profile</Button>
+      </div>
 
-          <Separator className="my-4 dark:bg-gray-800" />
-
-          <div className="grid grid-cols-2 gap-4">
-            <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="p-3 text-center border rounded-lg w-full h-auto dark:border-gray-800"
-                  onClick={() => router.push("/wallet")}
-                >
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-center mb-1">
-                      <div className="w-4 h-4 mr-1.5 relative">
-                        <Image
-                          src="/images/bitcoin-logo.png"
-                          alt="Bitcoin"
-                          width={16}
-                          height={16}
-                          className="object-contain"
-                        />
-                      </div>
-                      <p className="text-sm text-muted-foreground">Balance</p>
-                    </div>
-                    <p className="text-xl font-bold">{formatSatsValue(profile.balance)}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {isPriceLoading ? "Loading..." : `$${calculateUsdValue(profile.balance)} USD`}
-                    </p>
-                  </div>
-                </Button>
-              </DialogTrigger>
-            </Dialog>
-            <div className="p-3 text-center border rounded-lg dark:border-gray-800">
-              <p className="text-sm text-muted-foreground">Issues Fixed</p>
-              <p className="text-xl font-bold">{profile.fixed_issues_count || 0}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Tabs defaultValue="activity" className="w-full" onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-3 mb-4 dark:bg-gray-800/50">
-          <TabsTrigger value="activity">Activity</TabsTrigger>
+      <Tabs defaultValue="posts" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="posts">Posts</TabsTrigger>
-          <TabsTrigger value="groups" className="relative">
-            Groups
-            {hasPendingRequests && <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>}
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="groups">Groups</TabsTrigger>
+          <TabsTrigger value="reviews" className="relative">
+            Reviews
+            {pendingReviews.length > 0 && (
+              <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs">
+                {pendingReviews.length}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
-
         <TabsContent value="posts" className="space-y-4">
-          {isLoading ? (
-            <div className="p-8 text-center">
-              <div className="animate-pulse flex flex-col space-y-4">
-                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-              </div>
+          {posts.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No posts yet</p>
             </div>
-          ) : [...postedIssues, ...fixedIssues].length > 0 ? (
-            <>
-              <div className="space-y-4">
-                {[...postedIssues, ...fixedIssues]
-                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                  .map((post) => (
-                    <PostCard key={post.id} post={post} />
-                  ))}
-              </div>
-
-              {hasMorePosts && (
-                <div className="mt-6 text-center">
-                  <Button
-                    variant="outline"
-                    onClick={handleLoadMorePosts}
-                    disabled={isLoadingMorePosts}
-                    className="w-full"
-                  >
-                    {isLoadingMorePosts ? (
-                      <div className="flex items-center justify-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Loading...
-                      </div>
-                    ) : (
-                      "Load More"
-                    )}
-                  </Button>
-                </div>
-              )}
-            </>
           ) : (
-            <div className="p-8 text-center">
-              <p className="text-muted-foreground">No posts yet</p>
-              <Button className="mt-4" onClick={() => router.push("/dashboard")}>
-                Start exploring issues
-              </Button>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {posts.map((post) => (
+                <Post key={post.id} post={post} />
+              ))}
             </div>
           )}
         </TabsContent>
-
         <TabsContent value="activity" className="space-y-4">
-          {isLoading || isActivityLoading ? (
-            <div className="p-8 text-center">
-              <div className="animate-pulse flex flex-col space-y-4">
-                <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-                <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-                <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Activity</h3>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn("w-[280px] justify-start text-left font-normal", !date && "text-muted-foreground")}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? formatDate(date.toString()) : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={setDate}
+                  disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <ScrollArea className="h-[400px] w-full rounded-md border">
+            {activity.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No activity yet</p>
               </div>
-            </div>
-          ) : activities.length > 0 ? (
-            <>
-              <div className="space-y-4">
-                {activities.map((activity) => (
-                  <ActivityCard key={activity.id} activity={activity} />
+            ) : (
+              <div className="p-4">
+                {activity.map((item) => (
+                  <Card key={item.id} className="mb-4">
+                    <CardContent>
+                      <p className="font-semibold">{item.type}</p>
+                      <p className="text-sm text-muted-foreground">Post: {item.post_title}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(item.created_at)}</p>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
-
-              {hasMoreActivities && (
-                <div className="mt-6 text-center">
-                  <Button variant="outline" onClick={handleLoadMore} disabled={isLoadingMore} className="w-full">
-                    {isLoadingMore ? (
-                      <div className="flex items-center justify-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Loading...
-                      </div>
-                    ) : (
-                      "Load More"
-                    )}
-                  </Button>
-                </div>
-              )}
-            </>
+            )}
+          </ScrollArea>
+        </TabsContent>
+        <TabsContent value="groups" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Your Groups</h3>
+            <Button size="sm" onClick={() => router.push("/groups/create")}>
+              Create Group
+            </Button>
+          </div>
+          {userGroups.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>Not part of any groups yet</p>
+            </div>
           ) : (
-            <div className="p-8 text-center">
-              <p className="text-muted-foreground">No activity yet</p>
-              <Button className="mt-4" onClick={() => router.push("/dashboard")}>
-                Start exploring issues
-              </Button>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {userGroups.map((group) => (
+                <Card key={group.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <h4 className="font-medium mb-2">{group.name}</h4>
+                    <p className="text-sm text-muted-foreground">{group.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </TabsContent>
-
-        <TabsContent value="groups" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <Button size="sm" variant="outline" onClick={() => router.push("/groups/search")}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mr-1"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
-              Find Group
-            </Button>
-            <Button size="sm" variant="outline">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mr-1"
-              >
-                <path d="M12 5v14" />
-                <path d="M5 12h14" />
-              </svg>
-              New Group
-            </Button>
+        <TabsContent value="reviews" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Pending Reviews</h3>
+            {pendingReviews.length > 0 && <Badge variant="secondary">{pendingReviews.length}</Badge>}
           </div>
-          <GroupsList userId={activeUserId || user.id} />
+
+          {pendingReviews.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No pending fix reviews</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {pendingReviews.map((review) => (
+                <Card key={review.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-medium mb-1">{review.post.title}</h4>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Fix submitted by {review.fixer_profile.name}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={review.confidence_score >= 7 ? "default" : "secondary"}>
+                            AI Confidence: {review.confidence_score}/10
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(review.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      <Button size="sm" onClick={() => router.push(`/review/${review.id}`)}>
+                        Review
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
-
-      <AvatarSelector isOpen={showAvatarSelector} onOpenChange={setShowAvatarSelector} />
-      <AddConnectedAccountDialog
-        open={showAddAccountDialog}
-        onOpenChange={setShowAddAccountDialog}
-        onAccountAdded={fetchConnectedAccounts}
-      />
     </div>
   )
 }
 
-function ActivityCard({ activity }: { activity: ActivityItem }) {
-  const router = useRouter()
-
-  const handleClick = () => {
-    router.push(`/post/${activity.postId}`)
-  }
-
-  // Format the date safely
-  const formatDate = () => {
-    try {
-      if (!activity.timestamp) return "Recently"
-
-      // Check if the date is valid
-      if (isNaN(activity.timestamp.getTime())) return "Recently"
-
-      return formatTimeAgo(activity.timestamp)
-    } catch (error) {
-      console.error("Error formatting date:", error)
-      return "Recently"
-    }
-  }
-
-  return (
-    <Card className="cursor-pointer hover:bg-muted/50 border dark:border-gray-800" onClick={handleClick}>
-      <CardContent className="p-4">
-        <div className="flex items-start">
-          <ActivityIcon type={activity.type} />
-          <div className="ml-3 flex-1">
-            <div className="flex items-start justify-between">
-              <div>
-                <ActivityTitle activity={activity} />
-                <p className="text-sm text-muted-foreground">{activity.postTitle}</p>
-              </div>
-              <div className="text-xs text-muted-foreground">{formatDate()}</div>
-            </div>
-
-            {activity.type === "reward" && activity.amount && (
-              <Badge
-                variant="outline"
-                className="mt-2 flex items-center gap-1 bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-800/30"
-              >
-                <div className="w-3 h-3 relative">
-                  <Image
-                    src="/images/bitcoin-logo.png"
-                    alt="Bitcoin"
-                    width={12}
-                    height={12}
-                    className="object-contain"
-                  />
-                </div>
-                +{formatSatsValue(activity.amount)}
-              </Badge>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function ActivityTitle({ activity }: { activity: ActivityItem }) {
-  switch (activity.type) {
-    case "post":
-      return <p className="font-medium">You posted a new issue</p>
-    case "fix":
-      return <p className="font-medium">You fixed an issue</p>
-    case "reward":
-      return <p className="font-medium">You received a reward</p>
-    default:
-      return <p className="font-medium">Activity</p>
-  }
-}
-
-function ActivityIcon({ type }: { type: string }) {
-  switch (type) {
-    case "post":
-      return (
-        <div className="p-2 bg-blue-100 rounded-full dark:bg-blue-950/50">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-blue-600 dark:text-blue-400"
-          >
-            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-            <circle cx="12" cy="13" r="3" />
-          </svg>
-        </div>
-      )
-    case "fix":
-      return (
-        <div className="p-2 bg-emerald-100 rounded-full dark:bg-emerald-950/50">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-emerald-600 dark:text-emerald-400"
-          >
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-        </div>
-      )
-    case "reward":
-      return (
-        <div className="p-2 bg-amber-100 rounded-full dark:bg-amber-950/50">
-          <div className="w-4 h-4 relative">
-            <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="object-contain" />
-          </div>
-        </div>
-      )
-    default:
-      return (
-        <div className="p-2 bg-gray-100 rounded-full dark:bg-gray-800/50">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-gray-600 dark:text-gray-400"
-          >
-            <circle cx="12" cy="12" r="10" />
-          </svg>
-        </div>
-      )
-  }
-}
+export default ProfilePage

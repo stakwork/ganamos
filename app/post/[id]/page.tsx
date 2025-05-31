@@ -213,104 +213,138 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
       const verificationResult = await verificationResponse.json()
       console.log("🔍 FIX SUBMISSION - AI Verification Result:", verificationResult)
 
-      // For now, continue with existing logic regardless of AI result
-      // TODO: Implement confidence-based logic in next phase
+      // Implement confidence-based logic
+      if (verificationResult.confidence >= 7) {
+        console.log("🔍 FIX SUBMISSION - HIGH CONFIDENCE: Auto-approving fix")
 
-      // Update the local state
-      if (post && user && profile) {
-        const now = new Date()
-        const nowIso = now.toISOString()
+        // AUTO-APPROVE: Continue with existing logic
+        // Update the local state
+        if (post && user && profile) {
+          const now = new Date()
+          const nowIso = now.toISOString()
 
-        const updatedPost = {
-          ...post,
-          fixed: true,
-          fixedAt: now,
-          fixed_at: nowIso,
-          fixedImageUrl: fixImage,
-          fixed_image_url: fixImage,
-          fixed_by: activeUserId || user.id,
-          fixer_note: fixerNote || null,
-        }
-
-        // Update in Supabase if possible
-        if (supabase) {
-          const { error } = await supabase
-            .from("posts")
-            .update({
-              fixed: true,
-              fixed_at: nowIso,
-              fixed_by: activeUserId || user.id,
-              fixed_image_url: fixImage,
-              fixer_note: fixerNote || null,
-            })
-            .eq("id", post.id)
-
-          if (error) {
-            console.error("Error updating post in Supabase:", error)
+          const updatedPost = {
+            ...post,
+            fixed: true,
+            fixedAt: now,
+            fixed_at: nowIso,
+            fixedImageUrl: fixImage,
+            fixed_image_url: fixImage,
+            fixed_by: activeUserId || user.id,
+            fixer_note: fixerNote || null,
           }
 
-          // Increment the user's fixed issues count
-          await supabase
-            .from("profiles")
-            .update({
-              fixed_issues_count: (profile.fixed_issues_count || 0) + 1,
-            })
-            .eq("id", activeUserId || user.id)
-        }
-
-        // Update the post in the mockPosts array
-        const postIndex = mockPosts.findIndex((p) => p.id === post.id)
-        if (postIndex !== -1) {
-          mockPosts[postIndex] = updatedPost
-        }
-
-        setPost(updatedPost)
-
-        // Update user balance - ALWAYS reward the user who fixed the issue
-        const currentBalance = profile.balance || 0
-        console.log("🔍 BALANCE UPDATE - Starting balance update process")
-        console.log("🔍 BALANCE UPDATE - Current balance:", currentBalance)
-        console.log("🔍 BALANCE UPDATE - Reward amount:", post.reward)
-
-        const newBalance = currentBalance + post.reward
-        console.log("🔍 BALANCE UPDATE - New calculated balance:", newBalance)
-
-        try {
-          // Update the balance
-          console.log("🔍 BALANCE UPDATE - Calling updateBalance with new balance:", newBalance)
-          await updateBalance(newBalance)
-          console.log("🔍 BALANCE UPDATE - updateBalance function completed")
-
-          // Verify the balance was updated
+          // Update in Supabase if possible
           if (supabase) {
-            const { data: updatedProfile, error } = await supabase
-              .from("profiles")
-              .select("balance")
-              .eq("id", user.id)
-              .single()
+            const { error } = await supabase
+              .from("posts")
+              .update({
+                fixed: true,
+                fixed_at: nowIso,
+                fixed_by: activeUserId || user.id,
+                fixed_image_url: fixImage,
+                fixer_note: fixerNote || null,
+              })
+              .eq("id", post.id)
 
             if (error) {
-              console.error("🔍 BALANCE UPDATE - Error verifying balance update:", error)
-            } else {
-              console.log("🔍 BALANCE UPDATE - Verified balance in database:", updatedProfile?.balance)
+              console.error("Error updating post in Supabase:", error)
             }
+
+            // Increment the user's fixed issues count
+            await supabase
+              .from("profiles")
+              .update({
+                fixed_issues_count: (profile.fixed_issues_count || 0) + 1,
+              })
+              .eq("id", activeUserId || user.id)
           }
-        } catch (error) {
-          console.error("🔍 BALANCE UPDATE - Error updating balance:", error)
+
+          // Update the post in the mockPosts array
+          const postIndex = mockPosts.findIndex((p) => p.id === post.id)
+          if (postIndex !== -1) {
+            mockPosts[postIndex] = updatedPost
+          }
+
+          setPost(updatedPost)
+
+          // Update user balance - ALWAYS reward the user who fixed the issue
+          const currentBalance = profile.balance || 0
+          console.log("🔍 BALANCE UPDATE - Starting balance update process")
+          console.log("🔍 BALANCE UPDATE - Current balance:", currentBalance)
+          console.log("🔍 BALANCE UPDATE - Reward amount:", post.reward)
+
+          const newBalance = currentBalance + post.reward
+          console.log("🔍 BALANCE UPDATE - New calculated balance:", newBalance)
+
+          try {
+            // Update the balance
+            console.log("🔍 BALANCE UPDATE - Calling updateBalance with new balance:", newBalance)
+            await updateBalance(newBalance)
+            console.log("🔍 BALANCE UPDATE - updateBalance function completed")
+
+            // Verify the balance was updated
+            if (supabase) {
+              const { data: updatedProfile, error } = await supabase
+                .from("profiles")
+                .select("balance")
+                .eq("id", user.id)
+                .single()
+
+              if (error) {
+                console.error("🔍 BALANCE UPDATE - Error verifying balance update:", error)
+              } else {
+                console.log("🔍 BALANCE UPDATE - Verified balance in database:", updatedProfile?.balance)
+              }
+            }
+          } catch (error) {
+            console.error("🔍 BALANCE UPDATE - Error updating balance:", error)
+          }
+
+          // Trigger storage event to update other components
+          window.dispatchEvent(new Event("storage"))
         }
 
-        // Trigger storage event to update other components
-        window.dispatchEvent(new Event("storage"))
+        toast({
+          title: "🎊 Fix verified!",
+          description: `${post?.reward} sats have been added to your balance 💰`,
+          variant: "success",
+        })
+
+        // Navigate back to dashboard after successful fix
+        router.push("/dashboard")
+      } else {
+        console.log("🔍 FIX SUBMISSION - LOW CONFIDENCE: Requires human review")
+
+        // HUMAN REVIEW: Store pending fix in database
+        if (post && user && profile && supabase) {
+          const { error } = await supabase.from("pending_fixes").insert({
+            post_id: post.id,
+            fixer_id: activeUserId || user.id,
+            fix_image_url: fixImage,
+            fixer_note: fixerNote || null,
+            confidence_score: verificationResult.confidence,
+            ai_reasoning: verificationResult.reasoning || null,
+            status: "pending",
+          })
+
+          if (error) {
+            console.error("🔍 FIX SUBMISSION - Error storing pending fix:", error)
+            throw new Error("Failed to store pending fix")
+          }
+
+          console.log("🔍 FIX SUBMISSION - Pending fix stored successfully")
+        }
+
+        toast({
+          title: "Fix submitted for review",
+          description: "Your fix requires human review. The original poster will be notified to approve it.",
+          variant: "default",
+        })
+
+        // Navigate back to dashboard
+        router.push("/dashboard")
       }
-
-      toast({
-        title: "🎊 Fix verified!",
-        description: `${post?.reward} sats have been added to your balance 💰`,
-        variant: "success",
-      })
-
-      // Navigate back to dashboard after successful fix
-      router.push("/dashboard")
     } catch (error) {
       console.error("🔍 FIX SUBMISSION - Error during verification:", error)
       toast({
