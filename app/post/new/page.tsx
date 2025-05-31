@@ -671,36 +671,7 @@ export default function NewPostPage() {
                 {/* Minus Button */}
                 <button
                   type="button"
-                  onMouseDown={() => {
-                    setReward(Math.max(0, reward - 500))
-                    const interval = setInterval(() => {
-                      setReward((prev) => Math.max(0, prev - 500))
-                    }, 150)
-
-                    const handleMouseUp = () => {
-                      clearInterval(interval)
-                      document.removeEventListener("mouseup", handleMouseUp)
-                      document.removeEventListener("mouseleave", handleMouseUp)
-                    }
-
-                    document.addEventListener("mouseup", handleMouseUp)
-                    document.addEventListener("mouseleave", handleMouseUp)
-                  }}
-                  onTouchStart={() => {
-                    setReward(Math.max(0, reward - 500))
-                    const interval = setInterval(() => {
-                      setReward((prev) => Math.max(0, prev - 500))
-                    }, 150)
-
-                    const handleTouchEnd = () => {
-                      clearInterval(interval)
-                      document.removeEventListener("touchend", handleTouchEnd)
-                      document.removeEventListener("touchcancel", handleTouchEnd)
-                    }
-
-                    document.addEventListener("touchend", handleTouchEnd)
-                    document.addEventListener("touchcancel", handleTouchEnd)
-                  }}
+                  onClick={() => setReward(Math.max(0, reward - 500))}
                   className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                 >
                   <svg
@@ -733,36 +704,7 @@ export default function NewPostPage() {
                 {/* Plus Button */}
                 <button
                   type="button"
-                  onMouseDown={() => {
-                    setReward(reward + 500)
-                    const interval = setInterval(() => {
-                      setReward((prev) => prev + 500)
-                    }, 150)
-
-                    const handleMouseUp = () => {
-                      clearInterval(interval)
-                      document.removeEventListener("mouseup", handleMouseUp)
-                      document.removeEventListener("mouseleave", handleMouseUp)
-                    }
-
-                    document.addEventListener("mouseup", handleMouseUp)
-                    document.addEventListener("mouseleave", handleMouseUp)
-                  }}
-                  onTouchStart={() => {
-                    setReward(reward + 500)
-                    const interval = setInterval(() => {
-                      setReward((prev) => prev + 500)
-                    }, 150)
-
-                    const handleTouchEnd = () => {
-                      clearInterval(interval)
-                      document.removeEventListener("touchend", handleTouchEnd)
-                      document.removeEventListener("touchcancel", handleTouchEnd)
-                    }
-
-                    document.addEventListener("touchend", handleTouchEnd)
-                    document.addEventListener("touchcancel", handleTouchEnd)
-                  }}
+                  onClick={() => setReward(reward + 500)}
                   className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                 >
                   <svg

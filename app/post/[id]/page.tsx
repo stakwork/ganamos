@@ -146,10 +146,10 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             setDisplayLocation(cityName)
           } catch (error) {
             console.error("Error converting coordinates to city:", error)
-            setDisplayLocation(post.location || "Unknown location")
+            setDisplayLocation(post.location || "Unknown")
           }
         } else {
-          setDisplayLocation(post.location || "Unknown location")
+          setDisplayLocation(post.location || "Unknown")
         }
       }
     }
@@ -731,48 +731,51 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   // const isPostCreator = user && (post.userId === user.id || post.user_id === user.id)
 
   return (
-    <div className="container px-4 py-6 mx-auto max-w-md">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m15 18-6-6 6-6" />
-            </svg>
-            <span className="sr-only">Back</span>
-          </Button>
-          <h1 className="text-2xl font-bold">Issue Details</h1>
-        </div>
-      </div>
-
+    <div className="container px-4 pb-6 mx-auto max-w-md">
       {/* Before and After Images */}
       {post.fixed && post.fixed_image_url ? (
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground">Before</p>
-            <div className="relative w-full h-40 overflow-hidden rounded-lg">
-              <Image
-                src={post.imageUrl || post.image_url || "/placeholder.svg"}
-                alt="Before"
-                fill
-                className="object-cover"
-              />
+        <div className="relative">
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Before</p>
+              <div className="relative w-full h-40 overflow-hidden rounded-lg">
+                <Image
+                  src={post.imageUrl || post.image_url || "/placeholder.svg"}
+                  alt="Before"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">After</p>
+              <div className="relative w-full h-40 overflow-hidden rounded-lg">
+                <Image src={post.fixed_image_url || "/placeholder.svg"} alt="After" fill className="object-cover" />
+              </div>
             </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground">After</p>
-            <div className="relative w-full h-40 overflow-hidden rounded-lg">
-              <Image src={post.fixed_image_url || "/placeholder.svg"} alt="After" fill className="object-cover" />
-            </div>
+          <div className="absolute top-8 left-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.back()}
+              className="bg-black/50 hover:bg-black/70 text-white"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+              <span className="sr-only">Back</span>
+            </Button>
           </div>
         </div>
       ) : (
@@ -783,17 +786,28 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             fill
             className="object-cover"
           />
-          <div className="absolute top-2 right-2">
-            <Badge
-              variant={post.fixed ? "outline" : "default"}
-              className={
-                post.fixed
-                  ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-100 dark:hover:bg-emerald-900"
-                  : ""
-              }
+          <div className="absolute top-4 left-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.back()}
+              className="bg-black/50 hover:bg-black/70 text-white"
             >
-              {post.fixed ? "Fixed" : formatSatsValue(post.reward)}
-            </Badge>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+              <span className="sr-only">Back</span>
+            </Button>
           </div>
         </div>
       )}
@@ -832,8 +846,20 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
-          <span>{formatDistanceToNow(new Date(post.createdAt || post.created_at), { addSuffix: true })}</span>
+          <span>
+            {formatDistanceToNow(new Date(post.createdAt || post.created_at), { addSuffix: false })
+              .replace("about ", "")
+              .replace(" hours", " hrs")
+              .replace(" minutes", " mins")}{" "}
+            ago
+          </span>
         </div>
+        {!post.fixed && post.created_by && (
+          <div className="flex items-center mt-2">
+            <p className="text-xs text-muted-foreground mr-1">Created by</p>
+            <span className="text-xs font-medium text-muted-foreground">{post.created_by}</span>
+          </div>
+        )}
       </div>
 
       {/* Show fixer note if it exists */}
@@ -963,8 +989,10 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 <BitcoinLogo size={20} />
               </div>
               <div>
-                <p className="font-medium">Reward</p>
-                <p className="text-2xl font-bold">{formatSatsValue(post.reward)}</p>
+                <div className="flex items-center">
+                  <p className="text-2xl font-bold mr-2">{formatSatsValue(post.reward)}</p>
+                </div>
+                <p className="font-medium text-sm text-muted-foreground">Reward</p>
                 {post.fixed && post.fixed_by && (
                   <div className="flex items-center mt-1">
                     <p className="text-xs text-muted-foreground mr-1">Earned by</p>
@@ -977,21 +1005,6 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                         <AvatarFallback>{getFixerInitials()}</AvatarFallback>
                       </Avatar>
                       <span className="text-xs font-medium">{formatFixerName()}</span>
-                    </div>
-                  </div>
-                )}
-                {!post.fixed && post.created_by && post.created_by_avatar && (
-                  <div className="flex items-center mt-1">
-                    <p className="text-xs text-muted-foreground mr-1">Created by</p>
-                    <div className="flex items-center">
-                      <Avatar className="h-4 w-4 mr-1">
-                        <AvatarImage
-                          src={post.created_by_avatar || "/placeholder.svg"}
-                          alt={post.created_by || "User"}
-                        />
-                        <AvatarFallback>{post.created_by?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs font-medium">{post.created_by}</span>
                     </div>
                   </div>
                 )}

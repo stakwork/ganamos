@@ -547,6 +547,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  useEffect(() => {
+    if (user) {
+      fetchConnectedAccounts()
+    }
+  }, [user]) // Only re-run when user changes, not on every render
+
   return (
     <AuthContext.Provider
       value={{
