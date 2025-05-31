@@ -331,9 +331,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         }
 
         toast({
-          title: "Issue not resolved",
-          description: "Our system couldn't verify that the issue was fixed. Please try again with a clearer photo.",
-          variant: "destructive",
+          title: "Fix submitted for review",
+          description: "Your fix has been submitted for review. The original poster will be notified to approve it.",
         })
 
         // Navigate back to dashboard

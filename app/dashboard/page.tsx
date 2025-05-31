@@ -134,6 +134,7 @@ export default function DashboardPage() {
           .select("*", { count: "exact" })
           .order("created_at", { ascending: false })
           .eq("fixed", false)
+          .neq("under_review", true)
 
         // Apply filters if active
         if (filters) {
@@ -182,7 +183,7 @@ export default function DashboardPage() {
       }
 
       // Fall back to mock data if Supabase fails
-      let filteredPosts = [...mockPosts].filter((post) => !post.fixed)
+      let filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
 
       // Apply filters to mock data if active
       if (filters) {
@@ -228,7 +229,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Error fetching posts:", error)
       // Fall back to mock data with simplified filter logic
-      let filteredPosts = [...mockPosts].filter((post) => !post.fixed)
+      let filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
 
       // Apply basic filters even in error case
       if (filters && filters.dateFilter === "today") {

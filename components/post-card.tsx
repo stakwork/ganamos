@@ -158,15 +158,19 @@ export function PostCard({ post }: { post: Post }) {
           )}
           <div className="absolute top-2 right-2">
             <Badge
-              variant={post.fixed ? "outline" : "default"}
+              variant={post.fixed || post.under_review ? "outline" : "default"}
               className={
                 post.fixed
                   ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-100 dark:hover:bg-emerald-900"
-                  : "flex items-center gap-1"
+                  : post.under_review
+                    ? "bg-orange-100 text-orange-800 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-100 dark:hover:bg-orange-900"
+                    : "flex items-center gap-1"
               }
             >
               {post.fixed ? (
                 "Fixed"
+              ) : post.under_review ? (
+                "Under Review"
               ) : (
                 <>
                   <div className="w-3 h-3 relative">

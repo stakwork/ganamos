@@ -31,7 +31,7 @@ import { AddConnectedAccountDialog } from "@/components/add-connected-account-di
 
 type ActivityItem = {
   id: string
-  type: "post" | "fix" | "reward"
+  type: "post" | "fix" | "reward" | "fix_submitted"
   postId: string
   postTitle: string
   timestamp: Date
@@ -286,6 +286,21 @@ export default function ProfilePage() {
               postTitle: post.title,
               timestamp: new Date(post.fixed_at || post.fixedAt),
               amount: post.reward,
+            })
+          }
+        })
+
+      // Posts submitted for review by the user
+      posts
+        .filter((post) => post.fixed_by === currentUserId && post.under_review === true)
+        .forEach((post) => {
+          if (post.submitted_at) {
+            userActivities.push({
+              id: `fix_submitted-${post.id}`,
+              type: "fix_submitted",
+              postId: post.id,
+              postTitle: post.title,
+              timestamp: new Date(post.submitted_at),
             })
           }
         })
@@ -932,6 +947,8 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
       return <p className="font-medium">You fixed an issue</p>
     case "reward":
       return <p className="font-medium">You received a reward</p>
+    case "fix_submitted":
+      return <p className="font-medium">You submitted a fix for review</p>
     default:
       return <p className="font-medium">Activity</p>
   }
@@ -984,6 +1001,27 @@ function ActivityIcon({ type }: { type: string }) {
           <div className="w-4 h-4 relative">
             <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="object-contain" />
           </div>
+        </div>
+      )
+    case "fix_submitted":
+      return (
+        <div className="p-2 bg-purple-100 rounded-full dark:bg-purple-950/50">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-purple-600 dark:text-purple-400"
+          >
+            <polyline points="12 2 12 6 15 4" />
+            <polyline points="12 22 12 18 9 20" />
+            <line x1="12" y1="6" x2="12" y2="18" />
+          </svg>
         </div>
       )
     default:
