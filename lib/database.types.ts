@@ -59,6 +59,7 @@ export interface Database {
           fixer_note: string | null
           created_by: string | null
           created_by_avatar: string | null
+          under_review: boolean
         }
         Insert: {
           id?: string
@@ -83,6 +84,7 @@ export interface Database {
           fixer_note?: string | null
           created_by?: string | null
           created_by_avatar?: string | null
+          under_review?: boolean
         }
         Update: {
           id?: string
@@ -107,6 +109,7 @@ export interface Database {
           fixer_note?: string | null
           created_by?: string | null
           created_by_avatar?: string | null
+          under_review?: boolean
         }
       }
       groups: {
