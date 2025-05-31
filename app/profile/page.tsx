@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
-import { Post } from "@/components/post"
 import { supabase } from "@/lib/supabase"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
@@ -14,11 +13,8 @@ import { useRouter } from "next/navigation"
 import type { Group, Post as PostType, Profile } from "@/lib/database.types"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/components/ui/use-toast"
-import { cn } from "@/lib/utils"
-import { Calendar } from "@/components/calendar"
-import { CalendarIcon } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { PendingFix } from "@/lib/database.types"
+import { PostCard } from "@/components/post-card"
 
 interface Activity {
   id: string
@@ -167,7 +163,7 @@ const ProfilePage = () => {
     fetchPendingReviews()
     fetchActivity()
     setLoading(false)
-  }, [session?.user, user?.id, toast])
+  }, [session?.user, user, toast])
 
   if (loading) {
     return (
@@ -234,7 +230,7 @@ const ProfilePage = () => {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {posts.map((post) => (
-                <Post key={post.id} post={post} />
+                <PostCard key={post.id} post={post} />
               ))}
             </div>
           )}
@@ -242,26 +238,6 @@ const ProfilePage = () => {
         <TabsContent value="activity" className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Activity</h3>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn("w-[280px] justify-start text-left font-normal", !date && "text-muted-foreground")}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? formatDate(date.toString()) : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
           </div>
           <ScrollArea className="h-[400px] w-full rounded-md border">
             {activity.length === 0 ? (

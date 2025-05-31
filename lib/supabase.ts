@@ -57,3 +57,6 @@ export const createServerSupabaseClient = (options?: SupabaseOptions) => {
 
   return createClient<Database>(url, key, clientOptions)
 }
+
+// Named export for backward compatibility
+export const supabase = createBrowserSupabaseClient()
