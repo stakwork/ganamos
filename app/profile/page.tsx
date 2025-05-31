@@ -450,7 +450,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     fetchConnectedAccounts()
-  }, [fetchConnectedAccounts])
+  }, [user?.id])
 
   // Handle tab changes
   const handleTabChange = useCallback(
