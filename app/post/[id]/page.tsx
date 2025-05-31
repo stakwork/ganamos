@@ -38,6 +38,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const { user, profile, updateBalance, activeUserId } = useAuth()
   const supabase = createBrowserSupabaseClient()
   const [displayLocation, setDisplayLocation] = useState<string>("")
+  const [isReviewing, setIsReviewing] = useState(false)
 
   // Force hide bottom nav when camera is shown
   useEffect(() => {
@@ -316,12 +317,20 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
       } else {
         console.log("🔍 FIX SUBMISSION - LOW CONFIDENCE: Issue not resolved")
 
-        // Set under_review flag but don't mark as fixed
-        if (post && supabase) {
+        // Set under_review flag and store submission data
+        if (post && supabase && user && profile) {
+          const nowIso = new Date().toISOString()
+
           const { error } = await supabase
             .from("posts")
             .update({
               under_review: true,
+              submitted_fix_by_id: activeUserId || user.id,
+              submitted_fix_by_name: profile.name || user.email?.split("@")[0] || "Anonymous",
+              submitted_fix_by_avatar: profile.avatar_url,
+              submitted_fix_at: nowIso,
+              submitted_fix_image_url: fixImage,
+              submitted_fix_note: fixerNote || null,
             })
             .eq("id", post.id)
 
@@ -347,6 +356,136 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
       })
     } finally {
       setSubmittingFix(false)
+    }
+  }
+
+  const handleApproveFix = async () => {
+    if (!post || !user) return
+
+    setIsReviewing(true)
+
+    try {
+      // Update the post in Supabase
+      if (supabase) {
+        const nowIso = new Date().toISOString()
+
+        const { error } = await supabase
+          .from("posts")
+          .update({
+            fixed: true,
+            fixed_at: nowIso,
+            fixed_by: post.submitted_fix_by_id,
+            fixed_image_url: post.submitted_fix_image_url,
+            fixer_note: post.submitted_fix_note,
+            under_review: false,
+          })
+          .eq("id", post.id)
+
+        if (error) {
+          console.error("Error approving fix:", error)
+          throw new Error("Failed to approve fix")
+        }
+
+        // Update the post in state
+        setPost({
+          ...post,
+          fixed: true,
+          fixed_at: nowIso,
+          fixed_by: post.submitted_fix_by_id,
+          fixed_image_url: post.submitted_fix_image_url,
+          fixer_note: post.submitted_fix_note,
+          under_review: false,
+        })
+
+        // Reward the user who fixed the issue
+        if (post.submitted_fix_by_id) {
+          // Get the fixer's profile
+          const { data: fixerProfile, error: profileError } = await supabase
+            .from("profiles")
+            .select("balance")
+            .eq("id", post.submitted_fix_by_id)
+            .single()
+
+          if (profileError) {
+            console.error("Error getting fixer profile:", profileError)
+          } else if (fixerProfile) {
+            // Update the fixer's balance
+            const newBalance = (fixerProfile.balance || 0) + post.reward
+            await supabase.from("profiles").update({ balance: newBalance }).eq("id", post.submitted_fix_by_id)
+          }
+        }
+
+        toast({
+          title: "Fix approved",
+          description: "The fix has been approved and the reward has been transferred.",
+          variant: "success",
+        })
+      }
+    } catch (error) {
+      console.error("Error during fix approval:", error)
+      toast({
+        title: "Error",
+        description: "Could not approve the fix",
+        variant: "destructive",
+      })
+    } finally {
+      setIsReviewing(false)
+    }
+  }
+
+  const handleRejectFix = async () => {
+    if (!post || !user) return
+
+    setIsReviewing(true)
+
+    try {
+      // Update the post in Supabase
+      if (supabase) {
+        const { error } = await supabase
+          .from("posts")
+          .update({
+            under_review: false,
+            submitted_fix_by_id: null,
+            submitted_fix_by_name: null,
+            submitted_fix_by_avatar: null,
+            submitted_fix_at: null,
+            submitted_fix_image_url: null,
+            submitted_fix_note: null,
+          })
+          .eq("id", post.id)
+
+        if (error) {
+          console.error("Error rejecting fix:", error)
+          throw new Error("Failed to reject fix")
+        }
+
+        // Update the post in state
+        setPost({
+          ...post,
+          under_review: false,
+          submitted_fix_by_id: null,
+          submitted_fix_by_name: null,
+          submitted_fix_by_avatar: null,
+          submitted_fix_at: null,
+          submitted_fix_image_url: null,
+          submitted_fix_note: null,
+        })
+
+        toast({
+          title: "Fix rejected",
+          description: "The fix has been rejected. The issue is still open for others to fix.",
+          variant: "default",
+        })
+      }
+    } catch (error) {
+      console.error("Error during fix rejection:", error)
+      toast({
+        title: "Error",
+        description: "Could not reject the fix",
+        variant: "destructive",
+      })
+    } finally {
+      setIsReviewing(false)
     }
   }
 
@@ -704,6 +843,117 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           <p className="text-sm text-muted-foreground">{post.fixer_note}</p>
         </div>
       )}
+
+      {/* Review Section - Only visible to the post creator when a fix is submitted */}
+      {post.under_review &&
+        post.submitted_fix_image_url &&
+        user &&
+        (post.userId === user.id || post.user_id === user.id) && (
+          <Card className="mb-6 border dark:border-gray-800">
+            <CardContent className="p-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg">Review Submitted Fix</h3>
+                  <Badge
+                    variant="outline"
+                    className="bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-100"
+                  >
+                    Needs Review
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="relative w-full h-48 overflow-hidden rounded-lg">
+                      <Image
+                        src={post.imageUrl || post.image_url || "/placeholder.svg"}
+                        alt="Before"
+                        fill
+                        className="object-cover"
+                      />
+                      <div className="absolute top-2 left-2">
+                        <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">Before</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="relative w-full h-48 overflow-hidden rounded-lg">
+                      <Image
+                        src={post.submitted_fix_image_url || "/placeholder.svg"}
+                        alt="After"
+                        fill
+                        className="object-cover"
+                      />
+                      <div className="absolute top-2 left-2">
+                        <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">After</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {post.submitted_fix_by_name && (
+                  <div className="flex items-center space-x-2">
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage
+                        src={post.submitted_fix_by_avatar || "/placeholder.svg"}
+                        alt={post.submitted_fix_by_name}
+                      />
+                      <AvatarFallback>{post.submitted_fix_by_name.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium">{post.submitted_fix_by_name} submitted this fix</span>
+                  </div>
+                )}
+
+                {post.submitted_fix_note && (
+                  <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                    <p className="text-sm font-medium mb-1">Fixer's note:</p>
+                    <p className="text-sm text-muted-foreground">{post.submitted_fix_note}</p>
+                  </div>
+                )}
+
+                <div className="flex space-x-3">
+                  <Button
+                    onClick={handleApproveFix}
+                    disabled={isReviewing}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    {isReviewing ? (
+                      <div className="flex items-center">
+                        <svg
+                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Processing...
+                      </div>
+                    ) : (
+                      "Approve & Pay Reward"
+                    )}
+                  </Button>
+                  <Button onClick={handleRejectFix} disabled={isReviewing} variant="outline" className="flex-1">
+                    Reject Fix
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       <Card className="mb-6 border dark:border-gray-800">
         <CardContent className="p-4">

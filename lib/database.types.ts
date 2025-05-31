@@ -60,6 +60,12 @@ export interface Database {
           created_by: string | null
           created_by_avatar: string | null
           under_review: boolean
+          submitted_fix_by_id: string | null
+          submitted_fix_by_name: string | null
+          submitted_fix_by_avatar: string | null
+          submitted_fix_at: string | null
+          submitted_fix_image_url: string | null
+          submitted_fix_note: string | null
         }
         Insert: {
           id?: string
@@ -85,6 +91,12 @@ export interface Database {
           created_by?: string | null
           created_by_avatar?: string | null
           under_review?: boolean
+          submitted_fix_by_id?: string | null
+          submitted_fix_by_name?: string | null
+          submitted_fix_by_avatar?: string | null
+          submitted_fix_at?: string | null
+          submitted_fix_image_url?: string | null
+          submitted_fix_note?: string | null
         }
         Update: {
           id?: string
@@ -110,6 +122,12 @@ export interface Database {
           created_by?: string | null
           created_by_avatar?: string | null
           under_review?: boolean
+          submitted_fix_by_id?: string | null
+          submitted_fix_by_name?: string | null
+          submitted_fix_by_avatar?: string | null
+          submitted_fix_at?: string | null
+          submitted_fix_image_url?: string | null
+          submitted_fix_note?: string | null
         }
       }
       groups: {

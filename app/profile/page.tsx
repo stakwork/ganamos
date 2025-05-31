@@ -31,11 +31,13 @@ import { AddConnectedAccountDialog } from "@/components/add-connected-account-di
 
 type ActivityItem = {
   id: string
-  type: "post" | "fix" | "reward" | "fix_submitted"
+  type: "post" | "fix" | "reward" | "fix_submitted" | "fix_review_needed"
   postId: string
   postTitle: string
   timestamp: Date
   amount?: number
+  submitterName?: string
+  submitterAvatar?: string
 }
 
 export default function ProfilePage() {
@@ -303,6 +305,27 @@ export default function ProfilePage() {
               timestamp: new Date(post.submitted_at),
             })
           }
+        })
+
+      // Posts that need review by the original poster
+      posts
+        .filter(
+          (post) =>
+            (post.userId === currentUserId || post.user_id === currentUserId) &&
+            post.under_review === true &&
+            post.submitted_fix_by_id &&
+            post.submitted_fix_at,
+        )
+        .forEach((post) => {
+          userActivities.push({
+            id: `fix_review_needed-${post.id}`,
+            type: "fix_review_needed",
+            postId: post.id,
+            postTitle: post.title,
+            timestamp: new Date(post.submitted_fix_at),
+            submitterName: post.submitted_fix_by_name || "Someone",
+            submitterAvatar: post.submitted_fix_by_avatar,
+          })
         })
 
       // Sort by timestamp (newest first)
@@ -932,6 +955,22 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
                 +{formatSatsValue(activity.amount)}
               </Badge>
             )}
+            {activity.type === "fix_review_needed" && activity.submitterAvatar && (
+              <div className="mt-2 flex items-center">
+                <div className="flex items-center bg-orange-50 dark:bg-orange-950/30 px-2 py-1 rounded-full">
+                  <div className="w-5 h-5 mr-2 overflow-hidden rounded-full">
+                    <Image
+                      src={activity.submitterAvatar || "/placeholder.svg"}
+                      alt="Submitter"
+                      width={20}
+                      height={20}
+                      className="object-cover"
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-orange-800 dark:text-orange-200">Review needed</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>
@@ -949,6 +988,8 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
       return <p className="font-medium">You received a reward</p>
     case "fix_submitted":
       return <p className="font-medium">You submitted a fix for review</p>
+    case "fix_review_needed":
+      return <p className="font-medium">{activity.submitterName || "Someone"} submitted a fix for your issue</p>
     default:
       return <p className="font-medium">Activity</p>
   }
@@ -1021,6 +1062,26 @@ function ActivityIcon({ type }: { type: string }) {
             <polyline points="12 2 12 6 15 4" />
             <polyline points="12 22 12 18 9 20" />
             <line x1="12" y1="6" x2="12" y2="18" />
+          </svg>
+        </div>
+      )
+    case "fix_review_needed":
+      return (
+        <div className="p-2 bg-orange-100 rounded-full dark:bg-orange-950/50">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-orange-600 dark:text-orange-400"
+          >
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+            <circle cx="12" cy="13" r="3" />
           </svg>
         </div>
       )
