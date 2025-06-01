@@ -33,11 +33,15 @@ export function AddConnectedAccountDialog({ open, onOpenChange, onAccountAdded }
 
   // Preload avatar images when dialog opens
   useEffect(() => {
-    if (open) {
-      ghibliAvatars.forEach((src) => {
-        const img = new Image()
-        img.src = src
-      })
+    if (open && typeof window !== "undefined") {
+      try {
+        ghibliAvatars.forEach((src) => {
+          const img = new Image()
+          img.src = src
+        })
+      } catch (error) {
+        console.warn("Failed to preload avatar images:", error)
+      }
     }
   }, [open])
 
