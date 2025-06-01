@@ -1,4 +1,6 @@
+// Import the createServerSupabaseClient function
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createServerSupabaseClient } from "@/lib/supabase" // Add this import
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { v4 as uuidv4 } from "uuid"
@@ -12,7 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Username and avatar are required" }, { status: 400 })
     }
 
-    // Create a Supabase client with the service role key
+    // Create a Supabase client with the user's session
     const supabase = createRouteHandlerClient({ cookies })
 
     // Get the current user to determine who is creating the child account
@@ -33,8 +35,11 @@ export async function POST(request: Request) {
     // Create a random password (it won't be used for login)
     const password = uuidv4()
 
-    // Create the child user with admin API
-    const { data: adminData, error: adminError } = await supabase.auth.admin.createUser({
+    // Create a separate admin client with service role for admin operations
+    const adminSupabase = createServerSupabaseClient()
+
+    // Create the child user with admin API using the admin client
+    const { data: adminData, error: adminError } = await adminSupabase.auth.admin.createUser({
       email: childEmail,
       password: password,
       email_confirm: true, // Skip email verification
@@ -53,6 +58,7 @@ export async function POST(request: Request) {
 
     const childUserId = adminData.user.id
 
+    // Continue using the regular client for non-admin operations
     // Create profile for the child user
     const { error: profileError } = await supabase.from("profiles").insert({
       id: childUserId,
@@ -67,7 +73,7 @@ export async function POST(request: Request) {
     if (profileError) {
       console.error("Error creating child profile:", profileError)
       // Try to clean up the auth user if profile creation fails
-      await supabase.auth.admin.deleteUser(childUserId)
+      await adminSupabase.auth.admin.deleteUser(childUserId)
       return NextResponse.json({ error: `Error creating child profile: ${profileError.message}` }, { status: 500 })
     }
 

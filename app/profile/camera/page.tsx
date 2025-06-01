@@ -91,6 +91,12 @@ export default function ProfileCameraPage() {
           // Update profile with new avatar
           await updateProfile({ avatar_url: imageSrc })
 
+          // Stop the camera stream after taking photo
+          if (stream) {
+            stream.getTracks().forEach((track) => track.stop())
+            setStream(null)
+          }
+
           toast({
             title: "✨ Profile photo updated!",
             description: "Your new profile photo has been set",

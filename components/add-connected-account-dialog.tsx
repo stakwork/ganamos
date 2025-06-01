@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,6 +29,17 @@ export function AddConnectedAccountDialog({ open, onOpenChange, onAccountAdded }
   const { user } = useAuth()
   const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
+  const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({})
+
+  // Preload avatar images when dialog opens
+  useEffect(() => {
+    if (open) {
+      ghibliAvatars.forEach((src) => {
+        const img = new Image()
+        img.src = src
+      })
+    }
+  }, [open])
 
   // Studio Ghibli-style animal avatar options (7 images + camera option)
   const ghibliAvatars = [
@@ -263,12 +274,18 @@ export function AddConnectedAccountDialog({ open, onOpenChange, onAccountAdded }
                       }`}
                       onClick={() => setSelectedAvatar(avatar)}
                     >
+                      {!loadedImages[avatar] && (
+                        <div className="absolute inset-0 bg-gray-200 animate-pulse rounded-full" />
+                      )}
                       <Image
                         src={avatar || "/placeholder.svg"}
                         alt={`Studio Ghibli animal avatar ${index + 1}`}
                         fill
                         className="object-cover"
                         sizes="64px"
+                        priority={index < 4}
+                        loading={index < 4 ? "eager" : "lazy"}
+                        onLoad={() => setLoadedImages((prev) => ({ ...prev, [avatar]: true }))}
                       />
                     </div>
                   ))}

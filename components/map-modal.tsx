@@ -34,6 +34,12 @@ export function MapModal({ isOpen, onClose, posts, centerPost }: MapModalProps) 
   const [loadingStep, setLoadingStep] = useState<string>("Initializing...")
   const [selectedPost, setSelectedPost] = useState<Post | null>(centerPost || null)
 
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<google.maps.places.AutocompletePrediction[]>([])
+  const [showResults, setShowResults] = useState(false)
+  const [autocompleteService, setAutocompleteService] = useState<google.maps.places.AutocompleteService | null>(null)
+  const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null)
+
   // Filter posts that have location data
   const postsWithLocation = posts.filter(
     (post) => post.latitude && post.longitude && !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
@@ -176,9 +182,16 @@ export function MapModal({ isOpen, onClose, posts, centerPost }: MapModalProps) 
       setMapInstance(map)
       setMapInitialized(true)
 
+      // Initialize Places services
+      const autoService = new window.google.maps.places.AutocompleteService()
+      const placeService = new window.google.maps.places.PlacesService(map)
+      setAutocompleteService(autoService)
+      setPlacesService(placeService)
+
       // Add click listener to map to deselect markers
       map.addListener("click", () => {
         setSelectedPost(null)
+        setShowResults(false)
       })
 
       // Skip user location and go straight to adding post markers
@@ -306,6 +319,47 @@ export function MapModal({ isOpen, onClose, posts, centerPost }: MapModalProps) 
     updateMarkerStyles()
   }
 
+  // Handle search input
+  const handleSearchInput = (query: string) => {
+    setSearchQuery(query)
+
+    if (!query.trim() || !autocompleteService) {
+      setSearchResults([])
+      setShowResults(false)
+      return
+    }
+
+    autocompleteService.getPlacePredictions(
+      {
+        input: query,
+        types: ["establishment", "geocode"],
+      },
+      (predictions, status) => {
+        if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+          setSearchResults(predictions)
+          setShowResults(true)
+        } else {
+          setSearchResults([])
+          setShowResults(false)
+        }
+      },
+    )
+  }
+
+  // Handle place selection
+  const handlePlaceSelect = (placeId: string, description: string) => {
+    if (!placesService || !mapInstance) return
+
+    placesService.getDetails({ placeId }, (place, status) => {
+      if (status === window.google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
+        mapInstance.setCenter(place.geometry.location)
+        mapInstance.setZoom(15)
+        setSearchQuery(description)
+        setShowResults(false)
+      }
+    })
+  }
+
   // Handle preview card click
   const handlePreviewCardClick = () => {
     if (selectedPost) {
@@ -368,6 +422,50 @@ export function MapModal({ isOpen, onClose, posts, centerPost }: MapModalProps) 
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
+
+        {/* Search Bar */}
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 w-80 max-w-[calc(100vw-2rem)]">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search here"
+              value={searchQuery}
+              onChange={(e) => handleSearchInput(e.target.value)}
+              onFocus={() => searchResults.length > 0 && setShowResults(true)}
+              className="w-full px-4 py-3 pr-10 rounded-full bg-white shadow-lg border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent caret-gray-900"
+            />
+
+            {/* Clear button */}
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery("")
+                  setSearchResults([])
+                  setShowResults(false)
+                }}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors"
+              >
+                <X className="w-3 h-3 text-gray-600" />
+              </button>
+            )}
+
+            {/* Search Results Dropdown */}
+            {showResults && searchResults.length > 0 && (
+              <div className="absolute top-full mt-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-y-auto z-10">
+                {searchResults.map((result) => (
+                  <button
+                    key={result.place_id}
+                    onClick={() => handlePlaceSelect(result.place_id, result.description)}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 text-sm"
+                  >
+                    <div className="font-medium text-gray-900">{result.structured_formatting.main_text}</div>
+                    <div className="text-gray-500 text-xs">{result.structured_formatting.secondary_text}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="h-[80vh] w-full relative">
           {isLoading && (

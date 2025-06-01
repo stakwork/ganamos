@@ -39,6 +39,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const supabase = createBrowserSupabaseClient()
   const [displayLocation, setDisplayLocation] = useState<string>("")
   const [isReviewing, setIsReviewing] = useState(false)
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false)
 
   // Force hide bottom nav when camera is shown
   useEffect(() => {
@@ -474,7 +475,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         })
 
         toast({
-          title: "Fix rejected",
+          title: "❌ Fix rejected",
           description: "The fix has been rejected. The issue is still open for others to fix.",
           variant: "default",
         })
@@ -892,9 +893,29 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           <div className="flex items-center mb-1">
             <p className="text-sm font-medium">AI Review</p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {post.ai_analysis || "The AI analysis is not available for this submission."}
-          </p>
+          <div className="text-sm text-muted-foreground">
+            {showFullAnalysis ? (
+              <div>
+                {post.ai_analysis || "The AI analysis is not available for this submission."}
+                <button onClick={() => setShowFullAnalysis(false)} className="text-white hover:underline ml-1">
+                  Show less
+                </button>
+              </div>
+            ) : (
+              <div className="line-clamp-3">
+                {post.ai_analysis && post.ai_analysis.length > 150 ? (
+                  <>
+                    {post.ai_analysis.slice(0, 150)}
+                    <button onClick={() => setShowFullAnalysis(true)} className="text-white hover:underline">
+                      ...see more
+                    </button>
+                  </>
+                ) : (
+                  post.ai_analysis || "The AI analysis is not available for this submission."
+                )}
+              </div>
+            )}
+          </div>
           {post.ai_confidence_score && (
             <div className="mt-2 text-xs text-muted-foreground">Confidence Score: {post.ai_confidence_score}/10</div>
           )}

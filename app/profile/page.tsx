@@ -7,7 +7,14 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Dialog, DialogTrigger } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { PostCard } from "@/components/post-card"
 import { useAuth } from "@/components/auth-provider"
 import { useNotifications } from "@/components/notifications-provider"
@@ -77,6 +84,12 @@ export default function ProfilePage() {
   const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false)
   const ACTIVITIES_PER_PAGE = 10
   const [showAddAccountDialog, setShowAddAccountDialog] = useState(false)
+
+  // New state for account management
+  const [accountToManage, setAccountToManage] = useState<any>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
 
   // Cache for posts data to avoid redundant processing
   const postsCache = useRef<Post[]>([])
@@ -443,14 +456,37 @@ export default function ProfilePage() {
     loadInitialData()
 
     // Cleanup function
-    return () => {
-      initialDataLoaded.current = false
-    }
+    // return () => {
+    //   initialDataLoaded.current = false
+    // }
   }, [user, loading, activeTab, fetchBitcoinPrice, fetchUserPosts, processPosts, generateActivities, activeUserId])
 
   useEffect(() => {
     fetchConnectedAccounts()
   }, [user?.id])
+
+  // Handle page visibility changes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && activities.length === 0 && !isLoading && user && initialDataLoaded.current) {
+        // Tab became visible and we have no activities, reload them
+        console.log("🔍 Tab became visible, reloading activities")
+        const loadData = async () => {
+          const { posts } = await fetchUserPosts(1)
+          if (posts.length > 0) {
+            processPosts(posts)
+            if (activeTab === "activity") {
+              generateActivities(posts, 1)
+            }
+          }
+        }
+        loadData()
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
+  }, [activities.length, isLoading, user, activeTab, fetchUserPosts, processPosts, generateActivities])
 
   // Handle tab changes
   const handleTabChange = useCallback(
@@ -464,6 +500,118 @@ export default function ProfilePage() {
     },
     [activities.length, generateActivities],
   )
+
+  // Handle account management
+  const handleAccountAction = (account: any) => {
+    setAccountToManage(account)
+
+    // Check if it's a child account (email ends with @ganamos.app)
+    const isChildAccount = account.email?.endsWith("@ganamos.app")
+
+    if (isChildAccount) {
+      setShowDeleteDialog(true)
+    } else {
+      setShowDisconnectDialog(true)
+    }
+  }
+
+  // Handle disconnect account
+  const handleDisconnectAccount = async () => {
+    if (!accountToManage || !user) return
+
+    setIsProcessing(true)
+
+    try {
+      const response = await fetch("/api/disconnect-account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          connectedAccountId: accountToManage.id,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to disconnect account")
+      }
+
+      // If currently viewing the disconnected account, switch back to main
+      if (isConnectedAccount && profile?.id === accountToManage.id) {
+        resetToMainAccount()
+      }
+
+      // Refresh the connected accounts list
+      fetchConnectedAccounts()
+
+      toast({
+        title: "Account disconnected",
+        description: `${accountToManage.name} has been disconnected from your account.`,
+      })
+
+      setShowDisconnectDialog(false)
+    } catch (error: any) {
+      console.error("Error disconnecting account:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to disconnect account. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // Handle delete child account
+  const handleDeleteChildAccount = async () => {
+    if (!accountToManage || !user) return
+
+    setIsProcessing(true)
+
+    try {
+      const response = await fetch("/api/delete-child-account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          childAccountId: accountToManage.id,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to delete child account")
+      }
+
+      // If currently viewing the deleted account, switch back to main
+      if (isConnectedAccount && profile?.id === accountToManage.id) {
+        resetToMainAccount()
+      }
+
+      // Refresh the connected accounts list
+      fetchConnectedAccounts()
+
+      toast({
+        title: "Account deleted",
+        description: `${accountToManage.name}'s account has been permanently deleted.`,
+      })
+
+      setShowDeleteDialog(false)
+    } catch (error: any) {
+      console.error("Error deleting child account:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete child account. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsProcessing(false)
+    }
+  }
 
   // Check if current profile is a child account
   const isChildAccount = profile?.email?.endsWith("@ganamos.app") || false
@@ -604,21 +752,35 @@ export default function ProfilePage() {
                           </div>
                           <span>{account.name}</span>
                         </div>
-                        {isConnectedAccount && profile?.id === account.id && (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                        <div className="flex items-center">
+                          {isConnectedAccount && profile?.id === account.id && (
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="mr-2"
+                            >
+                              <path d="M20 6 9 17l-5-5" />
+                            </svg>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleAccountAction(account)
+                            }}
                           >
-                            <path d="M20 6 9 17l-5-5" />
-                          </svg>
-                        )}
+                            ×
+                          </Button>
+                        </div>
                       </div>
                     </DropdownMenuItem>
                   ))}
@@ -898,6 +1060,100 @@ export default function ProfilePage() {
         onOpenChange={setShowAddAccountDialog}
         onAccountAdded={fetchConnectedAccounts}
       />
+
+      {/* Delete Child Account Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Delete Child Account</DialogTitle>
+            <DialogDescription>
+              This will permanently delete {accountToManage?.name}'s account and all their data. This action cannot be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={isProcessing}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteChildAccount} disabled={isProcessing}>
+              {isProcessing ? (
+                <div className="flex items-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Deleting...
+                </div>
+              ) : (
+                "Delete Account"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disconnect Account Dialog */}
+      <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disconnect Account</DialogTitle>
+            <DialogDescription>
+              This will remove {accountToManage?.name} from your connected accounts. They will still have their own
+              account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setShowDisconnectDialog(false)} disabled={isProcessing}>
+              Cancel
+            </Button>
+            <Button onClick={handleDisconnectAccount} disabled={isProcessing}>
+              {isProcessing ? (
+                <div className="flex items-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Disconnecting...
+                </div>
+              ) : (
+                "Disconnect Account"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
