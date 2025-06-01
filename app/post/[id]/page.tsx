@@ -331,6 +331,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               submitted_fix_at: nowIso,
               submitted_fix_image_url: fixImage,
               submitted_fix_note: fixerNote || null,
+              ai_confidence_score: verificationResult.confidence,
+              ai_analysis: verificationResult.reasoning,
             })
             .eq("id", post.id)
 
@@ -732,50 +734,89 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="container px-4 pb-6 mx-auto max-w-md">
+      {/* Header */}
+      <div className="flex items-center mb-4">
+        <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+          <span className="sr-only">Back</span>
+        </Button>
+        <h1 className="text-2xl font-bold">
+          {post.under_review &&
+          post.submitted_fix_image_url &&
+          user &&
+          (post.userId === user.id || post.user_id === user.id)
+            ? "Review Submitted Fix"
+            : "Issue Details"}
+        </h1>
+      </div>
+
       {/* Before and After Images */}
-      {post.fixed && post.fixed_image_url ? (
-        <div className="relative">
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Before</p>
-              <div className="relative w-full h-40 overflow-hidden rounded-lg">
-                <Image
-                  src={post.imageUrl || post.image_url || "/placeholder.svg"}
-                  alt="Before"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">After</p>
-              <div className="relative w-full h-40 overflow-hidden rounded-lg">
-                <Image src={post.fixed_image_url || "/placeholder.svg"} alt="After" fill className="object-cover" />
+      {post.under_review &&
+      post.submitted_fix_image_url &&
+      user &&
+      (post.userId === user.id || post.user_id === user.id) ? (
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <div>
+            <div className="relative w-full h-40 overflow-hidden rounded-lg">
+              <Image
+                src={post.imageUrl || post.image_url || "/placeholder.svg"}
+                alt="Before"
+                fill
+                className="object-cover"
+              />
+              <div className="absolute top-2 left-2">
+                <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">Before</span>
               </div>
             </div>
           </div>
-          <div className="absolute top-8 left-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.back()}
-              className="bg-black/50 hover:bg-black/70 text-white"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m15 18-6-6 6-6" />
-              </svg>
-              <span className="sr-only">Back</span>
-            </Button>
+          <div>
+            <div className="relative w-full h-40 overflow-hidden rounded-lg">
+              <Image
+                src={post.submitted_fix_image_url || "/placeholder.svg"}
+                alt="After"
+                fill
+                className="object-cover"
+              />
+              <div className="absolute top-2 left-2">
+                <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">After</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : post.fixed && post.fixed_image_url ? (
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <div>
+            <div className="relative w-full h-40 overflow-hidden rounded-lg">
+              <Image
+                src={post.imageUrl || post.image_url || "/placeholder.svg"}
+                alt="Before"
+                fill
+                className="object-cover"
+              />
+              <div className="absolute top-2 left-2">
+                <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">Before</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="relative w-full h-40 overflow-hidden rounded-lg">
+              <Image src={post.fixed_image_url || "/placeholder.svg"} alt="After" fill className="object-cover" />
+              <div className="absolute top-2 left-2">
+                <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">After</span>
+              </div>
+            </div>
           </div>
         </div>
       ) : (
@@ -786,29 +827,6 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             fill
             className="object-cover"
           />
-          <div className="absolute top-4 left-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.back()}
-              className="bg-black/50 hover:bg-black/70 text-white"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m15 18-6-6 6-6" />
-              </svg>
-              <span className="sr-only">Back</span>
-            </Button>
-          </div>
         </div>
       )}
 
@@ -860,7 +878,28 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             <span className="text-xs font-medium text-muted-foreground">{post.created_by}</span>
           </div>
         )}
+        {post.under_review && post.submitted_fix_by_name && (
+          <div className="flex items-center mt-1">
+            <p className="text-xs text-muted-foreground mr-1">Fix submitted by</p>
+            <span className="text-xs font-medium text-muted-foreground">{post.submitted_fix_by_name}</span>
+          </div>
+        )}
       </div>
+
+      {/* AI Verification Section - Only visible when a fix is submitted for review */}
+      {post.under_review && post.submitted_fix_image_url && (
+        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-6">
+          <div className="flex items-center mb-1">
+            <p className="text-sm font-medium">AI Review</p>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {post.ai_analysis || "The AI analysis is not available for this submission."}
+          </p>
+          {post.ai_confidence_score && (
+            <div className="mt-2 text-xs text-muted-foreground">Confidence Score: {post.ai_confidence_score}/10</div>
+          )}
+        </div>
+      )}
 
       {/* Show fixer note if it exists */}
       {post.fixed && post.fixer_note && (
@@ -875,156 +914,118 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         post.submitted_fix_image_url &&
         user &&
         (post.userId === user.id || post.user_id === user.id) && (
-          <Card className="mb-6 border dark:border-gray-800">
-            <CardContent className="p-4">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-lg">Review Submitted Fix</h3>
-                  <Badge
-                    variant="outline"
-                    className="bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-100"
-                  >
-                    Needs Review
-                  </Badge>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="relative w-full h-48 overflow-hidden rounded-lg">
-                      <Image
-                        src={post.imageUrl || post.image_url || "/placeholder.svg"}
-                        alt="Before"
-                        fill
-                        className="object-cover"
-                      />
-                      <div className="absolute top-2 left-2">
-                        <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">Before</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="relative w-full h-48 overflow-hidden rounded-lg">
-                      <Image
-                        src={post.submitted_fix_image_url || "/placeholder.svg"}
-                        alt="After"
-                        fill
-                        className="object-cover"
-                      />
-                      <div className="absolute top-2 left-2">
-                        <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">After</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {post.submitted_fix_by_name && (
-                  <div className="flex items-center space-x-2">
-                    <Avatar className="h-6 w-6">
-                      <AvatarImage
-                        src={post.submitted_fix_by_avatar || "/placeholder.svg"}
-                        alt={post.submitted_fix_by_name}
-                      />
-                      <AvatarFallback>{post.submitted_fix_by_name.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm font-medium">{post.submitted_fix_by_name} submitted this fix</span>
-                  </div>
-                )}
-
-                {post.submitted_fix_note && (
-                  <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                    <p className="text-sm font-medium mb-1">Fixer's note:</p>
-                    <p className="text-sm text-muted-foreground">{post.submitted_fix_note}</p>
-                  </div>
-                )}
-
-                <div className="flex space-x-3">
-                  <Button
-                    onClick={handleApproveFix}
-                    disabled={isReviewing}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                  >
-                    {isReviewing ? (
-                      <div className="flex items-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Processing...
-                      </div>
-                    ) : (
-                      "Approve & Pay Reward"
-                    )}
-                  </Button>
-                  <Button onClick={handleRejectFix} disabled={isReviewing} variant="outline" className="flex-1">
-                    Reject Fix
-                  </Button>
-                </div>
+          <div className="space-y-4 mb-6">
+            {post.submitted_fix_note && (
+              <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                <p className="text-sm font-medium mb-1">Fixer's note:</p>
+                <p className="text-sm text-muted-foreground">{post.submitted_fix_note}</p>
               </div>
-            </CardContent>
-          </Card>
+            )}
+
+            {/* Bitcoin Reward Section */}
+            <Card className="border dark:border-gray-800">
+              <CardContent className="p-3">
+                <div className="flex items-center">
+                  <div className="p-2 mr-3 bg-amber-100 rounded-full dark:bg-amber-950/50">
+                    <BitcoinLogo size={16} />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold">{formatSatsValue(post.reward)}</p>
+                    <p className="text-sm font-medium text-muted-foreground">Reward</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex space-x-3">
+              <Button onClick={handleApproveFix} disabled={isReviewing} className="flex-1 w-full">
+                {isReviewing ? (
+                  <div className="flex items-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Processing...
+                  </div>
+                ) : (
+                  "Approve & Pay Reward"
+                )}
+              </Button>
+              <Button onClick={handleRejectFix} disabled={isReviewing} variant="outline" className="flex-1">
+                Reject Fix
+              </Button>
+            </div>
+          </div>
         )}
 
-      <Card className="mb-6 border dark:border-gray-800">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="p-2 mr-3 bg-amber-100 rounded-full dark:bg-amber-950/50">
-                <BitcoinLogo size={20} />
-              </div>
-              <div>
-                <div className="flex items-center">
-                  <p className="text-2xl font-bold mr-2">{formatSatsValue(post.reward)}</p>
+      {/* Only show the reward card if not under review */}
+      {!(
+        post.under_review &&
+        post.submitted_fix_image_url &&
+        user &&
+        (post.userId === user.id || post.user_id === user.id)
+      ) && (
+        <Card className="mb-6 border dark:border-gray-800">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="p-2 mr-3 bg-amber-100 rounded-full dark:bg-amber-950/50">
+                  <BitcoinLogo size={20} />
                 </div>
-                <p className="font-medium text-sm text-muted-foreground">Reward</p>
-                {post.fixed && post.fixed_by && (
-                  <div className="flex items-center mt-1">
-                    <p className="text-xs text-muted-foreground mr-1">Earned by</p>
-                    <div className="flex items-center">
-                      <Avatar className="h-4 w-4 mr-1">
-                        <AvatarImage
-                          src={fixerProfile?.avatar_url || "/placeholder.svg"}
-                          alt={fixerProfile?.name || "User"}
-                        />
-                        <AvatarFallback>{getFixerInitials()}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs font-medium">{formatFixerName()}</span>
-                    </div>
+                <div>
+                  <div className="flex items-center">
+                    <p className="text-2xl font-bold mr-2">{formatSatsValue(post.reward)}</p>
                   </div>
-                )}
+                  <p className="font-medium text-sm text-muted-foreground">Reward</p>
+                  {post.fixed && post.fixed_by && (
+                    <div className="flex items-center mt-1">
+                      <p className="text-xs text-muted-foreground mr-1">Earned by</p>
+                      <div className="flex items-center">
+                        <Avatar className="h-4 w-4 mr-1">
+                          <AvatarImage
+                            src={fixerProfile?.avatar_url || "/placeholder.svg"}
+                            alt={fixerProfile?.name || "User"}
+                          />
+                          <AvatarFallback>{getFixerInitials()}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs font-medium">{formatFixerName()}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Show Submit Fix button for all unfixed posts */}
+              {!post.fixed && user && <Button onClick={() => setShowCamera(true)}>Submit Fix</Button>}
+
+              {post.fixed && (
+                <Badge
+                  variant="outline"
+                  className="px-3 py-1 text-sm bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100 dark:border-emerald-800/30"
+                >
+                  Fixed
+                </Badge>
+              )}
             </div>
-
-            {/* Show Submit Fix button for all unfixed posts */}
-            {!post.fixed && user && <Button onClick={() => setShowCamera(true)}>Submit Fix</Button>}
-
-            {post.fixed && (
-              <Badge
-                variant="outline"
-                className="px-3 py-1 text-sm bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100 dark:border-emerald-800/30"
-              >
-                Fixed
-              </Badge>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

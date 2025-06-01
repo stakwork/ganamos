@@ -955,20 +955,15 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
                 +{formatSatsValue(activity.amount)}
               </Badge>
             )}
-            {activity.type === "fix_review_needed" && activity.submitterAvatar && (
-              <div className="mt-2 flex items-center">
-                <div className="flex items-center bg-orange-50 dark:bg-orange-950/30 px-2 py-1 rounded-full">
-                  <div className="w-5 h-5 mr-2 overflow-hidden rounded-full">
-                    <Image
-                      src={activity.submitterAvatar || "/placeholder.svg"}
-                      alt="Submitter"
-                      width={20}
-                      height={20}
-                      className="object-cover"
-                    />
-                  </div>
-                  <span className="text-xs font-medium text-orange-800 dark:text-orange-200">Review needed</span>
-                </div>
+            {activity.type === "fix_review_needed" && (
+              <div className="mt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100 dark:bg-orange-950/30 dark:text-orange-200 dark:border-orange-800/30 dark:hover:bg-orange-950/50"
+                >
+                  Review needed
+                </Button>
               </div>
             )}
           </div>
@@ -989,7 +984,7 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
     case "fix_submitted":
       return <p className="font-medium">You submitted a fix for review</p>
     case "fix_review_needed":
-      return <p className="font-medium">{activity.submitterName || "Someone"} submitted a fix for your issue</p>
+      return <p className="font-medium">{activity.submitterName || "Someone"} submitted a fix</p>
     default:
       return <p className="font-medium">Activity</p>
   }

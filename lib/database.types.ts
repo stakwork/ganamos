@@ -66,6 +66,8 @@ export interface Database {
           submitted_fix_at: string | null
           submitted_fix_image_url: string | null
           submitted_fix_note: string | null
+          ai_confidence_score: number | null
+          ai_analysis: string | null
         }
         Insert: {
           id?: string
@@ -97,6 +99,8 @@ export interface Database {
           submitted_fix_at?: string | null
           submitted_fix_image_url?: string | null
           submitted_fix_note?: string | null
+          ai_confidence_score?: number | null
+          ai_analysis?: string | null
         }
         Update: {
           id?: string
@@ -128,6 +132,8 @@ export interface Database {
           submitted_fix_at?: string | null
           submitted_fix_image_url?: string | null
           submitted_fix_note?: string | null
+          ai_confidence_score?: number | null
+          ai_analysis?: string | null
         }
       }
       groups: {
