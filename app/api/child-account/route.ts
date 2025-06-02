@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 
     const primaryUserId = session.user.id
 
-    // Generate a unique ID and email for the child account
+    // Generate a unique email for the child account
     const childId = uuidv4()
     const childEmail = `child-${childId}@ganamos.app`
 
@@ -38,58 +38,94 @@ export async function POST(request: Request) {
     // Create a separate admin client with service role for admin operations
     const adminSupabase = createServerSupabaseClient()
 
-    // Create the child user with admin API using the admin client
-    const { data: adminData, error: adminError } = await adminSupabase.auth.admin.createUser({
-      email: childEmail,
-      password: password,
-      email_confirm: true, // Skip email verification
-      user_metadata: {
-        name: username,
-        avatar_url: avatarUrl,
-        is_child_account: true,
-        primary_user_id: primaryUserId,
-      },
+    // Check if a user with this email already exists (from a previous failed attempt)
+    const { data: existingUsers } = await adminSupabase.auth.admin.listUsers({
+      filter: `email eq '${childEmail}'`,
     })
 
-    if (adminError) {
-      console.error("Error creating child user:", adminError)
-      return NextResponse.json({ error: `Error creating child account: ${adminError.message}` }, { status: 500 })
+    let childUserId
+
+    // If user doesn't exist, create it
+    if (!existingUsers || existingUsers.users.length === 0) {
+      // Create the child user with admin API using the admin client
+      const { data: adminData, error: adminError } = await adminSupabase.auth.admin.createUser({
+        email: childEmail,
+        password: password,
+        email_confirm: true, // Skip email verification
+        user_metadata: {
+          name: username,
+          avatar_url: avatarUrl,
+          is_child_account: true,
+          primary_user_id: primaryUserId,
+        },
+      })
+
+      if (adminError) {
+        console.error("Error creating child user:", adminError)
+        return NextResponse.json({ error: `Error creating child account: ${adminError.message}` }, { status: 500 })
+      }
+
+      childUserId = adminData.user.id
+    } else {
+      // User already exists, use the existing ID
+      childUserId = existingUsers.users[0].id
+
+      // Update the user metadata to ensure it's current
+      await adminSupabase.auth.admin.updateUserById(childUserId, {
+        user_metadata: {
+          name: username,
+          avatar_url: avatarUrl,
+          is_child_account: true,
+          primary_user_id: primaryUserId,
+        },
+      })
     }
 
     // Continue using the regular client for non-admin operations
-    // Create profile for the child user using our own generated childId
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: childId, // Use our own generated UUID instead of adminData.user.id
-      name: username,
-      email: childEmail, // Use the generated email
-      avatar_url: avatarUrl,
-      balance: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    // Use upsert instead of insert to handle cases where the profile might already exist
+    const { error: profileError } = await supabase.from("profiles").upsert(
+      {
+        id: childUserId,
+        name: username,
+        email: childEmail,
+        avatar_url: avatarUrl,
+        balance: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" },
+    )
 
     if (profileError) {
       console.error("Error creating child profile:", profileError)
-      // Try to clean up the auth user if profile creation fails
-      await adminSupabase.auth.admin.deleteUser(adminData.user.id)
       return NextResponse.json({ error: `Error creating child profile: ${profileError.message}` }, { status: 500 })
     }
 
-    // Create the connection between primary user and child account using our childId
-    const { error: connectionError } = await supabase.from("connected_accounts").insert({
-      primary_user_id: primaryUserId,
-      connected_user_id: childId, // Use our own generated UUID
-      created_at: new Date().toISOString(),
-    })
+    // Check if connection already exists before creating it
+    const { data: existingConnection } = await supabase
+      .from("connected_accounts")
+      .select("*")
+      .eq("primary_user_id", primaryUserId)
+      .eq("connected_user_id", childUserId)
+      .single()
 
-    if (connectionError) {
-      console.error("Error creating connection:", connectionError)
-      // Note: We don't clean up here because the profile and user are valid
-      return NextResponse.json({ error: `Error connecting accounts: ${connectionError.message}` }, { status: 500 })
+    if (!existingConnection) {
+      // Create the connection between primary user and child account
+      const { error: connectionError } = await supabase.from("connected_accounts").insert({
+        primary_user_id: primaryUserId,
+        connected_user_id: childUserId,
+        created_at: new Date().toISOString(),
+      })
+
+      if (connectionError) {
+        console.error("Error creating connection:", connectionError)
+        // Note: We don't clean up here because the profile and user are valid
+        return NextResponse.json({ error: `Error connecting accounts: ${connectionError.message}` }, { status: 500 })
+      }
     }
 
-    // Get the full profile to return using our childId
-    const { data: childProfile } = await supabase.from("profiles").select("*").eq("id", childId).single()
+    // Get the full profile to return
+    const { data: childProfile } = await supabase.from("profiles").select("*").eq("id", childUserId).single()
 
     return NextResponse.json({
       success: true,
