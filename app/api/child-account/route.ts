@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 
     const primaryUserId = session.user.id
 
-    // Generate a unique email for the child account
+    // Generate a unique ID and email for the child account
     const childId = uuidv4()
     const childEmail = `child-${childId}@ganamos.app`
 
@@ -56,12 +56,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Error creating child account: ${adminError.message}` }, { status: 500 })
     }
 
-    const childUserId = adminData.user.id
-
     // Continue using the regular client for non-admin operations
-    // Create profile for the child user
+    // Create profile for the child user using our own generated childId
     const { error: profileError } = await supabase.from("profiles").insert({
-      id: childUserId,
+      id: childId, // Use our own generated UUID instead of adminData.user.id
       name: username,
       email: childEmail, // Use the generated email
       avatar_url: avatarUrl,
@@ -73,14 +71,14 @@ export async function POST(request: Request) {
     if (profileError) {
       console.error("Error creating child profile:", profileError)
       // Try to clean up the auth user if profile creation fails
-      await adminSupabase.auth.admin.deleteUser(childUserId)
+      await adminSupabase.auth.admin.deleteUser(adminData.user.id)
       return NextResponse.json({ error: `Error creating child profile: ${profileError.message}` }, { status: 500 })
     }
 
-    // Create the connection between primary user and child account
+    // Create the connection between primary user and child account using our childId
     const { error: connectionError } = await supabase.from("connected_accounts").insert({
       primary_user_id: primaryUserId,
-      connected_user_id: childUserId,
+      connected_user_id: childId, // Use our own generated UUID
       created_at: new Date().toISOString(),
     })
 
@@ -90,8 +88,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Error connecting accounts: ${connectionError.message}` }, { status: 500 })
     }
 
-    // Get the full profile to return
-    const { data: childProfile } = await supabase.from("profiles").select("*").eq("id", childUserId).single()
+    // Get the full profile to return using our childId
+    const { data: childProfile } = await supabase.from("profiles").select("*").eq("id", childId).single()
 
     return NextResponse.json({
       success: true,

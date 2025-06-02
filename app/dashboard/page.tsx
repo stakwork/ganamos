@@ -12,7 +12,6 @@ import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { Plus, X, Filter, Map, User } from "lucide-react"
 import type { Post } from "@/lib/types"
-import { MapModal } from "@/components/map-modal"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface ActiveFilters {
@@ -40,7 +39,7 @@ export default function DashboardPage() {
   const [filterCleared, setFilterCleared] = useState(false)
 
   // Map modal state
-  const [isMapOpen, setIsMapOpen] = useState(false)
+  // const [isMapOpen, setIsMapOpen] = useState(false)
 
   // Add session guard with useEffect
   useEffect(() => {
@@ -293,7 +292,7 @@ export default function DashboardPage() {
 
               <Button
                 variant="ghost"
-                onClick={() => setIsMapOpen(true)}
+                onClick={() => router.push("/map")}
                 className="flex items-center gap-1 h-9 px-3 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
                 aria-label="View map"
               >
@@ -439,9 +438,6 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
-
-      {/* Map Modal */}
-      <MapModal isOpen={isMapOpen} onClose={() => setIsMapOpen(false)} posts={posts} />
 
       {/* Fixed position container that centers the button horizontally */}
       <div className="fixed bottom-20 left-0 right-0 z-50 flex justify-center pointer-events-none">
