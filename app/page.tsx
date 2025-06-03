@@ -48,9 +48,9 @@ export default function Home() {
             <a href="/auth/register">Create Account</a>
           </Button>
           <Button
-            size="sm"
+            size="xs"
             variant="secondary"
-            className="w-auto px-4 py-2 rounded-full text-sm flex items-center gap-2 mt-6 text-muted-foreground hover:bg-orange-100"
+            className="w-auto px-3 py-1.5 rounded-full text-xs flex items-center gap-2 mt-6 text-muted-foreground hover:bg-orange-100"
             onClick={() => setShowDonationModal(true)}
           >
             <BitcoinLogo className="w-4 h-4" />
