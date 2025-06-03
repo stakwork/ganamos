@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -9,6 +9,7 @@ import { QRCodeSVG } from "qrcode.react"
 import { LocationInput } from "@/components/location-input"
 import { MapView } from "@/components/map-view"
 import { Heart, Bitcoin, Copy, Eye, EyeOff } from "lucide-react"
+import { createClient } from "@/lib/supabase"
 import { mockPosts } from "@/lib/mock-data"
 
 interface DonationModalProps {
@@ -31,12 +32,54 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
   const [selectedAmount, setSelectedAmount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(false)
   const [showFullPaymentRequest, setShowFullPaymentRequest] = useState(false)
+  const [posts, setPosts] = useState<any[]>([])
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false)
 
   const donationAmounts = [
     { label: "1K sats", value: 1000 },
     { label: "10K sats", value: 10000 },
     { label: "100K sats", value: 100000 },
   ]
+
+  const fetchPosts = async () => {
+    setIsLoadingPosts(true)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from("posts")
+        .select(`
+          *,
+          profiles:user_id (
+            id,
+            username,
+            avatar_url
+          )
+        `)
+        .eq("status", "open")
+        .neq("status", "under_review")
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Error fetching posts:", error)
+        // Fall back to mock data
+        setPosts(mockPosts.filter((post) => post.status === "open"))
+      } else {
+        setPosts(data || [])
+      }
+    } catch (error) {
+      console.error("Error fetching posts:", error)
+      // Fall back to mock data
+      setPosts(mockPosts.filter((post) => post.status === "open"))
+    } finally {
+      setIsLoadingPosts(false)
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
+      fetchPosts()
+    }
+  }, [open])
 
   const handleLocationChange = (value: string, placeDetails?: google.maps.places.PlaceResult) => {
     console.log("Location changed:", value, placeDetails)
@@ -147,11 +190,11 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
             <div className="h-64 w-full rounded-lg overflow-hidden">
               {console.log("Rendering map with:", selectedLocation, "bounds:", selectedBounds)}
               <MapView
-                posts={mockPosts}
+                posts={posts}
                 center={selectedLocation}
                 bounds={selectedBounds}
                 onClose={() => {}}
-                isLoading={false}
+                isLoading={isLoadingPosts}
                 isModal={true}
                 initialSearchQuery={locationName}
               />
