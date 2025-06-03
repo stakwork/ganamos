@@ -20,6 +20,21 @@ export default function MapPage() {
   const centerPostId = searchParams.get("centerPost")
   const centerPost = posts.find((post) => post.id === centerPostId) || undefined
 
+  // Get location parameters from URL if provided
+  const lat = searchParams.get("lat")
+  const lng = searchParams.get("lng")
+  const zoomType = searchParams.get("zoom")
+
+  // Parse location data if available
+  const userLocation =
+    lat && lng
+      ? {
+          latitude: Number.parseFloat(lat),
+          longitude: Number.parseFloat(lng),
+          zoomType: zoomType || "default",
+        }
+      : undefined
+
   useEffect(() => {
     if (!loading && !user) {
       router.push("/auth/login")
@@ -75,7 +90,13 @@ export default function MapPage() {
 
   return (
     <div className="h-screen w-screen">
-      <MapView posts={posts} centerPost={centerPost} onClose={handleClose} isLoading={isLoading} />
+      <MapView
+        posts={posts}
+        centerPost={centerPost}
+        onClose={handleClose}
+        isLoading={isLoading}
+        userLocation={userLocation}
+      />
     </div>
   )
 }
