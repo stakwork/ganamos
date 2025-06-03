@@ -9,7 +9,7 @@ import { QRCodeSVG } from "qrcode.react"
 import { LocationInput } from "@/components/location-input"
 import { MapView } from "@/components/map-view"
 import { Heart, Bitcoin, Copy, Eye, EyeOff } from "lucide-react"
-import { createClient } from "@/lib/supabase"
+import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { mockPosts } from "@/lib/mock-data"
 
 interface DonationModalProps {
@@ -44,7 +44,7 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
   const fetchPosts = async () => {
     setIsLoadingPosts(true)
     try {
-      const supabase = createClient()
+      const supabase = createBrowserSupabaseClient()
       const { data, error } = await supabase
         .from("posts")
         .select(`
