@@ -9,6 +9,7 @@ import { QRCodeSVG } from "qrcode.react"
 import { LocationInput } from "@/components/location-input"
 import { MapView } from "@/components/map-view"
 import { Heart, Bitcoin, Copy, Eye, EyeOff } from "lucide-react"
+import { mockPosts } from "@/lib/mock-data"
 
 interface DonationModalProps {
   open: boolean
@@ -146,7 +147,7 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
             <div className="h-64 w-full rounded-lg overflow-hidden">
               {console.log("Rendering map with:", selectedLocation, "bounds:", selectedBounds)}
               <MapView
-                posts={[]}
+                posts={mockPosts}
                 center={selectedLocation}
                 bounds={selectedBounds}
                 onClose={() => {}}
