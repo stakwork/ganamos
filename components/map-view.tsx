@@ -193,12 +193,10 @@ export function MapView({
           return
         }
 
-        // Use overlayMouseTarget for clickable markers, overlayLayer for non-clickable
-        const targetPane = this.isClickable ? panes.overlayMouseTarget : panes.overlayLayer
+        // Use overlayMouseTarget for all markers to ensure visibility
+        const targetPane = panes.overlayMouseTarget
         targetPane.appendChild(this.containerDiv)
-        console.log(
-          `Marker ${this.markerId} added to DOM in ${this.isClickable ? "overlayMouseTarget" : "overlayLayer"}`,
-        )
+        console.log(`Marker ${this.markerId} added to DOM in overlayMouseTarget`)
       }
 
       // Called when the overlay's position should be drawn
