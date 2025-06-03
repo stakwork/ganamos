@@ -13,6 +13,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { Plus, X, Filter, Map, User } from "lucide-react"
 import type { Post } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getCurrentLocationWithName } from "@/lib/geocoding"
 
 interface ActiveFilters {
   count: number
@@ -292,7 +293,20 @@ export default function DashboardPage() {
 
               <Button
                 variant="ghost"
-                onClick={() => router.push("/map")}
+                onClick={async () => {
+                  try {
+                    const locationData = await getCurrentLocationWithName()
+                    if (locationData) {
+                      // Pass location data to map page to zoom to city bounds
+                      router.push(`/map?lat=${locationData.latitude}&lng=${locationData.longitude}&zoom=city`)
+                    } else {
+                      router.push("/map")
+                    }
+                  } catch (error) {
+                    console.error("Error getting location:", error)
+                    router.push("/map")
+                  }
+                }}
                 className="flex items-center gap-1 h-9 px-3 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
                 aria-label="View map"
               >
