@@ -261,7 +261,7 @@ export function MapView({
         const boxShadow = this.isSelected ? "0 4px 8px rgba(0, 0, 0, 0.25)" : "0 2px 4px rgba(0, 0, 0, 0.2)" // Increased opacity by 10%
 
         this.containerDiv.innerHTML = `
-          <div style="
+          <div class="custom-marker" style="
             display: flex;
             align-items: center;
             background-color: ${backgroundColor};
