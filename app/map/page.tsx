@@ -20,18 +20,20 @@ export default function MapPage() {
   const centerPostId = searchParams.get("centerPost")
   const centerPost = posts.find((post) => post.id === centerPostId) || undefined
 
-  // Get location parameters from URL if provided
+  // After the centerPostId line, add these lines to get location parameters
   const lat = searchParams.get("lat")
   const lng = searchParams.get("lng")
   const zoomType = searchParams.get("zoom")
+  const locationName = searchParams.get("name")
 
-  // Parse location data if available
+  // Create userLocation object if parameters exist
   const userLocation =
     lat && lng
       ? {
           latitude: Number.parseFloat(lat),
           longitude: Number.parseFloat(lng),
           zoomType: zoomType || "default",
+          name: locationName || "",
         }
       : undefined
 
