@@ -117,13 +117,28 @@ export function LocationInput({ value, onChange, placeholder, className }: Locat
 
           // Ensure Google Maps script is loaded via our secure API endpoint
           if (!window.google?.maps?.places && !document.getElementById("google-maps-script")) {
-            const script = document.createElement("script")
-            script.id = "google-maps-script"
-            script.src = "/api/maps"
-            script.async = true
-            script.defer = true
-            script.onload = () => initializeServices()
-            document.head.appendChild(script)
+            fetch("/api/maps")
+              .then((response) => response.text())
+              .then((scriptContent) => {
+                const script = document.createElement("script")
+                script.id = "google-maps-script"
+                script.text = scriptContent
+                document.head.appendChild(script)
+
+                // Wait for Google Maps to load and then initialize
+                const checkInterval = setInterval(() => {
+                  if (window.google?.maps?.places) {
+                    clearInterval(checkInterval)
+                    initializeServices()
+                  }
+                }, 100)
+
+                // Cleanup after 10 seconds
+                setTimeout(() => clearInterval(checkInterval), 10000)
+              })
+              .catch((error) => {
+                console.error("Failed to load Google Maps script:", error)
+              })
           }
         }}
         onBlur={() => {
