@@ -8,7 +8,7 @@ import { createDonationInvoice } from "@/app/actions/donation-actions"
 import { QRCodeSVG } from "qrcode.react"
 import { LocationInput } from "@/components/location-input"
 import { MapView } from "@/components/map-view"
-import { Heart, Bitcoin } from "lucide-react"
+import { Heart, Bitcoin, Copy, Eye, EyeOff } from "lucide-react"
 
 interface DonationModalProps {
   open: boolean
@@ -25,9 +25,11 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
   const [step, setStep] = useState<"location" | "map" | "invoice" | "success">("location")
   const [locationName, setLocationName] = useState("")
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [selectedBounds, setSelectedBounds] = useState<google.maps.LatLngBounds | null>(null)
   const [paymentRequest, setPaymentRequest] = useState("")
   const [selectedAmount, setSelectedAmount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(false)
+  const [showFullPaymentRequest, setShowFullPaymentRequest] = useState(false)
 
   const donationAmounts = [
     { label: "1K sats", value: 1000 },
@@ -44,9 +46,19 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
       const lng = placeDetails.geometry.location.lng()
       console.log("Setting coordinates:", lat, lng)
       setSelectedLocation({ lat, lng })
+
+      // Store bounds for smart zoom
+      if (placeDetails.geometry.viewport) {
+        setSelectedBounds(placeDetails.geometry.viewport)
+      } else if (placeDetails.geometry.bounds) {
+        setSelectedBounds(placeDetails.geometry.bounds)
+      } else {
+        setSelectedBounds(null)
+      }
     } else {
       console.log("No coordinates in place details")
       setSelectedLocation(null)
+      setSelectedBounds(null)
     }
   }
 
@@ -88,6 +100,7 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
     setStep("location")
     setLocationName("")
     setSelectedLocation(null)
+    setSelectedBounds(null)
     setPaymentRequest("")
     setSelectedAmount(0)
   }
@@ -131,8 +144,16 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
         {step === "map" && selectedLocation && (
           <div className="space-y-4">
             <div className="h-64 w-full rounded-lg overflow-hidden">
-              {console.log("Rendering map with:", selectedLocation)}
-              <MapView posts={[]} onClose={() => {}} isLoading={false} />
+              {console.log("Rendering map with:", selectedLocation, "bounds:", selectedBounds)}
+              <MapView
+                posts={[]}
+                center={selectedLocation}
+                bounds={selectedBounds}
+                onClose={() => {}}
+                isLoading={false}
+                isModal={true}
+                initialSearchQuery={locationName}
+              />
             </div>
 
             <div>
@@ -161,7 +182,29 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
             <div className="flex justify-center">
               <QRCodeSVG value={paymentRequest} size={200} />
             </div>
-            <div className="text-xs break-all bg-gray-100 p-2 rounded">{paymentRequest}</div>
+            <div className="flex items-center gap-2 text-xs bg-gray-100 p-2 rounded">
+              <div className="flex-1 font-mono">
+                {showFullPaymentRequest
+                  ? paymentRequest
+                  : `${paymentRequest.slice(0, 20)}...${paymentRequest.slice(-20)}`}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFullPaymentRequest(!showFullPaymentRequest)}
+                className="h-6 w-6 p-0"
+              >
+                {showFullPaymentRequest ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigator.clipboard.writeText(paymentRequest)}
+                className="h-6 w-6 p-0"
+              >
+                <Copy className="h-3 w-3" />
+              </Button>
+            </div>
             <p className="text-sm text-gray-600">
               Donating {selectedAmount.toLocaleString()} sats to {locationName}
             </p>

@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, X, RefreshCw, MapPin, AlertCircle } from "lucide-react"
+import { Loader2, X, RefreshCw, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
 import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
@@ -12,8 +12,12 @@ import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
 interface MapViewProps {
   posts: Post[]
   centerPost?: Post // Optional post to center the map on
+  center?: { lat: number; lng: number } // Custom center coordinates
+  bounds?: google.maps.LatLngBounds // Optional bounds to fit the map to
   onClose: () => void
   isLoading?: boolean
+  isModal?: boolean // Flag to indicate if map is in a modal
+  initialSearchQuery?: string // Initial search query to populate the search bar
 }
 
 // Declare google as a global type to avoid linting errors
@@ -23,7 +27,16 @@ declare global {
   }
 }
 
-export function MapView({ posts, centerPost, onClose, isLoading: externalLoading }: MapViewProps) {
+export function MapView({
+  posts,
+  centerPost,
+  center,
+  bounds,
+  onClose,
+  isLoading: externalLoading,
+  isModal = false,
+  initialSearchQuery = "",
+}: MapViewProps) {
   const router = useRouter()
   const mapRef = useRef<HTMLDivElement>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -32,8 +45,10 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
   const [mapInitialized, setMapInitialized] = useState(false)
   const [loadingStep, setLoadingStep] = useState<string>("Initializing...")
   const [selectedPost, setSelectedPost] = useState<Post | null>(centerPost || null)
+  const markersRef = useRef<{ [key: string]: any }>({})
+  const PostMarkerClassRef = useRef<any>(null)
 
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
   const [searchResults, setSearchResults] = useState<google.maps.places.AutocompletePrediction[]>([])
   const [showResults, setShowResults] = useState(false)
   const [autocompleteService, setAutocompleteService] = useState<google.maps.places.AutocompleteService | null>(null)
@@ -43,6 +58,18 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
   const postsWithLocation = posts.filter(
     (post) => post.latitude && post.longitude && !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
   )
+
+  // Format date for preview card
+  const formatPostDate = (post: Post) => {
+    try {
+      if (!post.createdAt && !post.created_at) return "Recently"
+      const date = new Date(post.createdAt || post.created_at)
+      if (isNaN(date.getTime())) return "Recently"
+      return formatTimeAgo(date)
+    } catch (error) {
+      return "Recently"
+    }
+  }
 
   // Initialize map when component mounts
   useEffect(() => {
@@ -56,6 +83,139 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
     loadGoogleMaps()
   }, [mapInitialized])
 
+  // Create PostMarker class after Google Maps is loaded
+  const createPostMarkerClass = () => {
+    if (!window.google || !window.google.maps) return null
+
+    // Custom PostMarker class that extends OverlayView
+    return class PostMarker extends window.google.maps.OverlayView {
+      private position: google.maps.LatLng
+      private containerDiv: HTMLDivElement
+      private post: Post
+      private map: google.maps.Map
+      private isSelected: boolean
+      private onClick: (post: Post) => void
+
+      constructor(post: Post, map: google.maps.Map, isSelected: boolean, onClick: (post: Post) => void) {
+        super()
+        this.post = post
+        this.position = new window.google.maps.LatLng(Number(post.latitude), Number(post.longitude))
+        this.isSelected = isSelected
+        this.onClick = onClick
+        this.map = map
+
+        // Create container div for the marker
+        this.containerDiv = document.createElement("div")
+        this.containerDiv.className = "post-marker-container"
+        this.containerDiv.style.position = "absolute"
+        this.containerDiv.style.cursor = "pointer"
+        this.containerDiv.style.userSelect = "none"
+        this.containerDiv.style.zIndex = "1"
+
+        // Add click event listener
+        this.containerDiv.addEventListener("click", (e) => {
+          e.stopPropagation()
+          this.onClick(this.post)
+        })
+
+        // Set the overlay's map
+        this.setMap(map)
+      }
+
+      // Called when the overlay is added to the map
+      onAdd() {
+        // Create the marker content
+        this.updateContent()
+
+        // Add the element to the overlay pane
+        const panes = this.getPanes()
+        panes.overlayMouseTarget.appendChild(this.containerDiv)
+      }
+
+      // Called when the overlay's position should be drawn
+      draw() {
+        // Transform the position to pixel coordinates
+        const projection = this.getProjection()
+        if (!projection) return
+
+        const point = projection.fromLatLngToDivPixel(this.position)
+        if (point) {
+          this.containerDiv.style.left = point.x - 50 + "px" // Center horizontally (100px width / 2)
+          this.containerDiv.style.top = point.y - 16 + "px" // Center vertically (32px height / 2)
+        }
+      }
+
+      // Called when the overlay is removed from the map
+      onRemove() {
+        if (this.containerDiv.parentElement) {
+          this.containerDiv.parentElement.removeChild(this.containerDiv)
+        }
+      }
+
+      // Update the marker's selected state
+      setSelected(isSelected: boolean) {
+        this.isSelected = isSelected
+        this.updateContent()
+      }
+
+      // Format sats for display
+      private formatSatsForPin(sats: number): string {
+        if (sats === 0) return "0"
+        if (sats < 1000) return sats.toString()
+
+        const inK = sats / 1000
+        if (inK === Math.floor(inK)) {
+          return `${Math.floor(inK)}k`
+        }
+        return `${inK.toFixed(1)}k`.replace(".0k", "k")
+      }
+
+      // Update the marker's content based on selection state
+      private updateContent() {
+        const rewardText = this.formatSatsForPin(this.post.reward)
+        const backgroundColor = this.isSelected ? "#FEF3C7" : "#ffffff"
+        const borderColor = this.isSelected ? "#F7931A" : "#d1d5db"
+        const boxShadow = this.isSelected ? "0 4px 8px rgba(0, 0, 0, 0.15)" : "0 2px 4px rgba(0, 0, 0, 0.1)"
+
+        this.containerDiv.innerHTML = `
+          <div style="
+            display: flex;
+            align-items: center;
+            background-color: ${backgroundColor};
+            border: 1px solid ${borderColor};
+            border-radius: 16px;
+            padding: 6px 12px;
+            box-shadow: ${boxShadow};
+            transition: all 0.2s ease;
+            min-width: 60px;
+            height: 32px;
+          ">
+            <div style="
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 16px;
+              height: 16px;
+              margin-right: 6px;
+            ">
+              <span style="
+                color: #F7931A;
+                font-weight: bold;
+                font-size: 14px;
+              ">₿</span>
+            </div>
+            <span style="
+              font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+              font-size: 14px;
+              font-weight: 500;
+              color: #333333;
+            ">${rewardText}</span>
+          </div>
+        `
+      }
+    }
+  }
+
   // Load Google Maps with better error handling
   const loadGoogleMaps = async () => {
     try {
@@ -65,6 +225,8 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
       if (window.google && window.google.maps) {
         console.log("Google Maps already loaded")
         setLoadingStep("Initializing map...")
+        // Create PostMarker class
+        PostMarkerClassRef.current = createPostMarkerClass()
         initializeMap()
         return
       }
@@ -91,6 +253,8 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
           setTimeout(() => {
             if (window.google && window.google.maps) {
               console.log("Google Maps is available")
+              // Create PostMarker class
+              PostMarkerClassRef.current = createPostMarkerClass()
               resolve()
             } else {
               console.error("Google Maps loaded but not available")
@@ -157,6 +321,9 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
       if (centerPost && centerPost.latitude && centerPost.longitude) {
         defaultCenter = { lat: Number(centerPost.latitude), lng: Number(centerPost.longitude) }
         console.log("Centering map on specific post:", defaultCenter)
+      } else if (center) {
+        defaultCenter = center
+        console.log("Centering map on custom location:", defaultCenter)
       } else if (postsWithLocation.length > 0) {
         // Otherwise use first post with location
         const firstPost = postsWithLocation[0]
@@ -166,7 +333,7 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
       // Create map instance
       const map = new window.google.maps.Map(mapRef.current, {
         center: defaultCenter,
-        zoom: 15, // Higher zoom when centering on specific location
+        zoom: 2, // Start with a low zoom, will be adjusted by bounds if provided
         mapTypeId: window.google.maps.MapTypeId.ROADMAP,
         zoomControl: true,
         mapTypeControl: false,
@@ -193,6 +360,15 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
         setShowResults(false)
       })
 
+      // If bounds are provided, fit the map to those bounds
+      if (bounds) {
+        console.log("Fitting map to provided bounds")
+        map.fitBounds(bounds)
+      } else if (centerPost) {
+        // If centering on a specific post, use higher zoom
+        map.setZoom(15)
+      }
+
       // Skip user location and go straight to adding post markers
       addPostMarkers(map)
       setIsLoading(false)
@@ -203,65 +379,10 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
     }
   }
 
-  // Format sats for pin display (simplified version)
-  const formatSatsForPin = (sats: number): string => {
-    if (sats === 0) return "0"
-    if (sats < 1000) return sats.toString()
-
-    const inK = sats / 1000
-    if (inK === Math.floor(inK)) {
-      return `${Math.floor(inK)}k`
-    }
-    return `${inK.toFixed(1)}k`.replace(".0k", "k")
-  }
-
-  // Create custom Airbnb-style oval marker icon
-  const createCustomMarkerIcon = (post: Post, isSelected: boolean) => {
-    const rewardText = formatSatsForPin(post.reward)
-    const backgroundColor = isSelected ? "#FEF3C7" : "#ffffff"
-    const textColor = isSelected ? "#000000" : "#000000"
-    const bitcoinColor = "#F7931A"
-    const borderColor = "#d1d5db"
-
-    // Calculate width based on text length with proper padding
-    const textWidth = rewardText.length * 7 + 12 // Approximate width calculation with more right padding
-    const totalWidth = 24 + textWidth // Bitcoin symbol + text + padding
-
-    return {
-      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-      <svg width="${totalWidth}" height="32" viewBox="0 0 ${totalWidth} 32" xmlns="http://www.w3.org/2000/svg">
-        <!-- Oval background with shadow -->
-        <rect x="1" y="1" width="${totalWidth - 2}" height="30" rx="15" ry="15" 
-              fill="${backgroundColor}" 
-              stroke="#F7931A" 
-              strokeWidth="1" />
-        <!-- Bitcoin symbol - adjusted position and size -->
-        <text x="12" y="20" textAnchor="middle" fontFamily="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" fontSize="8" fontWeight="900" fill="${bitcoinColor}">₿</text>
-        <!-- Reward amount - adjusted position -->
-        <text x="24" y="20" fontFamily="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" fontSize="12" fontWeight="500" fill="${textColor}">${rewardText}</text>
-      </svg>
-    `)}`,
-      scaledSize: new window.google.maps.Size(totalWidth, 32),
-      anchor: new window.google.maps.Point(totalWidth / 2, 16),
-    }
-  }
-
-  // Format date for preview card
-  const formatPostDate = (post: Post) => {
-    try {
-      if (!post.createdAt && !post.created_at) return "Recently"
-      const date = new Date(post.createdAt || post.created_at)
-      if (isNaN(date.getTime())) return "Recently"
-      return formatTimeAgo(date)
-    } catch (error) {
-      return "Recently"
-    }
-  }
-
   // Add markers for posts with location data
   const addPostMarkers = (map: google.maps.Map) => {
-    if (!map || !window.google) {
-      console.error("Map or Google Maps not available for adding post markers")
+    if (!map || !window.google || !PostMarkerClassRef.current) {
+      console.error("Map, Google Maps, or PostMarker class not available for adding post markers")
       return
     }
 
@@ -272,50 +393,32 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
       return
     }
 
-    // Store markers for updating their styles
-    const markers: { [key: string]: google.maps.Marker } = {}
+    // Clear existing markers
+    Object.values(markersRef.current).forEach((marker) => {
+      marker.setMap(null)
+    })
+    markersRef.current = {}
 
     // Add markers for all posts with location
     postsWithLocation.forEach((post, index) => {
-      const postLoc = { lat: Number(post.latitude), lng: Number(post.longitude) }
       const isSelected = selectedPost && post.id === selectedPost.id
 
-      const marker = new window.google.maps.Marker({
-        position: postLoc,
-        map: map,
-        title: post.title || "Issue",
-        icon: createCustomMarkerIcon(post, isSelected),
-      })
-
-      markers[post.id] = marker
-
-      // Add click listener to marker
-      marker.addListener("click", (e: any) => {
-        e.stop() // Prevent map click event
-        setSelectedPost(post)
+      // Create a new marker for this post
+      const marker = new PostMarkerClassRef.current(post, map, isSelected, (clickedPost: Post) => {
+        // Handle marker click
+        setSelectedPost(clickedPost)
 
         // Update all marker styles
-        postsWithLocation.forEach((p) => {
-          const isNowSelected = p.id === post.id
-          markers[p.id].setIcon(createCustomMarkerIcon(p, isNowSelected))
+        Object.entries(markersRef.current).forEach(([id, marker]) => {
+          marker.setSelected(id === clickedPost.id)
         })
       })
 
+      // Store reference to marker
+      markersRef.current[post.id] = marker
+
       console.log(`Added marker ${index + 1} for post: ${post.title}`)
     })
-
-    // Update markers when selectedPost changes
-    const updateMarkerStyles = () => {
-      postsWithLocation.forEach((post) => {
-        const isSelected = selectedPost && post.id === selectedPost.id
-        if (markers[post.id]) {
-          markers[post.id].setIcon(createCustomMarkerIcon(post, isSelected))
-        }
-      })
-    }
-
-    // Call updateMarkerStyles when selectedPost changes
-    updateMarkerStyles()
   }
 
   // Handle search input
@@ -351,8 +454,19 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
 
     placesService.getDetails({ placeId }, (place, status) => {
       if (status === window.google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
-        mapInstance.setCenter(place.geometry.location)
-        mapInstance.setZoom(15)
+        // Use smart zoom logic based on place geometry
+        if (place.geometry.viewport) {
+          // If the place has viewport bounds, use them to show the entire area
+          mapInstance.fitBounds(place.geometry.viewport)
+        } else if (place.geometry.bounds) {
+          // If no viewport but has bounds, use those
+          mapInstance.fitBounds(place.geometry.bounds)
+        } else {
+          // Fall back to center and zoom for specific points
+          mapInstance.setCenter(place.geometry.location)
+          mapInstance.setZoom(15)
+        }
+
         setSearchQuery(description)
         setShowResults(false)
       }
@@ -385,28 +499,48 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
 
   // Update marker styles when selectedPost changes
   useEffect(() => {
-    if (mapInstance && mapInitialized) {
-      // This will trigger a re-render of markers with updated styles
-      addPostMarkers(mapInstance)
+    if (mapInstance && mapInitialized && PostMarkerClassRef.current) {
+      // Update marker selection states
+      Object.entries(markersRef.current).forEach(([id, marker]) => {
+        marker.setSelected(selectedPost && id === selectedPost.id)
+      })
     }
   }, [selectedPost])
 
+  // Clean up markers when component unmounts
+  useEffect(() => {
+    return () => {
+      Object.values(markersRef.current).forEach((marker) => {
+        if (marker && typeof marker.setMap === "function") {
+          marker.setMap(null)
+        }
+      })
+    }
+  }, [])
+
   const showLoading = isLoading || externalLoading
 
-  return (
-    <div className="h-screen w-screen relative">
-      {/* Close Button */}
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={onClose}
-        className="absolute top-4 right-4 z-50 h-8 w-8 rounded-full bg-white hover:bg-gray-50 shadow-lg border-gray-200 text-gray-600 hover:text-gray-800"
-      >
-        <X className="h-4 w-4" />
-      </Button>
+  // Set container classes based on whether it's in a modal or not
+  const containerClasses = isModal ? "h-full w-full relative" : "h-screen w-screen relative"
 
-      {/* Search Bar */}
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 w-80 max-w-[calc(100vw-2rem)]">
+  return (
+    <div className={containerClasses}>
+      {/* Close Button - Only show if not in modal */}
+      {!isModal && (
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onClose}
+          className="absolute top-4 right-4 z-50 h-8 w-8 rounded-full bg-white hover:bg-gray-50 shadow-lg border-gray-200 text-gray-600 hover:text-gray-800"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      )}
+
+      {/* Search Bar - Adjust position if in modal */}
+      <div
+        className={`absolute ${isModal ? "top-2" : "top-4"} left-1/2 transform -translate-x-1/2 z-50 w-80 max-w-[calc(100%-1rem)]`}
+      >
         <div className="relative">
           <input
             type="text"
@@ -450,7 +584,7 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
       </div>
 
       {showLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-40">
+        <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-40">
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
             <span>{loadingStep}</span>
@@ -472,23 +606,11 @@ export function MapView({ posts, centerPost, onClose, isLoading: externalLoading
         </div>
       )}
 
-      {mapInitialized && postsWithLocation.length === 0 && !showLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 z-40">
-          <div className="text-center p-4 max-w-xs">
-            <MapPin className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-            <p className="font-medium mb-2">No issues with location data</p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              None of the current issues have location information attached.
-            </p>
-          </div>
-        </div>
-      )}
-
       <div ref={mapRef} className="h-full w-full" />
 
       {/* Airbnb-style Preview Card */}
       {selectedPost && (
-        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-80 max-w-[calc(100vw-2rem)]">
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-80 max-w-[calc(100%-1rem)]">
           <div
             className="bg-white rounded-xl shadow-lg p-3 cursor-pointer hover:shadow-xl transition-shadow relative"
             onClick={handlePreviewCardClick}
