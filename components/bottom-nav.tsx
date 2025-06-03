@@ -11,7 +11,7 @@ export function BottomNav() {
   const { hasPendingRequests } = useNotifications()
 
   // Don't show bottom nav on home page or auth pages
-  if (pathname === "/" || pathname.startsWith("/auth")) {
+  if (pathname === "/" || pathname.startsWith("/auth") || pathname === "/map") {
     return null
   }
 

@@ -98,6 +98,14 @@ export function MapView({
     loadGoogleMaps()
   }, [mapInitialized])
 
+  // Add a separate effect to update markers when posts change
+  useEffect(() => {
+    if (mapInstance && mapInitialized && PostMarkerClassRef.current && postsWithLocation.length > 0) {
+      console.log("Posts changed, updating markers...")
+      addPostMarkers(mapInstance)
+    }
+  }, [posts, mapInstance, mapInitialized])
+
   // Create PostMarker class after Google Maps is loaded
   const createPostMarkerClass = () => {
     if (!window.google || !window.google.maps) {
@@ -116,11 +124,19 @@ export function MapView({
       private isSelected: boolean
       private onClick: (post: Post) => void
       private markerId: string
+      private isClickable: boolean
 
-      constructor(post: Post, map: google.maps.Map, isSelected: boolean, onClick: (post: Post) => void) {
+      constructor(
+        post: Post,
+        map: google.maps.Map,
+        isSelected: boolean,
+        onClick: (post: Post) => void,
+        isClickable = true,
+      ) {
         super()
         this.post = post
         this.markerId = post.id
+        this.isClickable = isClickable
         console.log(`Creating marker for post ${post.id} at ${post.latitude},${post.longitude}`)
 
         this.position = new window.google.maps.LatLng(Number(post.latitude), Number(post.longitude))
@@ -132,19 +148,23 @@ export function MapView({
         this.containerDiv = document.createElement("div")
         this.containerDiv.className = "post-marker-container"
         this.containerDiv.style.position = "absolute"
-        this.containerDiv.style.cursor = "pointer"
         this.containerDiv.style.userSelect = "none"
         this.containerDiv.style.zIndex = "1"
+
+        // Set cursor based on clickability
+        this.containerDiv.style.cursor = this.isClickable ? "pointer" : "default"
 
         // Debug attribute to help identify in DOM
         this.containerDiv.setAttribute("data-marker-id", post.id)
 
-        // Add click event listener
-        this.containerDiv.addEventListener("click", (e) => {
-          e.stopPropagation()
-          console.log(`Marker ${post.id} clicked`)
-          this.onClick(this.post)
-        })
+        // Add click event listener only if clickable
+        if (this.isClickable) {
+          this.containerDiv.addEventListener("click", (e) => {
+            e.stopPropagation()
+            console.log(`Marker ${post.id} clicked`)
+            this.onClick(this.post)
+          })
+        }
 
         // Set the overlay's map
         console.log(`Setting map for marker ${post.id}`)
@@ -164,9 +184,12 @@ export function MapView({
           return
         }
 
-        // Try using overlayLayer instead of overlayMouseTarget
-        panes.overlayLayer.appendChild(this.containerDiv)
-        console.log(`Marker ${this.markerId} added to DOM`)
+        // Use overlayMouseTarget for clickable markers, overlayLayer for non-clickable
+        const targetPane = this.isClickable ? panes.overlayMouseTarget : panes.overlayLayer
+        targetPane.appendChild(this.containerDiv)
+        console.log(
+          `Marker ${this.markerId} added to DOM in ${this.isClickable ? "overlayMouseTarget" : "overlayLayer"}`,
+        )
       }
 
       // Called when the overlay's position should be drawn
@@ -225,15 +248,15 @@ export function MapView({
       private updateContent() {
         const rewardText = this.formatSatsForPin(this.post.reward)
         const backgroundColor = this.isSelected ? "#FEF3C7" : "#ffffff"
-        const borderColor = this.isSelected ? "#F7931A" : "#d1d5db"
-        const boxShadow = this.isSelected ? "0 4px 8px rgba(0, 0, 0, 0.15)" : "0 2px 4px rgba(0, 0, 0, 0.1)"
+        const borderColor = this.isSelected ? "#F7931A" : "#F7931A" // Always orange border
+        const boxShadow = this.isSelected ? "0 4px 8px rgba(0, 0, 0, 0.25)" : "0 2px 4px rgba(0, 0, 0, 0.2)" // Increased opacity by 10%
 
         this.containerDiv.innerHTML = `
           <div style="
             display: flex;
             align-items: center;
             background-color: ${backgroundColor};
-            border: 1px solid ${borderColor};
+            border: 2px solid ${borderColor};
             border-radius: 16px;
             padding: 6px 12px;
             box-shadow: ${boxShadow};
@@ -409,11 +432,13 @@ export function MapView({
       setAutocompleteService(autoService)
       setPlacesService(placeService)
 
-      // Add click listener to map to deselect markers
-      map.addListener("click", () => {
-        setSelectedPost(null)
-        setShowResults(false)
-      })
+      // Add click listener to map to deselect markers (only if not in modal)
+      if (!isModal) {
+        map.addListener("click", () => {
+          setSelectedPost(null)
+          setShowResults(false)
+        })
+      }
 
       // If bounds are provided, fit the map to those bounds
       if (bounds) {
@@ -472,6 +497,9 @@ export function MapView({
     })
     markersRef.current = {}
 
+    // Determine if markers should be clickable (not clickable in modal/donation flow)
+    const markersClickable = !isModal
+
     // Add markers for all posts with location
     postsWithLocation.forEach((post, index) => {
       const isSelected = selectedPost && post.id === selectedPost.id
@@ -479,16 +507,24 @@ export function MapView({
 
       try {
         // Create a new marker for this post
-        const marker = new PostMarkerClassRef.current(post, map, isSelected, (clickedPost: Post) => {
-          // Handle marker click
-          console.log("Marker clicked:", clickedPost.id)
-          setSelectedPost(clickedPost)
+        const marker = new PostMarkerClassRef.current(
+          post,
+          map,
+          isSelected,
+          (clickedPost: Post) => {
+            // Handle marker click (only if clickable)
+            if (markersClickable) {
+              console.log("Marker clicked:", clickedPost.id)
+              setSelectedPost(clickedPost)
 
-          // Update all marker styles
-          Object.entries(markersRef.current).forEach(([id, marker]) => {
-            marker.setSelected(id === clickedPost.id)
-          })
-        })
+              // Update all marker styles
+              Object.entries(markersRef.current).forEach(([id, marker]) => {
+                marker.setSelected(id === clickedPost.id)
+              })
+            }
+          },
+          markersClickable,
+        )
 
         // Store reference to marker
         markersRef.current[post.id] = marker
@@ -690,8 +726,8 @@ export function MapView({
 
       <div ref={mapRef} className="h-full w-full" />
 
-      {/* Airbnb-style Preview Card */}
-      {selectedPost && (
+      {/* Airbnb-style Preview Card - Only show if not in modal and post is selected */}
+      {selectedPost && !isModal && (
         <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-80 max-w-[calc(100%-1rem)]">
           <div
             className="bg-white rounded-xl shadow-lg p-3 cursor-pointer hover:shadow-xl transition-shadow relative"
