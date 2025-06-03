@@ -7,6 +7,7 @@ import { LandingHero } from "@/components/landing-hero"
 import { getCurrentUser } from "@/lib/auth"
 import { BackgroundImage } from "@/components/background-image"
 import { DonationModal } from "@/components/donation-modal"
+import { BitcoinLogo } from "@/components/bitcoin-logo"
 
 export default function Home() {
   const [user, setUser] = useState(null)
@@ -47,11 +48,12 @@ export default function Home() {
             <a href="/auth/register">Create Account</a>
           </Button>
           <Button
-            size="default"
-            variant="ghost"
-            className="w-full max-w-xs flex items-center"
+            size="sm"
+            variant="secondary"
+            className="w-auto px-4 py-2 rounded-full text-sm flex items-center gap-2 mt-2"
             onClick={() => setShowDonationModal(true)}
           >
+            <BitcoinLogo className="w-4 h-4" />
             Boost Your Community
           </Button>
         </div>
