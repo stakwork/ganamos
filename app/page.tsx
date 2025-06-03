@@ -1,65 +1,69 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { redirect } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { LandingHero } from "@/components/landing-hero"
-import { getCurrentUser } from "@/lib/auth"
-import { BackgroundImage } from "@/components/background-image"
-import { DonationModal } from "@/components/donation-modal"
-import { BitcoinLogo } from "@/components/bitcoin-logo"
+import { useState } from "react"
+import { Container, Typography, Button, Stack, Box, TextField, Alert, IconButton, Collapse } from "@mui/material"
+import CloseIcon from "@mui/icons-material/Close"
+import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder"
+import FavoriteIcon from "@mui/icons-material/Favorite"
 
 export default function Home() {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [showDonationModal, setShowDonationModal] = useState(false)
-
-  useEffect(() => {
-    async function checkUser() {
-      const currentUser = await getCurrentUser()
-      if (currentUser) {
-        redirect("/dashboard")
-      }
-      setUser(currentUser)
-      setLoading(false)
-    }
-    checkUser()
-  }, [])
-
-  if (loading) {
-    return <div>Loading...</div>
-  }
+  const [open, setOpen] = useState(true)
+  const [liked, setLiked] = useState(false)
 
   return (
-    <div className="relative min-h-screen">
-      {/* Background Image */}
-      <div className="fixed inset-0 z-0">
-        <BackgroundImage />
-        <div className="absolute inset-0 bg-gradient-to-t from-white/90 dark:from-black/90 via-white/30 dark:via-black/30 to-transparent" />
-      </div>
+    <Container maxWidth="md">
+      <Box sx={{ my: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Welcome to Our Community!
+        </Typography>
+        <Typography variant="body1" paragraph>
+          Join us in building a better future together. We believe in the power of community and collaboration.
+        </Typography>
 
-      <div className="container relative z-10 px-4 py-8 mx-auto">
-        <LandingHero />
-        <div className="flex flex-col items-center justify-center gap-4 mt-8">
-          <Button size="lg" className="w-full max-w-xs" asChild>
-            <a href="/auth/login">Log In</a>
-          </Button>
-          <Button size="lg" variant="outline" className="w-full max-w-xs" asChild>
-            <a href="/auth/register">Create Account</a>
-          </Button>
-          <Button
-            size="lg"
-            variant="secondary"
-            className="w-full max-w-xs flex items-center gap-2"
-            onClick={() => setShowDonationModal(true)}
+        <Collapse in={open}>
+          <Alert
+            action={
+              <IconButton
+                aria-label="close"
+                color="inherit"
+                size="small"
+                onClick={() => {
+                  setOpen(false)
+                }}
+              >
+                <CloseIcon fontSize="inherit" />
+              </IconButton>
+            }
+            sx={{ mb: 2 }}
           >
-            <BitcoinLogo className="w-5 h-5" />
-            Donate Bitcoin
-          </Button>
-        </div>
-      </div>
+            New! Check out our latest initiatives.
+          </Alert>
+        </Collapse>
 
-      <DonationModal open={showDonationModal} onOpenChange={setShowDonationModal} />
-    </div>
+        <Stack spacing={2} direction="row">
+          <Button variant="contained" color="primary">
+            Create Account
+          </Button>
+          <Button variant="outlined" color="primary" size="small">
+            Boost Your Community
+            <IconButton onClick={() => setLiked(!liked)}>
+              {liked ? (
+                <FavoriteIcon sx={{ fontSize: 15, ml: 0.5 }} />
+              ) : (
+                <FavoriteBorderIcon sx={{ fontSize: 15, ml: 0.5 }} />
+              )}
+            </IconButton>
+          </Button>
+        </Stack>
+
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Stay Updated
+          </Typography>
+          <TextField label="Enter your email" variant="outlined" fullWidth margin="normal" />
+          <Button variant="contained">Subscribe</Button>
+        </Box>
+      </Box>
+    </Container>
   )
 }
