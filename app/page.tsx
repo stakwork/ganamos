@@ -1,14 +1,33 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { LandingHero } from "@/components/landing-hero"
 import { getCurrentUser } from "@/lib/auth"
 import { BackgroundImage } from "@/components/background-image"
+import { DonationModal } from "@/components/donation-modal"
+import { BitcoinLogo } from "@/components/bitcoin-logo"
 
-export default async function Home() {
-  const user = await getCurrentUser()
+export default function Home() {
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [showDonationModal, setShowDonationModal] = useState(false)
 
-  if (user) {
-    redirect("/dashboard")
+  useEffect(() => {
+    async function checkUser() {
+      const currentUser = await getCurrentUser()
+      if (currentUser) {
+        redirect("/dashboard")
+      }
+      setUser(currentUser)
+      setLoading(false)
+    }
+    checkUser()
+  }, [])
+
+  if (loading) {
+    return <div>Loading...</div>
   }
 
   return (
@@ -28,8 +47,19 @@ export default async function Home() {
           <Button size="lg" variant="outline" className="w-full max-w-xs" asChild>
             <a href="/auth/register">Create Account</a>
           </Button>
+          <Button
+            size="lg"
+            variant="secondary"
+            className="w-full max-w-xs flex items-center gap-2"
+            onClick={() => setShowDonationModal(true)}
+          >
+            <BitcoinLogo className="w-5 h-5" />
+            Donate Bitcoin
+          </Button>
         </div>
       </div>
+
+      <DonationModal open={showDonationModal} onOpenChange={setShowDonationModal} />
     </div>
   )
 }

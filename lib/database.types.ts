@@ -68,6 +68,9 @@ export interface Database {
           submitted_fix_note: string | null
           ai_confidence_score: number | null
           ai_analysis: string | null
+          original_reward: number | null
+          total_boost_amount: number
+          boost_applied: boolean
         }
         Insert: {
           id?: string
@@ -101,6 +104,9 @@ export interface Database {
           submitted_fix_note?: string | null
           ai_confidence_score?: number | null
           ai_analysis?: string | null
+          original_reward?: number | null
+          total_boost_amount?: number
+          boost_applied?: boolean
         }
         Update: {
           id?: string
@@ -134,6 +140,9 @@ export interface Database {
           submitted_fix_note?: string | null
           ai_confidence_score?: number | null
           ai_analysis?: string | null
+          original_reward?: number | null
+          total_boost_amount?: number
+          boost_applied?: boolean
         }
       }
       groups: {
@@ -261,6 +270,140 @@ export interface Database {
           updated_at?: string
         }
       }
+      donation_pools: {
+        Row: {
+          id: string
+          location_type: "neighborhood" | "city" | "region" | "country" | "global"
+          location_name: string
+          location_code: string | null
+          latitude: number | null
+          longitude: number | null
+          total_donated: number
+          current_balance: number
+          total_boosted: number
+          boost_percentage: number
+          max_daily_boost: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          location_type: "neighborhood" | "city" | "region" | "country" | "global"
+          location_name: string
+          location_code?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          total_donated?: number
+          current_balance?: number
+          total_boosted?: number
+          boost_percentage?: number
+          max_daily_boost?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          location_type?: "neighborhood" | "city" | "region" | "country" | "global"
+          location_name?: string
+          location_code?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          total_donated?: number
+          current_balance?: number
+          total_boosted?: number
+          boost_percentage?: number
+          max_daily_boost?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      donations: {
+        Row: {
+          id: string
+          donor_user_id: string | null
+          donation_pool_id: string
+          amount: number
+          payment_hash: string | null
+          payment_request: string | null
+          status: "pending" | "completed" | "failed"
+          donor_name: string | null
+          message: string | null
+          created_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          donor_user_id?: string | null
+          donation_pool_id: string
+          amount: number
+          payment_hash?: string | null
+          payment_request?: string | null
+          status?: "pending" | "completed" | "failed"
+          donor_name?: string | null
+          message?: string | null
+          created_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          donor_user_id?: string | null
+          donation_pool_id?: string
+          amount?: number
+          payment_hash?: string | null
+          payment_request?: string | null
+          status?: "pending" | "completed" | "failed"
+          donor_name?: string | null
+          message?: string | null
+          created_at?: string
+          completed_at?: string | null
+        }
+      }
+      post_boosts: {
+        Row: {
+          id: string
+          post_id: string
+          donation_pool_id: string
+          boost_amount: number
+          boost_percentage: number
+          applied_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          donation_pool_id: string
+          boost_amount: number
+          boost_percentage: number
+          applied_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          donation_pool_id?: string
+          boost_amount?: number
+          boost_percentage?: number
+          applied_at?: string
+        }
+      }
+      location_hierarchy: {
+        Row: {
+          id: string
+          child_pool_id: string
+          parent_pool_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          child_pool_id: string
+          parent_pool_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          child_pool_id?: string
+          parent_pool_id?: string
+          created_at?: string
+        }
+      }
     }
   }
 }
@@ -271,3 +414,7 @@ export type Transaction = Database["public"]["Tables"]["transactions"]["Row"]
 export type Group = Database["public"]["Tables"]["groups"]["Row"]
 export type GroupMember = Database["public"]["Tables"]["group_members"]["Row"]
 export type ConnectedAccount = Database["public"]["Tables"]["connected_accounts"]["Row"]
+export type DonationPool = Database["public"]["Tables"]["donation_pools"]["Row"]
+export type Donation = Database["public"]["Tables"]["donations"]["Row"]
+export type PostBoost = Database["public"]["Tables"]["post_boosts"]["Row"]
+export type LocationHierarchy = Database["public"]["Tables"]["location_hierarchy"]["Row"]

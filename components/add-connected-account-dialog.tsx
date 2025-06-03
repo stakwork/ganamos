@@ -192,7 +192,7 @@ export function AddConnectedAccountDialog({ open, onOpenChange, onAccountAdded }
 
       toast({
         title: "Child Account Created",
-        description: `Successfully created ${result.username}'s account.`,
+        description: `Successfully created ${result.profile.name}'s account.`,
       })
 
       // Reset form and close dialog

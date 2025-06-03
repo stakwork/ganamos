@@ -710,7 +710,7 @@ export default function ProfilePage() {
                             className="object-cover"
                           />
                         </div>
-                        <span>{user?.user_metadata?.full_name || "Main Account"} (You)</span>
+                        <span>{profile?.name || "Main Account"} (You)</span>
                       </div>
                       {!isConnectedAccount && (
                         <svg

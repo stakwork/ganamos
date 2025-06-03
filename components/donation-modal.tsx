@@ -1,0 +1,197 @@
+"use client"
+
+import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { createDonationInvoice } from "@/app/actions/donation-actions"
+import { QRCodeSVG } from "qrcode.react"
+import { LocationInput } from "@/components/location-input"
+import { MapView } from "@/components/map-view"
+import { Heart, Bitcoin } from "lucide-react"
+
+interface DonationModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+declare global {
+  interface Window {
+    google: any
+  }
+}
+
+export function DonationModal({ open, onOpenChange }: DonationModalProps) {
+  const [step, setStep] = useState<"location" | "map" | "invoice" | "success">("location")
+  const [locationName, setLocationName] = useState("")
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [paymentRequest, setPaymentRequest] = useState("")
+  const [selectedAmount, setSelectedAmount] = useState<number>(0)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const donationAmounts = [
+    { label: "1K sats", value: 1000 },
+    { label: "10K sats", value: 10000 },
+    { label: "100K sats", value: 100000 },
+  ]
+
+  const handleLocationChange = (value: string, placeDetails?: google.maps.places.PlaceResult) => {
+    console.log("Location changed:", value, placeDetails)
+    setLocationName(value)
+
+    if (placeDetails?.geometry?.location) {
+      const lat = placeDetails.geometry.location.lat()
+      const lng = placeDetails.geometry.location.lng()
+      console.log("Setting coordinates:", lat, lng)
+      setSelectedLocation({ lat, lng })
+    } else {
+      console.log("No coordinates in place details")
+      setSelectedLocation(null)
+    }
+  }
+
+  const handleContinue = () => {
+    console.log("Continue clicked. Location:", locationName, "Coordinates:", selectedLocation)
+    if (locationName && selectedLocation) {
+      console.log("Transitioning to map step")
+      setStep("map")
+    } else {
+      console.log("Cannot continue - missing location or coordinates")
+    }
+  }
+
+  const handleDonationClick = async (amount: number) => {
+    setSelectedAmount(amount)
+    setIsLoading(true)
+
+    try {
+      const result = await createDonationInvoice({
+        amount,
+        locationType: "city",
+        locationName,
+      })
+
+      if (result.success) {
+        setPaymentRequest(result.paymentRequest!)
+        setStep("invoice")
+      } else {
+        console.error(result.error)
+      }
+    } catch (error) {
+      console.error("Error creating donation:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const resetForm = () => {
+    setStep("location")
+    setLocationName("")
+    setSelectedLocation(null)
+    setPaymentRequest("")
+    setSelectedAmount(0)
+  }
+
+  const handleClose = () => {
+    resetForm()
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-orange-100 rounded-full">
+              <Heart className="w-5 h-5 text-orange-600" />
+            </div>
+            <DialogTitle>Donate Bitcoin to Support Your Community</DialogTitle>
+          </div>
+          <p className="text-sm text-gray-600">
+            Your donation will boost rewards for community issues in your chosen location.
+          </p>
+        </DialogHeader>
+
+        {step === "location" && (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="location">Choose Location</Label>
+              <LocationInput
+                value={locationName}
+                onChange={handleLocationChange}
+                placeholder="Search for a city, neighborhood, or region..."
+              />
+            </div>
+            <Button onClick={handleContinue} disabled={!locationName || !selectedLocation} className="w-full">
+              Continue
+            </Button>
+          </div>
+        )}
+
+        {step === "map" && selectedLocation && (
+          <div className="space-y-4">
+            <div className="h-64 w-full rounded-lg overflow-hidden">
+              {console.log("Rendering map with:", selectedLocation)}
+              <MapView posts={[]} onClose={() => {}} isLoading={false} />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Choose Donation Amount</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {donationAmounts.map((amount) => (
+                  <Button
+                    key={amount.value}
+                    onClick={() => handleDonationClick(amount.value)}
+                    disabled={isLoading}
+                    variant="outline"
+                    className="flex items-center gap-2 h-16"
+                  >
+                    <Bitcoin className="w-4 h-4" />
+                    {amount.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === "invoice" && (
+          <div className="space-y-4 text-center">
+            <p>Scan this QR code with your Lightning wallet:</p>
+            <div className="flex justify-center">
+              <QRCodeSVG value={paymentRequest} size={200} />
+            </div>
+            <div className="text-xs break-all bg-gray-100 p-2 rounded">{paymentRequest}</div>
+            <p className="text-sm text-gray-600">
+              Donating {selectedAmount.toLocaleString()} sats to {locationName}
+            </p>
+            <Button onClick={() => setStep("success")} variant="outline">
+              I've Paid
+            </Button>
+          </div>
+        )}
+
+        {step === "success" && (
+          <div className="text-center space-y-4">
+            <div className="text-green-600 text-lg font-semibold">Thank you for your donation!</div>
+            <p>
+              Your {selectedAmount.toLocaleString()} sats will help boost community fixes in {locationName}.
+            </p>
+
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm mb-3">Want to be notified when your donation helps fix an issue?</p>
+              <div className="flex gap-2 justify-center">
+                <Button asChild>
+                  <a href="/auth/register">Create Account</a>
+                </Button>
+                <Button variant="outline" onClick={handleClose}>
+                  No Thanks
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
