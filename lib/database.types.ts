@@ -38,7 +38,7 @@ export interface Database {
       posts: {
         Row: {
           id: string
-          user_id: string
+          user_id: string | null // << MODIFIED
           title: string
           description: string
           image_url: string
@@ -71,10 +71,14 @@ export interface Database {
           original_reward: number | null
           total_boost_amount: number
           boost_applied: boolean
+          is_anonymous: boolean | null // << ADDED
+          funding_payment_request: string | null // << ADDED
+          funding_r_hash: string | null // << ADDED
+          funding_status: "pending" | "paid" | "expired" | null // << ADDED
         }
         Insert: {
           id?: string
-          user_id: string
+          user_id?: string | null // << MODIFIED
           title: string
           description: string
           image_url: string
@@ -107,10 +111,14 @@ export interface Database {
           original_reward?: number | null
           total_boost_amount?: number
           boost_applied?: boolean
+          is_anonymous?: boolean | null // << ADDED
+          funding_payment_request?: string | null // << ADDED
+          funding_r_hash?: string | null // << ADDED
+          funding_status?: "pending" | "paid" | "expired" | null // << ADDED
         }
         Update: {
           id?: string
-          user_id?: string
+          user_id?: string | null // << MODIFIED
           title?: string
           description?: string
           image_url?: string
@@ -143,6 +151,10 @@ export interface Database {
           original_reward?: number | null
           total_boost_amount?: number
           boost_applied?: boolean
+          is_anonymous?: boolean | null // << ADDED
+          funding_payment_request?: string | null // << ADDED
+          funding_r_hash?: string | null // << ADDED
+          funding_status?: "pending" | "paid" | "expired" | null // << ADDED
         }
       }
       groups: {
@@ -418,3 +430,7 @@ export type DonationPool = Database["public"]["Tables"]["donation_pools"]["Row"]
 export type Donation = Database["public"]["Tables"]["donations"]["Row"]
 export type PostBoost = Database["public"]["Tables"]["post_boosts"]["Row"]
 export type LocationHierarchy = Database["public"]["Tables"]["location_hierarchy"]["Row"]
+
+// Ensure other existing types are not accidentally removed or modified
+// For example, if you have specific Enums or other helper types defined here,
+// they should remain.
