@@ -303,26 +303,35 @@ export default function NewPostPage() {
         console.error("Error getting location:", error)
         setIsGettingLocation(false)
 
-        let errorMessage = "Failed to get your location"
+        let errorMessage = "Location unavailable in preview environment"
+        const toastVariant: "default" | "destructive" = "default"
+
         switch (error.code) {
           case error.PERMISSION_DENIED:
             errorMessage = "Location permission denied. You can still post without location."
             break
           case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information unavailable"
+            errorMessage = "Location information unavailable. You can still post without location."
             break
           case error.TIMEOUT:
-            errorMessage = "Location request timed out"
+            errorMessage = "Location request timed out. You can still post without location."
+            break
+          default:
+            errorMessage = "Location unavailable in preview environment. You can still post without location."
             break
         }
 
         toast({
-          title: "Location error",
+          title: "Location unavailable",
           description: errorMessage,
-          variant: "destructive",
+          variant: toastVariant,
         })
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+      {
+        enableHighAccuracy: false, // Disable high accuracy to avoid issues in preview
+        timeout: 5000, // Reduce timeout
+        maximumAge: 300000, // Allow cached location up to 5 minutes
+      },
     )
   }
 
