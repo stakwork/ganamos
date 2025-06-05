@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import Link from "next/link" // Import Link
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
@@ -20,7 +20,7 @@ import {
   createFundedAnonymousPostAction,
 } from "@/app/actions/post-actions"
 import QRCode from "@/components/qr-code"
-import { getCurrentLocationWithName } from "@/lib/geocoding" // Import the geocoding utility
+import { getCurrentLocationWithName } from "@/lib/geocoding"
 
 // Pre-load the camera component
 import dynamic from "next/dynamic"
@@ -61,7 +61,7 @@ export default function NewPostPage() {
     name: string
     lat: number
     lng: number
-    displayName?: string // Keep displayName for UI consistency
+    displayName?: string
   } | null>(null)
   const [isGettingLocation, setIsGettingLocation] = useState(false)
   const [userGroups, setUserGroups] = useState<Group[]>([])
@@ -81,7 +81,7 @@ export default function NewPostPage() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const [showCreateAccountPrompt, setShowCreateAccountPrompt] = useState(false)
   const [lastCreatedPostId, setLastCreatedPostId] = useState<string | null>(null)
-  const [locationErrorCount, setLocationErrorCount] = useState(0)
+  const locationErrorAttemptRef = useRef(0) // Using ref to avoid stale closures in toast
 
   useEffect(() => {
     if (isAnonymous) {
@@ -89,123 +89,80 @@ export default function NewPostPage() {
     }
   }, [isAnonymous])
 
-  // Check if there's a selected group from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       const storedGroupId = localStorage.getItem("selectedGroupId")
       if (storedGroupId) {
         setSelectedGroupId(storedGroupId)
-        // Clear it after using it
         localStorage.removeItem("selectedGroupId")
       }
     }
   }, [])
 
-  // Fetch user's groups
   useEffect(() => {
     async function fetchUserGroups() {
       if (!user) return
-
       setLoadingGroups(true)
       try {
-        // Fetch groups where the user is an approved member
         const { data: memberGroups, error: memberError } = await supabase
           .from("group_members")
-          .select(`
-            group_id,
-            groups:group_id(
-              id,
-              name,
-              description,
-              created_by,
-              created_at,
-              updated_at,
-              invite_code
-            )
-          `)
+          .select("group_id, groups:group_id(id, name, description, created_by, created_at, updated_at, invite_code)")
           .eq("user_id", user.id)
           .eq("status", "approved")
-
-        if (memberError) {
-          console.error("Error fetching user groups:", memberError)
-          throw memberError
-        }
-
-        // Transform the data to match the Group interface
-        const transformedGroups = memberGroups
-          .filter((item) => item.groups) // Filter out any null groups
-          .map((item) => item.groups as Group)
-
+        if (memberError) throw memberError
+        const transformedGroups = memberGroups.filter((item) => item.groups).map((item) => item.groups as Group)
         setUserGroups(transformedGroups)
       } catch (error) {
-        console.error("Error in fetchUserGroups:", error)
+        console.error("Error fetching user groups:", error)
         toast({
-          title: "Error",
-          description: "Failed to load your groups. You can still post without selecting a group.",
+          title: "Error Loading Groups",
+          description: "Failed to load your groups. You can still post publicly.",
           variant: "destructive",
         })
       } finally {
         setLoadingGroups(false)
       }
     }
-
     fetchUserGroups()
   }, [user, supabase, toast])
 
-  // Hide navigation bar
   useEffect(() => {
-    // Hide the navigation bar when on details step
     const bottomNav = document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16") as HTMLElement
-    if (bottomNav && step === "details") {
-      bottomNav.style.display = "none"
+    if (bottomNav) {
+      bottomNav.style.display = step === "details" ? "none" : "grid"
     }
-
     return () => {
-      // Show the navigation bar again when component unmounts
-      const bottomNav = document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16") as HTMLElement
-      if (bottomNav) {
-        bottomNav.style.display = "grid"
-      }
+      if (bottomNav) bottomNav.style.display = "grid"
     }
   }, [step])
 
-  // Polling for payment status
   useEffect(() => {
     if (isAwaitingPayment && fundingRHash) {
       pollingIntervalRef.current = setInterval(async () => {
         try {
-          console.log("Polling for payment status for rHash:", fundingRHash)
           const statusResult = await checkPostFundingStatusAction(fundingRHash)
           if (statusResult.success && statusResult.settled) {
-            console.log("Payment confirmed for rHash:", fundingRHash)
             if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
             setIsAwaitingPayment(false)
             setShowFundingModal(false)
-            toast({
-              title: "Payment Confirmed!",
-              description: "Your payment has been received. Creating your post...",
-              variant: "success",
-            })
-
-            // Now create the funded anonymous post
+            toast({ title: "Payment Confirmed!", description: "Creating your post...", variant: "success" })
             const postDetails = {
               description,
               reward,
               image_url: image,
-              location: currentLocation?.name || null, // Use the name from geocoding
+              location: currentLocation?.name || null,
               latitude: currentLocation?.lat || null,
               longitude: currentLocation?.lng || null,
-              city: currentLocation?.displayName || currentLocation?.name || null, // Use displayName or fallback to name
+              city: currentLocation?.displayName || currentLocation?.name || null,
               funding_r_hash: fundingRHash,
               funding_payment_request: fundingPaymentRequest!,
             }
-
             const creationResult = await createFundedAnonymousPostAction(postDetails)
             if (creationResult.success && creationResult.postId) {
               setLastCreatedPostId(creationResult.postId)
               toast({
                 title: "🎉 Anonymous Post Created!",
-                description: "Your issue has been posted successfully.",
+                description: "Your issue has been posted.",
                 variant: "success",
                 duration: 4000,
               })
@@ -228,23 +185,10 @@ export default function NewPostPage() {
         }
       }, 5000)
     }
-
     return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current)
-      }
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
     }
-  }, [
-    isAwaitingPayment,
-    fundingRHash,
-    description,
-    reward,
-    image,
-    currentLocation,
-    toast,
-    router,
-    fundingPaymentRequest,
-  ])
+  }, [isAwaitingPayment, fundingRHash, description, reward, image, currentLocation, toast, fundingPaymentRequest])
 
   const handleCapture = (imageSrc: string) => {
     setImage(imageSrc)
@@ -253,46 +197,77 @@ export default function NewPostPage() {
 
   const handleGetLocation = async () => {
     setIsGettingLocation(true)
-    setLocationErrorCount(0) // Reset error count on new attempt
+    locationErrorAttemptRef.current += 1
 
     try {
-      const locationInfo = await getCurrentLocationWithName() // Use the imported utility
+      const locationInfo = await getCurrentLocationWithName() // Uses the updated lib/geocoding.ts
 
       if (locationInfo) {
         setCurrentLocation({
-          name: locationInfo.name, // This is the geocoded name (e.g., "City, State")
+          name: locationInfo.name,
           lat: locationInfo.latitude,
           lng: locationInfo.longitude,
-          displayName: locationInfo.name, // Use the geocoded name for display
+          displayName: locationInfo.name, // Use geocoded name for display consistency
         })
         toast({
           title: "Location Added",
           description: `Location set to: ${locationInfo.name}`,
           variant: "default",
         })
+        locationErrorAttemptRef.current = 0 // Reset on success
       } else {
-        // This case handles if getCurrentLocationWithName returns null (e.g., geolocation not supported)
-        setLocationErrorCount((prev) => prev + 1)
+        // This case should ideally be covered by errors thrown from getCurrentLocationWithName
+        // but as a fallback if it somehow returns null without throwing.
         toast({
           title: "Location Unavailable",
-          description: "Could not retrieve location. Geolocation might not be supported or enabled.",
+          description: "Could not retrieve location. Please ensure location services are enabled.",
           variant: "destructive",
         })
       }
     } catch (error: any) {
-      // Catch any unexpected errors from the utility or promise
-      console.error("Error in handleGetLocation:", error)
-      setLocationErrorCount((prev) => prev + 1)
-      let errorDescription = "Failed to get your location. You can still post without it."
-      if (error.message) {
-        errorDescription = `${error.message}. You can still post without location.`
+      console.error("Error in handleGetLocation:", error.code, error.message) // Log code and message
+
+      let title = "Location Error"
+      let description = "Failed to get your location. You can still post without it."
+
+      if (error.code !== undefined) {
+        // Check if it's a GeolocationPositionError
+        switch (error.code) {
+          case 0: // Custom code for "not supported" from our lib
+            title = "Geolocation Not Supported"
+            description = "Your browser does not support geolocation, or it's disabled."
+            break
+          case 1: // PERMISSION_DENIED
+            title = "Location Permission Denied"
+            description =
+              "Please enable location permissions for this site in your browser settings. You can still post without location."
+            break
+          case 2: // POSITION_UNAVAILABLE
+            title = "Location Unavailable"
+            description =
+              "Your current location could not be determined. This might be due to poor signal or device settings. You can still post without location."
+            break
+          case 3: // TIMEOUT
+            title = "Location Request Timed Out"
+            description =
+              "The request for your location timed out. Please try again. You can still post without location."
+            break
+          default:
+            description = `An unexpected error occurred (Code: ${error.code}). You can still post without location.`
+        }
+      } else if (error.message) {
+        // Fallback for other types of errors
+        description = `${error.message}. You can still post without location.`
       }
-      if (locationErrorCount > 1) {
-        errorDescription += " This may be due to browser restrictions or network issues."
+
+      if (locationErrorAttemptRef.current > 1 && (error.code === 2 || error.code === 3)) {
+        description +=
+          " If this issue persists, try checking your device's location settings, ensuring a clear view of the sky (for GPS), or connecting to Wi-Fi."
       }
+
       toast({
-        title: "Location Error",
-        description: errorDescription,
+        title: title,
+        description: description,
         variant: "destructive",
       })
     } finally {
@@ -302,55 +277,35 @@ export default function NewPostPage() {
 
   const handleRemoveLocation = () => {
     setCurrentLocation(null)
-    toast({
-      title: "Location removed",
-      description: "Location has been removed from the post",
-      variant: "default",
-    })
+    toast({ title: "Location removed", variant: "default" })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-
     const isAnonymousSubmit = !user
 
     if (isAnonymousSubmit && reward < MIN_ANONYMOUS_REWARD) {
       toast({
         title: "Minimum Reward Required",
-        description: `Anonymous posts require a minimum reward of ${MIN_ANONYMOUS_REWARD} sats.`,
+        description: `Anonymous posts require ${MIN_ANONYMOUS_REWARD} sats.`,
         variant: "destructive",
       })
       setIsSubmitting(false)
       return
     }
-
     if (!image) {
-      toast({
-        title: "Image required",
-        description: "Please take a photo of the issue",
-        variant: "destructive",
-      })
+      toast({ title: "Image Required", description: "Please take a photo.", variant: "destructive" })
       setIsSubmitting(false)
       return
     }
-
     if (!description) {
-      toast({
-        title: "Missing information",
-        description: "Please describe the issue",
-        variant: "destructive",
-      })
+      toast({ title: "Description Required", description: "Please describe the issue.", variant: "destructive" })
       setIsSubmitting(false)
       return
     }
-
-    if (!isAnonymousSubmit && reward > 0 && (!user || !profile || profile.balance < reward)) {
-      toast({
-        title: "Insufficient balance",
-        description: "You don't have enough sats to offer this reward",
-        variant: "destructive",
-      })
+    if (!isAnonymousSubmit && reward > 0 && (!profile || profile.balance < reward)) {
+      toast({ title: "Insufficient Balance", description: "Not enough sats for this reward.", variant: "destructive" })
       router.push("/wallet")
       setIsSubmitting(false)
       return
@@ -359,21 +314,18 @@ export default function NewPostPage() {
     if (isAnonymousSubmit) {
       try {
         const fundingInvoiceResult = await createPostFundingInvoiceAction(reward)
-
         if (fundingInvoiceResult.success && fundingInvoiceResult.paymentRequest && fundingInvoiceResult.rHash) {
           setFundingPaymentRequest(fundingInvoiceResult.paymentRequest)
           setFundingRHash(fundingInvoiceResult.rHash)
           setShowFundingModal(true)
           setIsAwaitingPayment(true)
-          toast({
-            title: "Payment Required",
-            description: "Please pay the Lightning invoice to publish your post.",
-          })
+          toast({ title: "Payment Required", description: "Pay the Lightning invoice to publish." })
+          // setIsSubmitting remains true
           return
         } else {
           toast({
-            title: "Error",
-            description: fundingInvoiceResult.error || "Could not create funding invoice. Please try again.",
+            title: "Invoice Error",
+            description: fundingInvoiceResult.error || "Could not create funding invoice.",
             variant: "destructive",
           })
           setIsSubmitting(false)
@@ -381,20 +333,14 @@ export default function NewPostPage() {
         }
       } catch (error) {
         console.error("Error creating funding invoice:", error)
-        toast({
-          title: "Error",
-          description: "An unexpected error occurred while preparing your post.",
-          variant: "destructive",
-        })
+        toast({ title: "Funding Error", description: "An unexpected error occurred.", variant: "destructive" })
         setIsSubmitting(false)
         return
       }
     }
 
     try {
-      const now = new Date()
       const postId = uuidv4()
-
       const postDataForSupabase = {
         id: postId,
         user_id: activeUserId || user!.id,
@@ -403,47 +349,28 @@ export default function NewPostPage() {
         title: description.substring(0, 50),
         description,
         image_url: image,
-        location: currentLocation?.name || null, // Use geocoded name
+        location: currentLocation?.name || null,
         latitude: currentLocation?.lat || null,
         longitude: currentLocation?.lng || null,
         reward,
         claimed: false,
         fixed: false,
-        created_at: now.toISOString(),
+        created_at: new Date().toISOString(),
         group_id: selectedGroupId,
-        city: currentLocation?.displayName || currentLocation?.name || null, // Use displayName or fallback to name
+        city: currentLocation?.displayName || currentLocation?.name || null,
         is_anonymous: false,
       }
-
       if (supabase) {
         const { error: insertError } = await supabase.from("posts").insert(postDataForSupabase)
-        if (insertError) {
-          console.error("Error saving post to Supabase:", insertError)
-          throw insertError
-        }
+        if (insertError) throw insertError
       }
-
-      if (profile && reward > 0) {
-        updateBalance(profile.balance - reward)
-      }
-
-      const successToast = toast({
-        title: "🎉 Post created!",
-        description: "Your issue has been posted successfully ✅",
-        variant: "success",
-        duration: 3000,
-      })
-      setTimeout(() => successToast.dismiss(), 3000)
-
-      if (selectedGroupId) {
-        router.push(`/groups/${selectedGroupId}?newPost=${postId}`)
-      } else {
-        router.push(`/dashboard?newPost=${postId}`)
-      }
+      if (profile && reward > 0) updateBalance(profile.balance - reward)
+      toast({ title: "🎉 Post Created!", description: "Your issue is live.", variant: "success", duration: 3000 })
+      router.push(selectedGroupId ? `/groups/${selectedGroupId}?newPost=${postId}` : `/dashboard?newPost=${postId}`)
     } catch (error) {
       console.error("Error creating post:", error)
       toast({
-        title: "Error",
+        title: "Post Creation Error",
         description: "There was an error creating your post.",
         variant: "destructive",
       })
@@ -453,15 +380,8 @@ export default function NewPostPage() {
   }
 
   const handleBack = () => {
-    if (step === "details") {
-      setStep("photo")
-    } else {
-      router.push("/dashboard")
-    }
-  }
-
-  const navigateToWallet = () => {
-    router.push("/wallet")
+    if (step === "details") setStep("photo")
+    else router.push("/dashboard")
   }
 
   return (
@@ -486,7 +406,6 @@ export default function NewPostPage() {
           </Button>
           <h1 className="text-2xl font-bold">Post Issue</h1>
         </div>
-
         {!isAnonymous && (
           <button
             onClick={() => router.push("/wallet")}
@@ -507,10 +426,9 @@ export default function NewPostPage() {
           {isAnonymous && !showCreateAccountPrompt && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-700 text-sm">
               <p>
-                You are posting anonymously. A minimum reward of <strong>{MIN_ANONYMOUS_REWARD} sats</strong> is
-                required.
+                You are posting anonymously. Minimum reward: <strong>{MIN_ANONYMOUS_REWARD} sats</strong>.
               </p>
-              <p className="mt-1">Your post will be public. Group posting is available for registered users.</p>
+              <p className="mt-1">Your post will be public. Group posting for registered users.</p>
             </div>
           )}
           {!showCreateAccountPrompt && (
@@ -543,18 +461,14 @@ export default function NewPostPage() {
                   </Button>
                 </div>
               )}
-
-              <div className="space-y-2">
-                <Textarea
-                  placeholder="Describe the issue..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  required
-                  className="resize-none"
-                />
-              </div>
-
+              <Textarea
+                placeholder="Describe the issue..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                required
+                className="resize-none"
+              />
               <div className="flex gap-2">
                 <div className="flex-1">
                   <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg h-12">
@@ -601,7 +515,6 @@ export default function NewPostPage() {
                         <span className="text-xs text-muted-foreground">No location</span>
                       </div>
                     )}
-
                     {currentLocation ? (
                       <Button
                         type="button"
@@ -626,7 +539,6 @@ export default function NewPostPage() {
                     )}
                   </div>
                 </div>
-
                 {!isAnonymous && !loadingGroups && (
                   <div className="flex-1">
                     {userGroups.length > 0 ? (
@@ -702,7 +614,7 @@ export default function NewPostPage() {
                               </svg>
                               <div>
                                 <div className="font-medium">Public</div>
-                                <div className="text-xs text-muted-foreground">Anyone can see this post</div>
+                                <div className="text-xs text-muted-foreground">Anyone can see</div>
                               </div>
                             </div>
                           </SelectItem>
@@ -726,9 +638,7 @@ export default function NewPostPage() {
                                 </svg>
                                 <div>
                                   <div className="font-medium">{group.name}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    Only group members can see this post
-                                  </div>
+                                  <div className="text-xs text-muted-foreground">Group members only</div>
                                 </div>
                               </div>
                             </SelectItem>
@@ -759,7 +669,6 @@ export default function NewPostPage() {
                   </div>
                 )}
               </div>
-
               <div className="space-y-6">
                 <div className="flex flex-col items-center space-y-4 py-6">
                   <div className="flex items-center justify-between w-full max-w-xs">
@@ -783,7 +692,6 @@ export default function NewPostPage() {
                         <path d="M5 12h14" />
                       </svg>
                     </button>
-
                     <button
                       type="button"
                       onClick={() => setShowKeypad(!showKeypad)}
@@ -793,7 +701,6 @@ export default function NewPostPage() {
                         {reward === 0 ? "0" : formatSatsValue(reward).replace(" sats", "").replace(".0", "")}
                       </span>
                     </button>
-
                     <button
                       type="button"
                       onClick={() => setReward(reward + 500)}
@@ -815,7 +722,6 @@ export default function NewPostPage() {
                       </svg>
                     </button>
                   </div>
-
                   <div className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
                     <div className="w-4 h-4 relative">
                       <Image
@@ -828,30 +734,24 @@ export default function NewPostPage() {
                     </div>
                     <span>sats reward</span>
                   </div>
-
                   {showKeypad && (
-                    <div className="w-full max-w-xs">
-                      <input
-                        type="number"
-                        value={reward}
-                        onChange={(e) => {
-                          let newAmount = Number(e.target.value) || 0
-                          if (isAnonymous) {
-                            newAmount = Math.max(newAmount, MIN_ANONYMOUS_REWARD)
-                          }
-                          setReward(newAmount)
-                        }}
-                        placeholder="Enter amount"
-                        className="w-full px-4 py-3 text-center text-lg border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                        min="0"
-                        max="50000"
-                        autoFocus
-                      />
-                    </div>
+                    <input
+                      type="number"
+                      value={reward}
+                      onChange={(e) => {
+                        let val = Number(e.target.value) || 0
+                        if (isAnonymous) val = Math.max(val, MIN_ANONYMOUS_REWARD)
+                        setReward(val)
+                      }}
+                      placeholder="Enter amount"
+                      className="w-full max-w-xs px-4 py-3 text-center text-lg border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                      min="0"
+                      max="50000"
+                      autoFocus
+                    />
                   )}
                 </div>
               </div>
-
               <Button type="submit" className="w-full" disabled={isSubmitting || isAwaitingPayment}>
                 {isAwaitingPayment ? "Awaiting Payment..." : isSubmitting ? "Processing..." : "Post Issue"}
               </Button>
@@ -865,8 +765,7 @@ export default function NewPostPage() {
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full">
             <h2 className="text-xl font-semibold mb-4">Fund Your Anonymous Post</h2>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-              To publish your anonymous post with a reward of {formatSatsValue(reward)}, please pay the Lightning
-              invoice below.
+              Pay {formatSatsValue(reward)} via Lightning:
             </p>
             <div className="mb-4 p-3 border rounded-md break-all bg-gray-50 dark:bg-gray-700 text-xs">
               <code>{fundingPaymentRequest}</code>
@@ -874,17 +773,13 @@ export default function NewPostPage() {
             <div className="flex justify-center my-4">
               <QRCode value={fundingPaymentRequest} size={200} />
             </div>
-            <p className="text-center my-2 text-sm">Scan or copy the invoice above.</p>
-
+            <p className="text-center my-2 text-sm">Scan or copy invoice.</p>
             {isAwaitingPayment && (
               <div className="text-center my-4">
-                <p className="text-blue-600 dark:text-blue-400 animate-pulse">Waiting for payment confirmation...</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Do not close this window. Your post will be created automatically after payment.
-                </p>
+                <p className="text-blue-600 dark:text-blue-400 animate-pulse">Waiting for payment...</p>
+                <p className="text-xs text-gray-500 mt-1">Post created automatically after payment.</p>
               </div>
             )}
-
             <Button
               variant="outline"
               className="w-full mt-4"
@@ -923,16 +818,13 @@ export default function NewPostPage() {
                 />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold mb-3 text-gray-900 dark:text-white">Post Created Successfully!</h2>
+            <h2 className="text-2xl font-bold mb-3 text-gray-900 dark:text-white">Post Created!</h2>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Your anonymous post is now live. Create an account to easily track your posts, manage rewards, and join
-              community groups.
+              Create an account to track posts, manage rewards, and join groups.
             </p>
             <div className="space-y-3">
               <Button
-                onClick={() => {
-                  router.push(`/auth/register?redirect=/post/${lastCreatedPostId}`)
-                }}
+                onClick={() => router.push(`/auth/register?redirect=/post/${lastCreatedPostId}`)}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white"
               >
                 Create Account
