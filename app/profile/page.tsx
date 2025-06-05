@@ -6,6 +6,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
 import {
   Dialog,
   DialogTrigger,
@@ -738,10 +739,11 @@ export default function ProfilePage() {
                 </h2>
               </div>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
+              <ThemeToggle className="h-11 w-11" />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="default" className="h-12 w-12 rounded-md">
+                  <Button variant="outline" size="default" className="h-11 w-11 rounded-md">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="20"
@@ -875,12 +877,6 @@ export default function ProfilePage() {
 
                   <DropdownMenuSeparator />
 
-                  <DropdownMenuItem>
-                    <ThemeToggle />
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-
                   <DropdownMenuItem onClick={signOut}>
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -904,6 +900,8 @@ export default function ProfilePage() {
               </DropdownMenu>
             </div>
           </div>
+
+          <Separator className="my-4 dark:bg-gray-800" />
 
           <div className="grid grid-cols-2 gap-4">
             <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
