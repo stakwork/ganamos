@@ -23,6 +23,7 @@ import type { Post } from "@/lib/types"
 import { reverseGeocode } from "@/lib/geocoding"
 // Add the new server actions to imports
 import { markPostFixedAnonymouslyAction, submitAnonymousFixForReviewAction } from "@/app/actions/post-actions" // Adjust path if necessary
+import { LightningInvoiceModal } from "@/components/lightning-invoice-modal"
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
   // const { id } = useParams() // params.id is used directly
@@ -45,6 +46,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [displayLocation, setDisplayLocation] = useState<string>("")
   const [isReviewing, setIsReviewing] = useState(false)
   const [showFullAnalysis, setShowFullAnalysis] = useState(false)
+  const [showLightningModal, setShowLightningModal] = useState(false)
 
   // Force hide bottom nav when camera is shown
   useEffect(() => {
@@ -1145,15 +1147,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 contributions.
               </p>
               <div className="space-y-3">
-                <Button
-                  className="w-full bg-green-600 hover:bg-green-700"
-                  onClick={() => {
-                    // Placeholder for withdraw action
-                    toast({ title: "Withdraw action coming soon!" })
-                    setShowAnonymousRewardOptions(false)
-                    router.push("/") // Go to homepage after attempting withdraw
-                  }}
-                >
+                <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => setShowLightningModal(true)}>
                   Withdraw {formatSatsValue(post.reward)} sats
                 </Button>
                 <Button
@@ -1178,6 +1172,21 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           </Card>
         </div>
       )}
+      <LightningInvoiceModal
+        open={showLightningModal}
+        onOpenChange={setShowLightningModal}
+        rewardAmount={post.reward}
+        postId={post.id}
+        onSuccess={() => {
+          setShowAnonymousRewardOptions(false)
+          toast({
+            title: "Reward Claimed!",
+            description: `${formatSatsValue(post.reward)} sats sent to your Lightning wallet`,
+            variant: "success",
+          })
+          router.push("/")
+        }}
+      />
     </div>
   )
 }
