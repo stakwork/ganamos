@@ -212,9 +212,9 @@ export function MapView({
         const point = projection.fromLatLngToDivPixel(this.position)
         if (point) {
           console.log(`Positioning marker ${this.markerId} at pixel coordinates:`, point)
-          // Adjust positioning to center the marker (48px width / 2 = 24px)
-          this.containerDiv.style.left = point.x - 19 + "px" // Center horizontally (38px / 2)
-          this.containerDiv.style.top = point.y - 19 + "px" // Center vertically (38px / 2)
+          // Adjust positioning to center the marker (44px width / 2 = 22px)
+          this.containerDiv.style.left = point.x - 22 + "px" // Center horizontally (44px / 2)
+          this.containerDiv.style.top = point.y - 22 + "px" // Center vertically (44px / 2)
 
           // Make sure the marker is visible
           this.containerDiv.style.display = "block"
@@ -260,33 +260,36 @@ export function MapView({
         this.containerDiv.innerHTML = `
   <div class="btc-marker" style="
     position: relative;
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
-    background: #f7931a;
+    background: #FED56B;
+    border: 1px solid #C5792D;
+    box-shadow: 0 0 0 1px #F4C14F;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
     transform: scale(${markerScale});
     transition: transform 0.2s ease;
   ">
     <img src="/images/bitcoin-logo.png" alt="Bitcoin" style="
-      width: 24px;
-      height: 24px;
+      width: 38px;
+      height: 38px;
+      filter: drop-shadow(0px -1px 1px rgba(255, 255, 255, 0.4));
     ">
     <div class="btc-badge" style="
       position: absolute;
-      bottom: -10px;
+      bottom: -12px;
       left: 50%;
       transform: translateX(-50%);
       background: white;
       color: black;
-      padding: 2px 6px;
+      padding: 2px 8px;
       font-size: 12px;
-      border-radius: 12px;
       font-weight: bold;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      border-radius: 16px;
+      border: 1px solid #C5792D;
+      box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
       opacity: ${badgeOpacity};
       transition: opacity 0.2s ease;
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
