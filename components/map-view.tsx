@@ -269,7 +269,6 @@ export function MapView({
       height: 38px;
       border-radius: 50%;
       background: #f7931a;
-      border: 1px solid #e67e22;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -278,11 +277,23 @@ export function MapView({
       transition: transform 0.2s ease;
       z-index: 1;
     ">
-      <img src="/images/bitcoin-logo.png" alt="Bitcoin" style="
-        width: 28px;
-        height: 28px;
-        object-fit: contain;
+      <div style="
+        position: relative;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: #f39c12;
+        border: 1px solid #e67e22;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       ">
+        <img src="/images/bitcoin-logo.png" alt="Bitcoin" style="
+          width: 28px;
+          height: 28px;
+          object-fit: contain;
+        ">
+      </div>
     </div>
     <div class="btc-badge" style="
       position: absolute;
