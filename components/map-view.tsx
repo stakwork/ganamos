@@ -134,6 +134,7 @@ export function MapView({
       private onClick: (post: Post) => void
       private markerId: string
       private isClickable: boolean
+      private animationDelay: number
 
       constructor(
         post: Post,
@@ -141,11 +142,13 @@ export function MapView({
         isSelected: boolean,
         onClick: (post: Post) => void,
         isClickable = true,
+        animationDelay = 0,
       ) {
         super()
         this.post = post
         this.markerId = post.id
         this.isClickable = isClickable
+        this.animationDelay = animationDelay * 100 // 100ms stagger between markers
         console.log(`Creating marker for post ${post.id} at ${post.latitude},${post.longitude}`)
 
         this.position = new window.google.maps.LatLng(Number(post.latitude), Number(post.longitude))
@@ -258,48 +261,68 @@ export function MapView({
         const badgeOpacity = this.isSelected ? "1" : "0.95"
 
         this.containerDiv.innerHTML = `
-  <div class="btc-marker" style="
-    position: relative;
+  <style>
+@keyframes markerDropIn {
+  0% {
+    transform: translateY(-25px) scale(${markerScale});
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(5px) scale(${markerScale});
+    opacity: 1;
+  }
+  80% {
+    transform: translateY(-3px) scale(${markerScale});
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0px) scale(${markerScale});
+    opacity: 1;
+  }
+}
+</style>
+<div class="btc-marker" style="
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #FED56B;
+  border: 1px solid #C5792D;
+  box-shadow: 0 0 0 1px #F4C14F;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: markerDropIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) ${this.animationDelay}ms both;
+  transition: transform 0.2s ease;
+">
+  <img src="/images/bitcoin-logo.png" alt="Bitcoin" style="
     width: 38px;
     height: 38px;
-    border-radius: 50%;
-    background: #FED56B;
-    border: 1px solid #C5792D;
-    box-shadow: 0 0 0 1px #F4C14F;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transform: scale(${markerScale});
-    transition: transform 0.2s ease;
+    filter: drop-shadow(0px -1px 1px rgba(255, 255, 255, 0.4));
   ">
-    <img src="/images/bitcoin-logo.png" alt="Bitcoin" style="
-      width: 32px;
-      height: 32px;
-      filter: drop-shadow(0px -1px 1px rgba(255, 255, 255, 0.4));
-    ">
-    <div class="btc-badge" style="
-      position: absolute;
-      bottom: -12px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: white;
-      color: black;
-      padding: 2px 6px;
-      font-size: 12px;
-      font-weight: bold;
-      border-radius: 16px;
-      border: 1px solid #C5792D;
-      box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
-      opacity: ${badgeOpacity};
-      transition: opacity 0.2s ease;
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      min-width: 28px;
-      text-align: center;
-      z-index: 2;
-    ">${rewardText}</div>
-  </div>
+  <div class="btc-badge" style="
+    position: absolute;
+    bottom: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    color: black;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: bold;
+    border-radius: 16px;
+    border: 1px solid #C5792D;
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
+    opacity: ${badgeOpacity};
+    transition: opacity 0.2s ease;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    min-width: 28px;
+    text-align: center;
+    z-index: 2;
+  ">${rewardText}</div>
+</div>
 `
-        console.log(`Marker ${this.markerId} content updated with new design`)
+        console.log(`Marker ${this.markerId} content updated with drop-in animation`)
       }
     }
   }
@@ -561,7 +584,7 @@ export function MapView({
       console.log(`Creating marker ${index + 1} for post:`, post.id)
 
       try {
-        // Create a new marker for this post
+        // Create a new marker for this post with animation delay
         const marker = new PostMarkerClassRef.current(
           post,
           map,
@@ -579,6 +602,7 @@ export function MapView({
             }
           },
           markersClickable,
+          index, // Pass index for animation delay
         )
 
         // Store reference to marker
