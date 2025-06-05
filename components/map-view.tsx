@@ -102,18 +102,18 @@ export function MapView({
       googleMapRef.current = map
       setMapInstance(map)
 
-      // If we have city bounds, fit the map to those bounds
+      // Priority: city bounds > user location > default
       if (cityBounds) {
         const bounds = new google.maps.LatLngBounds(
           { lat: cityBounds.south, lng: cityBounds.west },
           { lat: cityBounds.north, lng: cityBounds.east },
         )
         map.fitBounds(bounds)
-      }
-      // Otherwise if we have user location, center on that
-      else if (userLocation) {
+        console.log("Map fitted to city bounds")
+      } else if (userLocation) {
         map.setCenter({ lat: userLocation.latitude, lng: userLocation.longitude })
         map.setZoom(defaultZoom)
+        console.log("Map centered on user location")
       }
     },
     [userLocation, cityBounds],
@@ -132,6 +132,7 @@ export function MapView({
             .from("posts")
             .select("*")
             .eq("fixed", false)
+            .neq("under_review", true)
             .order("created_at", { ascending: false })
           if (error) {
             console.error("Error fetching posts:", error)
@@ -623,36 +624,25 @@ export function MapView({
           lat: userLocation.latitude,
           lng: userLocation.longitude,
         }
-        map.setCenter(userLatLng)
 
-        // If bounds are provided, use them for smart zooming
-        if (userLocation.bounds) {
-          console.log("Fitting map to user location bounds")
-          map.fitBounds(userLocation.bounds)
-        } else if (userLocation.zoomType === "city") {
+        // If city bounds are provided, use them for smart zooming
+        if (cityBounds) {
+          console.log("Fitting map to city bounds")
+          const bounds = new google.maps.LatLngBounds(
+            { lat: cityBounds.south, lng: cityBounds.west },
+            { lat: cityBounds.north, lng: cityBounds.east },
+          )
+          map.fitBounds(bounds)
+        } else {
+          map.setCenter(userLatLng)
           map.setZoom(12) // City level zoom
         }
 
-        // Set location name in search bar if available
-        if (userLocation.name) {
+        // Set city name in search bar if available
+        if (cityName) {
+          setSearchQuery(cityName)
+        } else if (userLocation.name) {
           setSearchQuery(userLocation.name)
-        } else {
-          // If no name provided, try to get location name using reverse geocoding
-          const geocoder = new window.google.maps.Geocoder()
-          geocoder.geocode({ location: userLatLng }, (results, status) => {
-            if (status === "OK" && results && results[0]) {
-              // Find locality (city) component
-              const cityComponent = results[0].address_components.find((component) =>
-                component.types.includes("locality"),
-              )
-              if (cityComponent) {
-                setSearchQuery(cityComponent.long_name)
-              } else {
-                // Fall back to formatted address
-                setSearchQuery(results[0].formatted_address)
-              }
-            }
-          })
         }
       }
 
