@@ -12,7 +12,7 @@ import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { useAuth } from "@/components/auth-provider"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { mockPosts } from "@/lib/mock-data"
+// import { mockPosts } from "@/lib/mock-data"
 
 const containerStyle = {
   width: "100%",
@@ -139,16 +139,16 @@ export function MapView({
           const { data, error } = await supabase.from("posts").select("*").order("created_at", { ascending: false })
           if (error) {
             console.error("Error fetching posts:", error)
-            setAllPosts(mockPosts)
+            setAllPosts([])
           } else {
             setAllPosts(data || [])
           }
         } else {
-          setAllPosts(mockPosts)
+          setAllPosts([])
         }
       } catch (error) {
         console.error("Error in fetchPosts:", error)
-        setAllPosts(mockPosts)
+        setAllPosts([])
       } finally {
         setIsLoading(false)
       }

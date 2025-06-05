@@ -6,7 +6,7 @@ import { MapView } from "@/components/map-view"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { useAuth } from "@/components/auth-provider"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { mockPosts } from "@/lib/mock-data"
+// import { mockPosts } from "@/lib/mock-data"
 
 export default function MapPage() {
   const [isLoading, setIsLoading] = useState(true)
@@ -23,16 +23,16 @@ export default function MapPage() {
           const { data, error } = await supabase.from("posts").select("*").order("created_at", { ascending: false })
           if (error) {
             console.error("Error fetching posts:", error)
-            setPosts(mockPosts)
+            setPosts([])
           } else {
             setPosts(data || [])
           }
         } else {
-          setPosts(mockPosts)
+          setPosts([])
         }
       } catch (error) {
         console.error("Error in fetchPosts:", error)
-        setPosts(mockPosts)
+        setPosts([])
       } finally {
         setIsLoading(false)
       }
