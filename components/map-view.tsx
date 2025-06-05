@@ -62,7 +62,7 @@ declare global {
 }
 
 // Update the function parameters to include userLocation
-export function MapView({
+export default function MapView({
   posts: initialPosts,
   centerPost,
   center,
