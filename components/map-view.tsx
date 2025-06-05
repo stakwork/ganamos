@@ -102,21 +102,26 @@ export function MapView({
       googleMapRef.current = map
       setMapInstance(map)
 
-      // Priority: city bounds > user location > default
+      // If we have city bounds, fit the map to those bounds
       if (cityBounds) {
         const bounds = new google.maps.LatLngBounds(
           { lat: cityBounds.south, lng: cityBounds.west },
           { lat: cityBounds.north, lng: cityBounds.east },
         )
         map.fitBounds(bounds)
-        console.log("Map fitted to city bounds")
-      } else if (userLocation) {
+      }
+      // Otherwise if we have user location, center on that
+      else if (userLocation) {
         map.setCenter({ lat: userLocation.latitude, lng: userLocation.longitude })
-        map.setZoom(defaultZoom)
-        console.log("Map centered on user location")
+        map.setZoom(12)
+      }
+
+      // Set city name in search if available
+      if (cityName) {
+        setSearchQuery(cityName)
       }
     },
-    [userLocation, cityBounds],
+    [userLocation, cityBounds, cityName],
   )
 
   const onUnmount = useCallback(() => {
@@ -132,7 +137,7 @@ export function MapView({
             .from("posts")
             .select("*")
             .eq("fixed", false)
-            .neq("under_review", true)
+            .neq("under_review", true) // Add this line
             .order("created_at", { ascending: false })
           if (error) {
             console.error("Error fetching posts:", error)
@@ -624,6 +629,7 @@ export function MapView({
           lat: userLocation.latitude,
           lng: userLocation.longitude,
         }
+        map.setCenter(userLatLng)
 
         // If city bounds are provided, use them for smart zooming
         if (cityBounds) {
@@ -634,15 +640,12 @@ export function MapView({
           )
           map.fitBounds(bounds)
         } else {
-          map.setCenter(userLatLng)
-          map.setZoom(12) // City level zoom
+          map.setZoom(12) // City level zoom fallback
         }
 
         // Set city name in search bar if available
         if (cityName) {
           setSearchQuery(cityName)
-        } else if (userLocation.name) {
-          setSearchQuery(userLocation.name)
         }
       }
 
