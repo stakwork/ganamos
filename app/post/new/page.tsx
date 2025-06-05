@@ -66,6 +66,10 @@ export default function NewPostPage() {
   const [showKeypad, setShowKeypad] = useState(false)
   const isAnonymous = !user
   const MIN_ANONYMOUS_REWARD = 500
+  const [fundingPaymentRequest, setFundingPaymentRequest] = useState<string | null>(null)
+  const [fundingRHash, setFundingRHash] = useState<string | null>(null)
+  const [isAwaitingPayment, setIsAwaitingPayment] = useState(false)
+  const [showFundingModal, setShowFundingModal] = useState(false)
 
   useEffect(() => {
     if (isAnonymous) {
@@ -244,8 +248,9 @@ export default function NewPostPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsSubmitting(true) // Indicate submission process has started
 
-    const isAnonymousSubmit = !user // Re-check here or use the state variable
+    const isAnonymousSubmit = !user
 
     if (isAnonymousSubmit && reward < MIN_ANONYMOUS_REWARD) {
       toast({
@@ -253,7 +258,7 @@ export default function NewPostPage() {
         description: `Anonymous posts require a minimum reward of ${MIN_ANONYMOUS_REWARD} sats.`,
         variant: "destructive",
       })
-      setIsSubmitting(false) // Ensure isSubmitting is reset
+      setIsSubmitting(false)
       return
     }
 
@@ -263,6 +268,7 @@ export default function NewPostPage() {
         description: "Please take a photo of the issue",
         variant: "destructive",
       })
+      setIsSubmitting(false)
       return
     }
 
@@ -272,6 +278,7 @@ export default function NewPostPage() {
         description: "Please describe the issue",
         variant: "destructive",
       })
+      setIsSubmitting(false)
       return
     }
 
@@ -282,86 +289,105 @@ export default function NewPostPage() {
         variant: "destructive",
       })
       router.push("/wallet")
+      setIsSubmitting(false)
       return
     }
 
-    setIsSubmitting(true)
+    // --- ANONYMOUS POST FUNDING FLOW ---
+    if (isAnonymousSubmit) {
+      try {
+        // STEP 1: Call server action to create funding invoice (to be implemented)
+        // const fundingInvoiceResult = await createPostFundingInvoiceAction(reward);
+        // For now, let's simulate a successful response:
+        const fundingInvoiceResult = {
+          success: true,
+          paymentRequest: "lnbc100n1p...", // Placeholder
+          rHash: "r_hash_placeholder_" + Date.now(), // Placeholder
+        }
+        // ---
 
+        if (fundingInvoiceResult.success && fundingInvoiceResult.paymentRequest && fundingInvoiceResult.rHash) {
+          setFundingPaymentRequest(fundingInvoiceResult.paymentRequest)
+          setFundingRHash(fundingInvoiceResult.rHash)
+          setShowFundingModal(true)
+          setIsAwaitingPayment(true)
+          // Polling for payment will be handled by an effect or a component within the modal
+          // For now, we'll stop here in handleSubmit for anonymous users.
+          // The actual post creation will happen *after* payment is confirmed.
+          toast({
+            title: "Payment Required",
+            description: "Please pay the Lightning invoice to publish your post.",
+          })
+          // setIsSubmitting will remain true or be handled by the modal flow
+          return
+        } else {
+          toast({
+            title: "Error",
+            description: "Could not create funding invoice. Please try again.",
+            variant: "destructive",
+          })
+          setIsSubmitting(false)
+          return
+        }
+      } catch (error) {
+        console.error("Error creating funding invoice:", error)
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred while preparing your post.",
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
+      }
+    }
+
+    // --- LOGGED-IN USER POST CREATION ---
     try {
-      // Create a new post with current timestamp
       const now = new Date()
       const postId = uuidv4()
 
-      const newPost = {
+      // Data for Supabase insert
+      const postDataForSupabase = {
         id: postId,
-        userId: isAnonymousSubmit ? null : user.id,
-        user_id: isAnonymousSubmit ? null : user.id, // Add both formats for compatibility
-        title: description.substring(0, 50), // Use first part of description as title for compatibility
+        user_id: activeUserId || user!.id, // user is guaranteed to exist here
+        created_by: profile!.name, // profile is guaranteed to exist here
+        created_by_avatar: profile!.avatar_url,
+        title: description.substring(0, 50),
         description,
-        imageUrl: image,
-        image_url: image, // Add both formats for compatibility
-        location: currentLocation?.name,
+        image_url: image,
+        location: currentLocation ? currentLocation.name : null,
         latitude: currentLocation ? currentLocation.lat : null,
         longitude: currentLocation ? currentLocation.lng : null,
         reward,
         claimed: false,
         fixed: false,
-        createdAt: now,
-        created_at: now.toISOString(), // Add both formats for compatibility
-        group_id: selectedGroupId,
-        city: currentLocation?.displayName || null,
-        is_anonymous: isAnonymousSubmit, // Add this
+        created_at: now.toISOString(),
+        group_id: selectedGroupId, // This will be null for anonymous, handled by UI
+        city: currentLocation ? currentLocation.displayName : null,
+        is_anonymous: false, // Explicitly false for logged-in users
+        // funding_payment_request, funding_r_hash, funding_status will be null/default
       }
 
-      // Save to Supabase if available
       if (supabase) {
-        try {
-          await supabase.from("posts").insert({
-            id: postId,
-            user_id: isAnonymousSubmit ? null : activeUserId || user.id,
-            created_by: isAnonymousSubmit ? "Anonymous" : profile.name,
-            created_by_avatar: isAnonymousSubmit ? null : profile.avatar_url,
-            title: description.substring(0, 50), // Use first part of description as title for compatibility
-            description,
-            image_url: image,
-            location: currentLocation ? currentLocation.name : null,
-            latitude: currentLocation ? currentLocation.lat : null,
-            longitude: currentLocation ? currentLocation.lng : null,
-            reward,
-            claimed: false,
-            fixed: false,
-            created_at: now.toISOString(),
-            group_id: selectedGroupId,
-            city: currentLocation ? currentLocation.displayName : null,
-            is_anonymous: isAnonymousSubmit, // Add this
-          })
-        } catch (error) {
-          console.error("Error saving post to Supabase:", error)
-          // Continue with local storage even if Supabase fails
+        const { error: insertError } = await supabase.from("posts").insert(postDataForSupabase)
+        if (insertError) {
+          console.error("Error saving post to Supabase:", insertError)
+          throw insertError
         }
       }
 
-      // Remove: mockPosts.unshift(newPost)
-
-      // Update user balance if reward is greater than 0
-      if (!isAnonymousSubmit && profile && reward > 0) {
+      if (profile && reward > 0) {
         updateBalance(profile.balance - reward)
       }
 
-      // Show success message with shorter duration
       const successToast = toast({
         title: "🎉 Post created!",
         description: "Your issue has been posted successfully ✅",
         variant: "success",
-        duration: 3000, // 3 seconds
+        duration: 3000,
       })
+      setTimeout(() => successToast.dismiss(), 3000)
 
-      // Automatically dismiss the toast after 3 seconds
-      setTimeout(() => {
-        successToast.dismiss()
-      }, 3000)
-
-      // Navigate to the appropriate destination
       if (selectedGroupId) {
         router.push(`/groups/${selectedGroupId}?newPost=true`)
       } else {
@@ -371,7 +397,7 @@ export default function NewPostPage() {
       console.error("Error creating post:", error)
       toast({
         title: "Error",
-        description: "There was an error creating your post",
+        description: "There was an error creating your post.",
         variant: "destructive",
       })
     } finally {
@@ -831,6 +857,48 @@ export default function NewPostPage() {
             </Button>
           </form>
         </>
+      )}
+
+      {showFundingModal && fundingPaymentRequest && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full">
+            <h2 className="text-xl font-semibold mb-4">Fund Your Anonymous Post</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+              To publish your anonymous post with a reward of {formatSatsValue(reward)}, please pay the Lightning
+              invoice below.
+            </p>
+            <div className="mb-4 p-3 border rounded-md break-all bg-gray-50 dark:bg-gray-700">
+              <code>{fundingPaymentRequest}</code>
+            </div>
+            {/* QR Code would go here - we can use the existing QRCode component */}
+            {/* <QRCode value={fundingPaymentRequest} size={256} /> */}
+            <p className="text-center my-2 text-sm">Scan or copy the invoice above.</p>
+
+            {isAwaitingPayment && (
+              <div className="text-center my-4">
+                <p className="text-blue-600 dark:text-blue-400 animate-pulse">Waiting for payment confirmation...</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Do not close this window. Your post will be created automatically after payment.
+                </p>
+              </div>
+            )}
+
+            <Button
+              variant="outline"
+              className="w-full mt-4"
+              onClick={() => {
+                setShowFundingModal(false)
+                setIsAwaitingPayment(false) // Stop polling if implemented
+                setFundingPaymentRequest(null)
+                setFundingRHash(null)
+                setIsSubmitting(false) // Allow user to try again or modify post
+              }}
+            >
+              Cancel
+            </Button>
+            {/* We might add a "I've Paid" button later if polling is slow, or rely on auto-detection */}
+          </div>
+        </div>
       )}
     </div>
   )
