@@ -4,12 +4,13 @@ import type React from "react"
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, X, RefreshCw, AlertCircle } from "lucide-react"
+import { Loader2, X, RefreshCw, AlertCircle, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
 import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
 import { useAuth } from "@/components/auth-provider"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
+import { DonationModal } from "@/components/donation-modal"
 
 const containerStyle = {
   width: "100%",
@@ -96,6 +97,7 @@ export function MapView({
   const supabase = createBrowserSupabaseClient()
   const googleMapRef = useRef<google.maps.Map | null>(null)
   const [allPosts, setAllPosts] = useState<Post[]>(posts)
+  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false)
 
   const onLoad = useCallback(
     (map: google.maps.Map) => {
@@ -192,6 +194,10 @@ export function MapView({
 
   const handleNewPost = () => {
     router.push("/post/new")
+  }
+
+  const handleDonationClick = () => {
+    setIsDonationModalOpen(true)
   }
 
   // Debug log for posts prop
@@ -855,49 +861,60 @@ export function MapView({
         </Button>
       )}
 
-      {/* Search Bar - Adjust position if in modal */}
+      {/* Search Bar with Donation Button - Adjust position if in modal */}
       <div
         className={`absolute ${isModal ? "top-2" : "top-4"} left-1/2 transform -translate-x-1/2 z-50 w-80 max-w-[calc(100%-1rem)]`}
       >
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search here"
-            value={searchQuery}
-            onChange={(e) => handleSearchInput(e.target.value)}
-            onFocus={() => searchResults.length > 0 && setShowResults(true)}
-            className="w-full px-4 py-3 pr-10 rounded-full bg-white shadow-lg border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent caret-gray-900"
-          />
+        <div className="relative flex items-center gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Search here"
+              value={searchQuery}
+              onChange={(e) => handleSearchInput(e.target.value)}
+              onFocus={() => searchResults.length > 0 && setShowResults(true)}
+              className="w-full px-4 py-3 pr-10 rounded-full bg-white shadow-lg border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent caret-gray-900"
+            />
 
-          {/* Clear button */}
-          {searchQuery && (
-            <button
-              onClick={() => {
-                setSearchQuery("")
-                setSearchResults([])
-                setShowResults(false)
-              }}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors"
-            >
-              <X className="w-3 h-3 text-gray-600" />
-            </button>
-          )}
+            {/* Clear button */}
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery("")
+                  setSearchResults([])
+                  setShowResults(false)
+                }}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors"
+              >
+                <X className="w-3 h-3 text-gray-600" />
+              </button>
+            )}
 
-          {/* Search Results Dropdown */}
-          {showResults && searchResults.length > 0 && (
-            <div className="absolute top-full mt-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-y-auto z-10">
-              {searchResults.map((result) => (
-                <button
-                  key={result.place_id}
-                  onClick={() => handlePlaceSelect(result.place_id, result.description)}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 text-sm"
-                >
-                  <div className="font-medium text-gray-900">{result.structured_formatting.main_text}</div>
-                  <div className="text-gray-500 text-xs">{result.structured_formatting.secondary_text}</div>
-                </button>
-              ))}
-            </div>
-          )}
+            {/* Search Results Dropdown */}
+            {showResults && searchResults.length > 0 && (
+              <div className="absolute top-full mt-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-y-auto z-10">
+                {searchResults.map((result) => (
+                  <button
+                    key={result.place_id}
+                    onClick={() => handlePlaceSelect(result.place_id, result.description)}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 text-sm"
+                  >
+                    <div className="font-medium text-gray-900">{result.structured_formatting.main_text}</div>
+                    <div className="text-gray-500 text-xs">{result.structured_formatting.secondary_text}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Donation Heart Button */}
+          <Button
+            onClick={handleDonationClick}
+            size="icon"
+            className="h-12 w-12 rounded-full bg-orange-500 hover:bg-orange-600 text-white shadow-lg border-0"
+          >
+            <Heart className="h-5 w-5" />
+          </Button>
         </div>
       </div>
 
@@ -961,6 +978,13 @@ export function MapView({
           </div>
         </div>
       )}
+
+      {/* Donation Modal */}
+      <DonationModal
+        open={isDonationModalOpen}
+        onOpenChange={setIsDonationModalOpen}
+        preSelectedLocation={searchQuery || null}
+      />
     </div>
   )
 }

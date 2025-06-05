@@ -14,6 +14,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase"
 interface DonationModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  preSelectedLocation?: string | null
 }
 
 declare global {
@@ -22,8 +23,8 @@ declare global {
   }
 }
 
-export function DonationModal({ open, onOpenChange }: DonationModalProps) {
-  const [step, setStep] = useState<"location" | "map" | "invoice" | "success">("location")
+export function DonationModal({ open, onOpenChange, preSelectedLocation }: DonationModalProps) {
+  const [step, setStep] = useState<"location" | "map" | "invoice" | "success">(preSelectedLocation ? "map" : "location")
   const [locationName, setLocationName] = useState("")
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [selectedBounds, setSelectedBounds] = useState<google.maps.LatLngBounds | null>(null)
@@ -72,6 +73,16 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
       fetchPosts()
     }
   }, [open])
+
+  useEffect(() => {
+    if (preSelectedLocation && open) {
+      setLocationName(preSelectedLocation)
+      // For pre-selected locations, we'll use a default center point
+      // The actual city bounds will be handled by the map view
+      setSelectedLocation({ lat: 0, lng: 0 }) // Placeholder coordinates
+      setSelectedBounds(null)
+    }
+  }, [preSelectedLocation, open])
 
   const handleLocationChange = (value: string, placeDetails?: google.maps.places.PlaceResult) => {
     console.log("Location changed:", value, placeDetails)
@@ -133,9 +144,9 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
   }
 
   const resetForm = () => {
-    setStep("location")
-    setLocationName("")
-    setSelectedLocation(null)
+    setStep(preSelectedLocation ? "map" : "location")
+    setLocationName(preSelectedLocation || "")
+    setSelectedLocation(preSelectedLocation ? { lat: 0, lng: 0 } : null)
     setSelectedBounds(null)
     setPaymentRequest("")
     setSelectedAmount(0)
