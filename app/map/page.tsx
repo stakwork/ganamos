@@ -1,172 +1,117 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { useAuth } from "@/components/auth-provider" // Keep useAuth to potentially use user info if available
-import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { mockPosts } from "@/lib/mock-data"
-import type { Post } from "@/lib/types"
-import { MapView } from "@/components/map-view"
-import { Loader2 } from "lucide-react" // For a generic loading indicator
-import { getCurrentLocationWithName } from "@/lib/geocoding"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
+import MapView from "@/components/map-view"
+import { LoadingSpinner } from "@/components/loading-spinner"
+import { useAuth } from "@/components/auth-provider"
+import { reverseGeocode } from "@/lib/geocoding"
 
 export default function MapPage() {
-  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(true)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [cityName, setCityName] = useState<string | null>(null)
+  const [cityBounds, setCityBounds] = useState<{
+    north: number
+    south: number
+    east: number
+    west: number
+  } | null>(null)
   const searchParams = useSearchParams()
-  const { user, loading: authLoading, sessionLoaded } = useAuth() // Use sessionLoaded to wait for auth state
-  const [posts, setPosts] = useState<Post[]>([])
-  const [isLoadingPosts, setIsLoadingPosts] = useState(true)
-  const supabase = createBrowserSupabaseClient()
-  const [userLocationBounds, setUserLocationBounds] = useState<google.maps.LatLngBounds | null>(null)
+  const { user } = useAuth()
 
-  const centerPostId = searchParams.get("centerPost")
-  const centerPost = posts.find((post) => post.id === centerPostId) || undefined
-
-  const lat = searchParams.get("lat")
-  const lng = searchParams.get("lng")
-  const zoomType = searchParams.get("zoom")
-  const locationName = searchParams.get("name")
-
-  const getCurrentUserLocationWithBounds = async () => {
-    try {
-      const locationData = await getCurrentLocationWithName()
-      if (locationData) {
-        // Use Google Places API to get bounds for the city
-        if (typeof window !== "undefined" && window.google && window.google.maps) {
-          const geocoder = new window.google.maps.Geocoder()
-          const placesService = new window.google.maps.places.PlacesService(document.createElement("div"))
-
-          // First, try to find the place using Places API for better bounds
-          const request = {
-            query: locationData.name,
-            fields: ["geometry", "name"],
-          }
-
-          placesService.textSearch(request, (results, status) => {
-            if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
-              const place = results[0]
-              if (place.geometry?.viewport) {
-                setUserLocationBounds(place.geometry.viewport)
-              } else if (place.geometry?.bounds) {
-                setUserLocationBounds(place.geometry.bounds)
-              }
-            } else {
-              // Fallback to geocoding
-              geocoder.geocode({ address: locationData.name }, (results, status) => {
-                if (status === "OK" && results && results[0]) {
-                  if (results[0].geometry.viewport) {
-                    setUserLocationBounds(results[0].geometry.viewport)
-                  } else if (results[0].geometry.bounds) {
-                    setUserLocationBounds(results[0].geometry.bounds)
-                  }
-                }
-              })
-            }
-          })
-        }
-      }
-    } catch (error) {
-      console.error("Error getting user location with bounds:", error)
-    }
-  }
-
+  // Check for location parameters in URL
   useEffect(() => {
-    // Fetch posts and handle user location if no specific location params are provided
-    if (sessionLoaded) {
-      fetchPosts()
+    const lat = searchParams?.get("lat")
+    const lng = searchParams?.get("lng")
+    const city = searchParams?.get("city")
 
-      // If no specific location parameters are provided, get user's current location
-      if (!lat && !lng) {
-        getCurrentUserLocationWithBounds()
+    // If location is provided in URL, use it
+    if (lat && lng) {
+      setUserLocation({
+        lat: Number.parseFloat(lat),
+        lng: Number.parseFloat(lng),
+      })
+      if (city) {
+        setCityName(city)
+      }
+      setIsLoading(false)
+      return
+    }
+
+    // Otherwise try to get user's current location
+    const getUserLocation = async () => {
+      try {
+        if (!navigator.geolocation) {
+          console.error("Geolocation is not supported by this browser")
+          setIsLoading(false)
+          return
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords
+            setUserLocation({ lat: latitude, lng: longitude })
+
+            // Try to get city name via reverse geocoding
+            try {
+              const cityData = await reverseGeocode(latitude, longitude)
+              if (cityData) {
+                setCityName(cityData.city || cityData.town || cityData.village || "Unknown")
+
+                // Get city bounds using Google Places API
+                try {
+                  const response = await fetch(
+                    `/api/maps?query=${encodeURIComponent(cityData.city || cityData.town || cityData.village)}`,
+                  )
+                  if (response.ok) {
+                    const data = await response.json()
+                    if (data.results && data.results.length > 0 && data.results[0].geometry?.viewport) {
+                      const viewport = data.results[0].geometry.viewport
+                      setCityBounds({
+                        north: viewport.northeast.lat,
+                        south: viewport.southwest.lat,
+                        east: viewport.northeast.lng,
+                        west: viewport.southwest.lng,
+                      })
+                    }
+                  }
+                } catch (error) {
+                  console.error("Error fetching city bounds:", error)
+                }
+              }
+            } catch (error) {
+              console.error("Error with reverse geocoding:", error)
+            }
+
+            setIsLoading(false)
+          },
+          (error) => {
+            console.error("Geolocation error:", error.message)
+            setIsLoading(false)
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 300000, // Allow cached positions up to 5 minutes old
+          },
+        )
+      } catch (error) {
+        console.error("Error getting location:", error)
+        setIsLoading(false)
       }
     }
-  }, [sessionLoaded, lat, lng]) // Also depend on lat/lng to avoid getting location when specific coords are provided
 
-  const fetchPosts = async () => {
-    setIsLoadingPosts(true)
-    try {
-      if (supabase) {
-        const { data, error } = await supabase
-          .from("posts")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .eq("fixed", false)
-          .neq("under_review", true)
+    getUserLocation()
+  }, [searchParams])
 
-        if (data && !error) {
-          setPosts(data)
-        } else if (error) {
-          console.error("Error fetching posts from Supabase:", error)
-          // Fallback to mock data on Supabase error
-          const filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
-          setPosts(filteredPosts)
-        } else {
-          // No data and no error, fallback to mock
-          const filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
-          setPosts(filteredPosts)
-        }
-      } else {
-        // Fall back to mock data if Supabase client isn't available (shouldn't happen)
-        const filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
-        setPosts(filteredPosts)
-      }
-    } catch (error) {
-      console.error("Error fetching posts:", error)
-      const filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
-      setPosts(filteredPosts)
-    } finally {
-      setIsLoadingPosts(false)
-    }
-  }
-
-  const handleClose = () => {
-    router.back()
-  }
-
-  const userLocation =
-    lat && lng
-      ? {
-          latitude: Number.parseFloat(lat),
-          longitude: Number.parseFloat(lng),
-          zoomType: zoomType || "default",
-          name: locationName || "",
-        }
-      : userLocationBounds
-        ? {
-            latitude: userLocationBounds.getCenter().lat(),
-            longitude: userLocationBounds.getCenter().lng(),
-            zoomType: "city",
-            name: "",
-            bounds: userLocationBounds,
-          }
-        : undefined
-
-  // Show a loading indicator while auth state is being determined or posts are loading
-  if (authLoading || isLoadingPosts) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-          Loading Map...
-        </div>
+        <LoadingSpinner size="lg" />
       </div>
     )
   }
 
-  // At this point, auth state is known (user might be null for anonymous)
-  // and posts have been attempted to be fetched.
-  return (
-    <div className="h-screen w-screen">
-      <MapView
-        posts={posts}
-        centerPost={centerPost}
-        onClose={handleClose}
-        isLoading={isLoadingPosts} // Pass post loading state to MapView
-        userLocation={userLocation}
-        bounds={userLocation?.bounds}
-        // Potentially pass 'user' to MapView if it needs to behave differently for logged-in users
-        // user={user}
-      />
-    </div>
-  )
+  return <MapView userLocation={userLocation} cityName={cityName} cityBounds={cityBounds} />
 }

@@ -2,20 +2,37 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from "@react-google-maps/api"
 import { useRouter } from "next/navigation"
 import { Loader2, X, RefreshCw, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
 import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
+import { LoadingSpinner } from "@/components/loading-spinner"
+import { useAuth } from "@/components/auth-provider"
+import { createBrowserSupabaseClient } from "@/lib/supabase"
+import { mockPosts } from "@/lib/mock-data"
+
+const containerStyle = {
+  width: "100%",
+  height: "calc(100vh - 4rem)",
+}
+
+const defaultCenter = {
+  lat: 37.7749,
+  lng: -122.4194,
+}
+
+const defaultZoom = 13
 
 // Update the MapViewProps interface to include userLocation
 interface MapViewProps {
-  posts: Post[]
+  posts?: Post[]
   centerPost?: Post // Optional post to center the map on
   center?: { lat: number; lng: number } // Custom center coordinates
   bounds?: google.maps.LatLngBounds // Optional bounds to fit the map to
-  onClose: () => void
+  onClose?: () => void
   isLoading?: boolean
   isModal?: boolean // Flag to indicate if map is in a modal
   initialSearchQuery?: string // Initial search query to populate the search bar
@@ -25,7 +42,16 @@ interface MapViewProps {
     zoomType: string
     name: string
     bounds?: google.maps.LatLngBounds
-  }
+    lat: number
+    lng: number
+  } | null
+  cityName?: string | null
+  cityBounds?: {
+    north: number
+    south: number
+    east: number
+    west: number
+  } | null
 }
 
 // Declare google as a global type to avoid linting errors
@@ -37,7 +63,7 @@ declare global {
 
 // Update the function parameters to include userLocation
 export function MapView({
-  posts,
+  posts: initialPosts,
   centerPost,
   center,
   bounds,
@@ -46,7 +72,14 @@ export function MapView({
   isModal = false,
   initialSearchQuery = "",
   userLocation,
+  cityName,
+  cityBounds,
 }: MapViewProps) {
+  const { isLoaded } = useJsApiLoader({
+    id: "google-map-script",
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+  })
+
   const router = useRouter()
   const mapRef = useRef<HTMLDivElement>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -63,6 +96,101 @@ export function MapView({
   const [showResults, setShowResults] = useState(false)
   const [autocompleteService, setAutocompleteService] = useState<google.maps.places.AutocompleteService | null>(null)
   const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [mapCenter, setMapCenter] = useState(
+    userLocation ? { lat: userLocation.latitude, lng: userLocation.longitude } : defaultCenter,
+  )
+  const [zoom, setZoom] = useState(defaultZoom)
+  const { user } = useAuth()
+  const supabase = createBrowserSupabaseClient()
+  const googleMapRef = useRef<google.maps.Map | null>(null)
+
+  const onLoad = useCallback(
+    (map: google.maps.Map) => {
+      googleMapRef.current = map
+      setMapInstance(map)
+
+      // If we have city bounds, fit the map to those bounds
+      if (cityBounds) {
+        const bounds = new google.maps.LatLngBounds(
+          { lat: cityBounds.south, lng: cityBounds.west },
+          { lat: cityBounds.north, lng: cityBounds.east },
+        )
+        map.fitBounds(bounds)
+      }
+      // Otherwise if we have user location, center on that
+      else if (userLocation) {
+        map.setCenter({ lat: userLocation.latitude, lng: userLocation.longitude })
+        map.setZoom(defaultZoom)
+      }
+    },
+    [userLocation, cityBounds],
+  )
+
+  const onUnmount = useCallback(() => {
+    setMapInstance(null)
+  }, [])
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      setIsLoading(true)
+      try {
+        if (supabase) {
+          const { data, error } = await supabase.from("posts").select("*").order("created_at", { ascending: false })
+          if (error) {
+            console.error("Error fetching posts:", error)
+            setPosts(mockPosts)
+          } else {
+            setPosts(data || [])
+          }
+        } else {
+          setPosts(mockPosts)
+        }
+      } catch (error) {
+        console.error("Error in fetchPosts:", error)
+        setPosts(mockPosts)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchPosts()
+  }, [supabase])
+
+  useEffect(() => {
+    if (mapInstance && userLocation) {
+      // If we have city bounds, fit the map to those bounds
+      if (cityBounds) {
+        const bounds = new google.maps.LatLngBounds(
+          { lat: cityBounds.south, lng: cityBounds.west },
+          { lat: cityBounds.north, lng: cityBounds.east },
+        )
+        mapInstance.fitBounds(bounds)
+      } else {
+        // Otherwise just center on user location
+        mapInstance.setCenter({ lat: userLocation.latitude, lng: userLocation.longitude })
+        mapInstance.setZoom(defaultZoom)
+      }
+    }
+  }, [mapInstance, userLocation, cityBounds])
+
+  const handleMarkerClick = (post: Post) => {
+    setSelectedPost(post)
+  }
+
+  const handleInfoWindowClose = () => {
+    setSelectedPost(null)
+  }
+
+  const handleViewPost = () => {
+    if (selectedPost) {
+      router.push(`/post/${selectedPost.id}`)
+    }
+  }
+
+  const handleNewPost = () => {
+    router.push("/post/new")
+  }
 
   // Debug log for posts prop
   console.log("MapView received posts:", posts)
@@ -356,7 +484,7 @@ export function MapView({
         }
 
         const script = document.createElement("script")
-        script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBB01qY-IIgvTwrwvmjLACpg2wzEOAr1q4&libraries=places`
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
         script.async = true
         script.defer = true
 
@@ -724,8 +852,16 @@ export function MapView({
   // Set container classes based on whether it's in a modal or not
   const containerClasses = isModal ? "h-full w-full relative" : "h-screen w-screen relative"
 
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
   return (
-    <div className={containerClasses}>
+    <div className="relative h-screen">
       {/* Close Button - Only show if not in modal */}
       {!isModal && (
         <Button
@@ -844,6 +980,78 @@ export function MapView({
           </div>
         </div>
       )}
+      <GoogleMap
+        mapContainerStyle={containerStyle}
+        center={mapCenter}
+        zoom={zoom}
+        onLoad={onLoad}
+        onUnmount={onUnmount}
+        options={{
+          fullscreenControl: false,
+          streetViewControl: false,
+          mapTypeControl: false,
+          zoomControl: true,
+        }}
+      >
+        {userLocation && (
+          <Marker
+            position={{ lat: userLocation.latitude, lng: userLocation.longitude }}
+            icon={{
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 7,
+              fillColor: "#4285F4",
+              fillOpacity: 1,
+              strokeColor: "#ffffff",
+              strokeWeight: 2,
+            }}
+          />
+        )}
+
+        {posts.map((post) => {
+          if (!post.latitude || !post.longitude) return null
+          return (
+            <Marker
+              key={post.id}
+              position={{ lat: post.latitude, lng: post.longitude }}
+              onClick={() => handleMarkerClick(post)}
+              icon={{
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 10,
+                fillColor: post.fixed ? "#34D399" : "#EF4444",
+                fillOpacity: 0.8,
+                strokeColor: "#ffffff",
+                strokeWeight: 2,
+              }}
+            />
+          )
+        })}
+
+        {selectedPost && (
+          <InfoWindow
+            position={{ lat: selectedPost.latitude!, lng: selectedPost.longitude! }}
+            onCloseClick={handleInfoWindowClose}
+          >
+            <div className="p-2 max-w-xs">
+              <h3 className="font-semibold text-sm mb-1">{selectedPost.title}</h3>
+              <p className="text-xs text-gray-600 mb-2 line-clamp-2">{selectedPost.description}</p>
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-medium">
+                  {selectedPost.fixed ? "Fixed ✅" : `Reward: ${selectedPost.reward} sats`}
+                </span>
+                <Button size="sm" onClick={handleViewPost}>
+                  View
+                </Button>
+              </div>
+            </div>
+          </InfoWindow>
+        )}
+      </GoogleMap>
+
+      <div className="absolute bottom-20 right-4">
+        <Button onClick={handleNewPost} className="rounded-full shadow-lg bg-orange-500 hover:bg-orange-600">
+          Report Issue
+        </Button>
+      </div>
     </div>
   )
 }

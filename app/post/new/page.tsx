@@ -80,6 +80,7 @@ export default function NewPostPage() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const [showCreateAccountPrompt, setShowCreateAccountPrompt] = useState(false)
   const [lastCreatedPostId, setLastCreatedPostId] = useState<string | null>(null)
+  const [locationErrorCount, setLocationErrorCount] = useState(0)
 
   useEffect(() => {
     if (isAnonymous) {
@@ -263,76 +264,86 @@ export default function NewPostPage() {
 
     setIsGettingLocation(true)
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords
+    try {
+      // Use a promise-based approach for better error handling
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve(pos),
+          (err) => reject(err),
+          {
+            enableHighAccuracy: false, // Set to false to avoid issues in preview environments
+            timeout: 10000,
+            maximumAge: 300000, // Allow cached positions up to 5 minutes old
+          },
+        )
+      })
 
-        // Set initial location with coordinates
-        const locationData = {
-          name: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
-          lat: latitude,
-          lng: longitude,
-          displayName: "Unknown", // Default fallback
+      const { latitude, longitude } = position.coords
+
+      // Set initial location with coordinates
+      const locationData = {
+        name: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+        lat: latitude,
+        lng: longitude,
+        displayName: "Unknown", // Default fallback
+      }
+
+      try {
+        // Try to get city name via reverse geocoding
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+        )
+
+        if (response.ok) {
+          const data = await response.json()
+          const cityName = data.address?.city || data.address?.town || data.address?.village || "Unknown"
+          locationData.displayName = cityName
         }
+      } catch (error) {
+        console.error("Reverse geocoding failed:", error)
+        // Keep the default "Unknown" fallback
+      }
 
-        try {
-          // Try to get city name via reverse geocoding
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
-          )
+      setCurrentLocation(locationData)
+      setIsGettingLocation(false)
+      toast({
+        title: "Location added",
+        description: "Your location has been added to the post",
+        variant: "default",
+      })
+    } catch (error: any) {
+      console.error("Error getting location:", error)
+      setIsGettingLocation(false)
+      setLocationErrorCount((prev) => prev + 1)
 
-          if (response.ok) {
-            const data = await response.json()
-            const cityName = data.address?.city || data.address?.town || data.address?.village || "Unknown"
-            locationData.displayName = cityName
-          }
-        } catch (error) {
-          console.error("Reverse geocoding failed:", error)
-          // Keep the default "Unknown" fallback
-        }
+      const errorMessage = "Location unavailable"
+      let errorDescription = "Failed to get your location. You can still post without location."
 
-        setCurrentLocation(locationData)
-        setIsGettingLocation(false)
-        toast({
-          title: "Location added",
-          description: "Your location has been added to the post",
-          variant: "default",
-        })
-      },
-      (error) => {
-        console.error("Error getting location:", error)
-        setIsGettingLocation(false)
-
-        let errorMessage = "Location unavailable in preview environment"
-        const toastVariant: "default" | "destructive" = "default"
-
+      if (error.code) {
         switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = "Location permission denied. You can still post without location."
+          case 1: // PERMISSION_DENIED
+            errorDescription = "Location permission denied. You can still post without location."
             break
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information unavailable. You can still post without location."
+          case 2: // POSITION_UNAVAILABLE
+            errorDescription = "Location information unavailable. You can still post without location."
             break
-          case error.TIMEOUT:
-            errorMessage = "Location request timed out. You can still post without location."
-            break
-          default:
-            errorMessage = "Location unavailable in preview environment. You can still post without location."
+          case 3: // TIMEOUT
+            errorDescription = "Location request timed out. You can still post without location."
             break
         }
+      }
 
-        toast({
-          title: "Location unavailable",
-          description: errorMessage,
-          variant: toastVariant,
-        })
-      },
-      {
-        enableHighAccuracy: false, // Disable high accuracy to avoid issues in preview
-        timeout: 5000, // Reduce timeout
-        maximumAge: 300000, // Allow cached location up to 5 minutes
-      },
-    )
+      // If we've tried multiple times, give a more detailed message
+      if (locationErrorCount > 1) {
+        errorDescription += " This may be due to browser restrictions in preview environments."
+      }
+
+      toast({
+        title: errorMessage,
+        description: errorDescription,
+        variant: "default",
+      })
+    }
   }
 
   const handleRemoveLocation = () => {
