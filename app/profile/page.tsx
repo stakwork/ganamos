@@ -38,13 +38,18 @@ import { AddConnectedAccountDialog } from "@/components/add-connected-account-di
 
 type ActivityItem = {
   id: string
-  type: "post" | "fix" | "reward" | "fix_submitted" | "fix_review_needed"
-  postId: string
-  postTitle: string
+  type: "post" | "fix" | "reward" | "fix_submitted" | "fix_review_needed" | "donation"
+  postId?: string
+  postTitle?: string
   timestamp: Date
   amount?: number
   submitterName?: string
   submitterAvatar?: string
+  // Donation specific fields
+  donationId?: string
+  locationName?: string
+  donorName?: string
+  message?: string
 }
 
 export default function ProfilePage() {
@@ -219,6 +224,33 @@ export default function ProfilePage() {
     [user, supabase, session, activeUserId],
   )
 
+  // Fetch recent donations
+  const fetchDonations = useCallback(async () => {
+    if (!supabase) return { donations: [] }
+
+    try {
+      console.log("🔍 Fetching recent donations")
+
+      const { data, error } = await supabase
+        .from("donations")
+        .select("*, donation_pools(location_name)")
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(20)
+
+      if (error) {
+        console.error("Error fetching donations:", error)
+        return { donations: [] }
+      }
+
+      console.log(`🔍 Found ${data.length} donations`)
+      return { donations: data }
+    } catch (error) {
+      console.error("Error in fetchDonations:", error)
+      return { donations: [] }
+    }
+  }, [supabase])
+
   // Process posts into different categories (posted, fixed, activities)
   const processPosts = useCallback(
     (posts: Post[], append = false) => {
@@ -257,11 +289,11 @@ export default function ProfilePage() {
 
   // Generate activities from posts with pagination
   const generateActivities = useCallback(
-    (posts: Post[], page: number) => {
-      if (!user || !posts) return
+    (posts: Post[], page: number, donations: any[] = []) => {
+      if (!user) return
 
       setIsActivityLoading(true)
-      console.log("🔍 Generating activities from posts")
+      console.log("🔍 Generating activities from posts and donations")
 
       // Use the active user ID (connected account or main account)
       const currentUserId = activeUserId || user.id
@@ -341,6 +373,21 @@ export default function ProfilePage() {
           })
         })
 
+      // Add donation activities
+      donations.forEach((donation) => {
+        const locationName = donation.donation_pools?.location_name || "a location"
+        userActivities.push({
+          id: `donation-${donation.id}`,
+          type: "donation",
+          donationId: donation.id,
+          locationName: locationName,
+          donorName: donation.donor_name || "Someone",
+          message: donation.message,
+          amount: donation.amount,
+          timestamp: new Date(donation.created_at || donation.completed_at),
+        })
+      })
+
       // Sort by timestamp (newest first)
       userActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
 
@@ -376,20 +423,23 @@ export default function ProfilePage() {
     setIsLoadingMore(true)
     const nextPage = activitiesPage + 1
 
-    // Use cached posts to generate more activities
-    if (postsCache.current.length > 0) {
-      generateActivities(postsCache.current, nextPage)
-      setIsLoadingMore(false)
-    } else {
-      // Fallback to fetching if cache is empty
-      fetchUserPosts().then(({ posts }) => {
-        if (posts) {
-          generateActivities(posts, nextPage)
-        }
+    // Fetch donations to include in the next page
+    fetchDonations().then(({ donations }) => {
+      // Use cached posts to generate more activities
+      if (postsCache.current.length > 0) {
+        generateActivities(postsCache.current, nextPage, donations)
         setIsLoadingMore(false)
-      })
-    }
-  }, [activitiesPage, fetchUserPosts, generateActivities, isLoadingMore])
+      } else {
+        // Fallback to fetching if cache is empty
+        fetchUserPosts().then(({ posts }) => {
+          if (posts) {
+            generateActivities(posts, nextPage, donations)
+          }
+          setIsLoadingMore(false)
+        })
+      }
+    })
+  }, [activitiesPage, fetchUserPosts, generateActivities, isLoadingMore, fetchDonations])
 
   // Add Load More Posts Function
   const handleLoadMorePosts = useCallback(async () => {
@@ -426,6 +476,9 @@ export default function ProfilePage() {
       // Fetch user posts immediately regardless of active tab
       const { posts, hasMore } = await fetchUserPosts(1)
 
+      // Fetch recent donations
+      const { donations } = await fetchDonations()
+
       if (posts.length > 0) {
         // Process posts into different categories
         processPosts(posts)
@@ -433,7 +486,7 @@ export default function ProfilePage() {
 
         // Generate initial activities if on activity tab
         if (activeTab === "activity") {
-          generateActivities(posts, 1)
+          generateActivities(posts, 1, donations)
         }
       } else {
         // Fallback to mock data
@@ -445,7 +498,7 @@ export default function ProfilePage() {
         processPosts(mockUserPosts)
 
         if (activeTab === "activity") {
-          generateActivities(mockUserPosts, 1)
+          generateActivities(mockUserPosts, 1, donations)
         }
       }
 
@@ -454,12 +507,17 @@ export default function ProfilePage() {
     }
 
     loadInitialData()
-
-    // Cleanup function
-    // return () => {
-    //   initialDataLoaded.current = false
-    // }
-  }, [user, loading, activeTab, fetchBitcoinPrice, fetchUserPosts, processPosts, generateActivities, activeUserId])
+  }, [
+    user,
+    loading,
+    activeTab,
+    fetchBitcoinPrice,
+    fetchUserPosts,
+    processPosts,
+    generateActivities,
+    activeUserId,
+    fetchDonations,
+  ])
 
   useEffect(() => {
     fetchConnectedAccounts()
@@ -495,10 +553,13 @@ export default function ProfilePage() {
 
       // If we're switching to activity tab and don't have activities yet
       if (value === "activity" && activities.length === 0 && postsCache.current.length > 0) {
-        generateActivities(postsCache.current, 1)
+        // Fetch donations when switching to activity tab
+        fetchDonations().then(({ donations }) => {
+          generateActivities(postsCache.current, 1, donations)
+        })
       }
     },
-    [activities.length, generateActivities],
+    [activities.length, generateActivities, fetchDonations],
   )
 
   // Handle account management
@@ -1162,6 +1223,10 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
   const router = useRouter()
 
   const handleClick = () => {
+    if (activity.type === "donation") {
+      // Donations don't have a detail page to navigate to
+      return
+    }
     router.push(`/post/${activity.postId}`)
   }
 
@@ -1181,7 +1246,10 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
   }
 
   return (
-    <Card className="cursor-pointer hover:bg-muted/50 border dark:border-gray-800" onClick={handleClick}>
+    <Card
+      className={`hover:bg-muted/50 border dark:border-gray-800 ${activity.type !== "donation" ? "cursor-pointer" : ""}`}
+      onClick={handleClick}
+    >
       <CardContent className="p-4">
         <div className="flex items-start">
           <ActivityIcon type={activity.type} />
@@ -1189,12 +1257,16 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
             <div className="flex items-start justify-between">
               <div>
                 <ActivityTitle activity={activity} />
-                <p className="text-sm text-muted-foreground">{activity.postTitle}</p>
+                {activity.type !== "donation" ? (
+                  <p className="text-sm text-muted-foreground">{activity.postTitle}</p>
+                ) : activity.message ? (
+                  <p className="text-sm text-muted-foreground">"{activity.message}"</p>
+                ) : null}
               </div>
               <div className="text-xs text-muted-foreground">{formatDate()}</div>
             </div>
 
-            {activity.type === "reward" && activity.amount && (
+            {(activity.type === "reward" || activity.type === "donation") && activity.amount && (
               <Badge
                 variant="outline"
                 className="mt-2 flex items-center gap-1 bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-800/30"
@@ -1208,7 +1280,8 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
                     className="object-contain"
                   />
                 </div>
-                +{formatSatsValue(activity.amount)}
+                {activity.type === "reward" ? "+" : ""}
+                {formatSatsValue(activity.amount)}
               </Badge>
             )}
             {activity.type === "fix_review_needed" && (
@@ -1241,6 +1314,12 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
       return <p className="font-medium">You submitted a fix for review</p>
     case "fix_review_needed":
       return <p className="font-medium">{activity.submitterName || "Someone"} submitted a fix</p>
+    case "donation":
+      return (
+        <p className="font-medium">
+          {activity.donorName} donated to {activity.locationName}
+        </p>
+      )
     default:
       return <p className="font-medium">Activity</p>
   }
@@ -1334,6 +1413,14 @@ function ActivityIcon({ type }: { type: string }) {
             <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
             <circle cx="12" cy="13" r="3" />
           </svg>
+        </div>
+      )
+    case "donation":
+      return (
+        <div className="p-2 bg-green-100 rounded-full dark:bg-green-950/50">
+          <div className="w-4 h-4 relative">
+            <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="object-contain" />
+          </div>
         </div>
       )
     default:
