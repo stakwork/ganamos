@@ -212,9 +212,9 @@ export function MapView({
         const point = projection.fromLatLngToDivPixel(this.position)
         if (point) {
           console.log(`Positioning marker ${this.markerId} at pixel coordinates:`, point)
-          // Adjust positioning to center the marker
-          this.containerDiv.style.left = point.x - 50 + "px" // Center horizontally (100px width / 2)
-          this.containerDiv.style.top = point.y - 16 + "px" // Center vertically (32px height / 2)
+          // Adjust positioning to center the marker (48px width / 2 = 24px)
+          this.containerDiv.style.left = point.x - 24 + "px" // Center horizontally
+          this.containerDiv.style.top = point.y - 24 + "px" // Center vertically
 
           // Make sure the marker is visible
           this.containerDiv.style.display = "block"
@@ -254,46 +254,50 @@ export function MapView({
       // Update the marker's content based on selection state
       private updateContent() {
         const rewardText = this.formatSatsForPin(this.post.reward)
-        const backgroundColor = this.isSelected ? "#FEF3C7" : "#ffffff"
-        const borderColor = this.isSelected ? "#F7931A" : "#F7931A" // Always orange border
-        const boxShadow = this.isSelected ? "0 4px 8px rgba(0, 0, 0, 0.25)" : "0 2px 4px rgba(0, 0, 0, 0.2)" // Increased opacity by 10%
+        const markerScale = this.isSelected ? "1.1" : "1"
+        const badgeOpacity = this.isSelected ? "1" : "0.95"
 
         this.containerDiv.innerHTML = `
           <div class="custom-marker" style="
+            position: relative;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #f7931a;
             display: flex;
             align-items: center;
-            background-color: ${backgroundColor};
-            border: 2px solid ${borderColor};
-            border-radius: 16px;
-            padding: 6px 12px;
-            box-shadow: ${boxShadow};
-            transition: all 0.2s ease;
-            min-width: 60px;
-            height: 32px;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            transform: scale(${markerScale});
+            transition: transform 0.2s ease;
           ">
             <div style="
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              width: 16px;
-              height: 16px;
-              margin-right: 6px;
-            ">
-              <span style="
-                color: #F7931A;
-                font-weight: bold;
-                font-size: 14px;
-              ">₿</span>
-            </div>
-            <span style="
+              width: 24px;
+              height: 24px;
+              background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9InN2ZyI+CjxwYXRoIGQ9IlExMiAyTDEzLjA5IDguMjZMMEEgOUwxMy4wOSAxNS43NEwxMiAyMkwxMC45MSAxNS43NEw0IDlMMTAuOTEgOC4yNkwxMiAyWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg==');
+              background-size: contain;
+              background-repeat: no-repeat;
+              background-position: center;
+            "></div>
+            <div style="
+              position: absolute;
+              bottom: -10px;
+              left: 50%;
+              transform: translateX(-50%);
+              background: white;
+              color: black;
+              padding: 2px 6px;
+              font-size: 12px;
+              border-radius: 12px;
+              font-weight: bold;
+              box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+              opacity: ${badgeOpacity};
+              transition: opacity 0.2s ease;
               font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-              font-size: 14px;
-              font-weight: 500;
-              color: #333333;
-            ">${rewardText}</span>
+            ">${rewardText}</div>
           </div>
         `
-        console.log(`Marker ${this.markerId} content updated`)
+        console.log(`Marker ${this.markerId} content updated with new design`)
       }
     }
   }
