@@ -263,8 +263,8 @@ export function MapView({
     width: 38px;
     height: 38px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #f39c12 0%, #f7931a 100%);
-    border: 3px solid #e67e22;
+    background: #f7931a;
+    border: 4px solid #e67e22;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -273,35 +273,29 @@ export function MapView({
     transition: transform 0.2s ease;
   ">
     <div style="
-      position: absolute;
-      width: 28px;
-      height: 28px;
-      background: #f39c12;
-      border-radius: 50%;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 1;
-    "></div>
-    <div style="
-      width: 19px;
-      height: 19px;
-      background-image: url('/images/bitcoin-logo.png');
-      background-size: contain;
-      background-repeat: no-repeat;
-      background-position: center;
-      z-index: 2;
       position: relative;
-    "></div>
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    ">
+      <img src="/images/bitcoin-logo.png" alt="Bitcoin" style="
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
+      ">
+    </div>
     <div style="
       position: absolute;
-      bottom: -10px;
+      bottom: -12px;
       left: 50%;
       transform: translateX(-50%);
       background: white;
       border: 2px solid #f7931a;
       color: black;
-      padding: 2px 6px;
+      padding: 1px 6px;
       font-size: 12px;
       border-radius: 12px;
       font-weight: bold;
@@ -309,6 +303,8 @@ export function MapView({
       opacity: ${badgeOpacity};
       transition: opacity 0.2s ease;
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      min-width: 28px;
+      text-align: center;
     ">${rewardText}</div>
   </div>
 `
