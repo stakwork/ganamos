@@ -10,7 +10,6 @@ import { LocationInput } from "@/components/location-input"
 import { MapView } from "@/components/map-view"
 import { Heart, Bitcoin, Copy, Eye, EyeOff } from "lucide-react"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { mockPosts } from "@/lib/mock-data"
 
 interface DonationModalProps {
   open: boolean
@@ -61,15 +60,15 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
 
       if (error) {
         console.error("Error fetching posts:", error)
-        // Fall back to mock data
-        setPosts(mockPosts.filter((post) => !post.fixed && !post.under_review))
+        // No mock data fallback - just use empty array
+        setPosts([])
       } else {
         setPosts(data || [])
       }
     } catch (error) {
       console.error("Error fetching posts:", error)
-      // Fall back to mock data
-      setPosts(mockPosts.filter((post) => !post.fixed && !post.under_review))
+      // No mock data fallback - just use empty array
+      setPosts([])
     } finally {
       setIsLoadingPosts(false)
     }
