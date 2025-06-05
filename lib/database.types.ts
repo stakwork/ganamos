@@ -52,7 +52,7 @@ export interface Database {
           fixed: boolean
           fixed_at: string | null
           fixed_image_url: string | null
-          fixed_by: string | null // For logged-in users who fix
+          fixed_by: string | null
           created_at: string
           group_id: string | null
           city: string | null
@@ -75,11 +75,10 @@ export interface Database {
           funding_payment_request: string | null
           funding_r_hash: string | null
           funding_status: "pending" | "paid" | "expired" | null
-          // Fields for anonymous fix claims
-          anonymous_fixer_claim_code: string | null
-          anonymous_fixer_claim_code_expires_at: string | null // << ADDED (TIMESTAMPTZ in DB)
-          reward_claimed_anonymously: boolean // << ADDED (defaults to false)
-          fixed_by_is_anonymous: boolean // << ADDED (defaults to false)
+          // Fields for anonymous fix payouts
+          fixed_by_is_anonymous: boolean // << ADDED
+          anonymous_reward_paid_at: string | null // << ADDED (TIMESTAMPTZ in DB)
+          anonymous_reward_payment_hash: string | null // << ADDED (TEXT in DB)
         }
         Insert: {
           id?: string
@@ -120,11 +119,10 @@ export interface Database {
           funding_payment_request?: string | null
           funding_r_hash?: string | null
           funding_status?: "pending" | "paid" | "expired" | null
-          // Fields for anonymous fix claims
-          anonymous_fixer_claim_code?: string | null
-          anonymous_fixer_claim_code_expires_at?: string | null
-          reward_claimed_anonymously?: boolean
+          // Fields for anonymous fix payouts
           fixed_by_is_anonymous?: boolean
+          anonymous_reward_paid_at?: string | null
+          anonymous_reward_payment_hash?: string | null
         }
         Update: {
           id?: string
@@ -165,11 +163,10 @@ export interface Database {
           funding_payment_request?: string | null
           funding_r_hash?: string | null
           funding_status?: "pending" | "paid" | "expired" | null
-          // Fields for anonymous fix claims
-          anonymous_fixer_claim_code?: string | null
-          anonymous_fixer_claim__code_expires_at?: string | null // << ADDED (Corrected typo)
-          reward_claimed_anonymously?: boolean
+          // Fields for anonymous fix payouts
           fixed_by_is_anonymous?: boolean
+          anonymous_reward_paid_at?: string | null
+          anonymous_reward_payment_hash?: string | null
         }
       }
       groups: {
@@ -445,7 +442,3 @@ export type DonationPool = Database["public"]["Tables"]["donation_pools"]["Row"]
 export type Donation = Database["public"]["Tables"]["donations"]["Row"]
 export type PostBoost = Database["public"]["Tables"]["post_boosts"]["Row"]
 export type LocationHierarchy = Database["public"]["Tables"]["location_hierarchy"]["Row"]
-
-// Ensure other existing types are not accidentally removed or modified
-// For example, if you have specific Enums or other helper types defined here,
-// they should remain.
