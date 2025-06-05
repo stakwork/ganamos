@@ -258,50 +258,29 @@ export function MapView({
         const badgeOpacity = this.isSelected ? "1" : "0.95"
 
         this.containerDiv.innerHTML = `
-  <div class="btc-marker-container" style="
+  <div class="btc-marker" style="
     position: relative;
     width: 38px;
     height: 38px;
+    border-radius: 50%;
+    background: #f7931a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    transform: scale(${markerScale});
+    transition: transform 0.2s ease;
   ">
-    <div class="btc-marker" style="
-      position: relative;
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      background: #f7931a;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-      transform: scale(${markerScale});
-      transition: transform 0.2s ease;
-      z-index: 1;
+    <img src="/images/bitcoin-logo.png" alt="Bitcoin" style="
+      width: 24px;
+      height: 24px;
     ">
-      <div style="
-        position: relative;
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        background: #f39c12;
-        border: 1px solid #e67e22;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      ">
-        <img src="/images/bitcoin-logo.png" alt="Bitcoin" style="
-          width: 28px;
-          height: 28px;
-          object-fit: contain;
-        ">
-      </div>
-    </div>
     <div class="btc-badge" style="
       position: absolute;
       bottom: -10px;
       left: 50%;
       transform: translateX(-50%);
       background: white;
-      border: 1px solid #e67e22;
       color: black;
       padding: 2px 6px;
       font-size: 12px;
