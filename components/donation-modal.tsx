@@ -55,21 +55,21 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
             avatar_url
           )
         `)
-        .eq("status", "open")
-        .neq("status", "under_review")
+        .eq("fixed", false)
+        .neq("under_review", true)
         .order("created_at", { ascending: false })
 
       if (error) {
         console.error("Error fetching posts:", error)
         // Fall back to mock data
-        setPosts(mockPosts.filter((post) => post.status === "open"))
+        setPosts(mockPosts.filter((post) => !post.fixed && !post.under_review))
       } else {
         setPosts(data || [])
       }
     } catch (error) {
       console.error("Error fetching posts:", error)
       // Fall back to mock data
-      setPosts(mockPosts.filter((post) => post.status === "open"))
+      setPosts(mockPosts.filter((post) => !post.fixed && !post.under_review))
     } finally {
       setIsLoadingPosts(false)
     }
