@@ -254,10 +254,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               variant: "success",
               duration: 7000,
             })
-            // TODO: Next step will be to show how to claim the reward.
-            // For now, navigate back or show a success message.
             setAnonymousFixedPostId(post.id)
             setShowAnonymousRewardOptions(true)
+            setShowBeforeAfter(false)
             // Do not redirect yet, the UI will change based on showAnonymousRewardOptions
           } else {
             toast({
