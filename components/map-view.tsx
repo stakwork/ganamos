@@ -258,45 +258,60 @@ export function MapView({
         const badgeOpacity = this.isSelected ? "1" : "0.95"
 
         this.containerDiv.innerHTML = `
-          <div class="custom-marker" style="
-            position: relative;
-            width: 38px;
-            height: 38px;
-            border-radius: 50%;
-            background: #f7931a;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-            transform: scale(${markerScale});
-            transition: transform 0.2s ease;
-          ">
-            <div style="
-              width: 19px;
-              height: 19px;
-              background-image: url('/images/bitcoin-logo.png');
-              background-size: contain;
-              background-repeat: no-repeat;
-              background-position: center;
-            "></div>
-            <div style="
-              position: absolute;
-              bottom: -10px;
-              left: 50%;
-              transform: translateX(-50%);
-              background: white;
-              color: black;
-              padding: 2px 6px;
-              font-size: 12px;
-              border-radius: 12px;
-              font-weight: bold;
-              box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-              opacity: ${badgeOpacity};
-              transition: opacity 0.2s ease;
-              font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-            ">${rewardText}</div>
-          </div>
-        `
+  <div class="custom-marker" style="
+    position: relative;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f39c12 0%, #f7931a 100%);
+    border: 3px solid #e67e22;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    transform: scale(${markerScale});
+    transition: transform 0.2s ease;
+  ">
+    <div style="
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      background: #f39c12;
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+    "></div>
+    <div style="
+      width: 19px;
+      height: 19px;
+      background-image: url('/images/bitcoin-logo.png');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      z-index: 2;
+      position: relative;
+    "></div>
+    <div style="
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      border: 2px solid #f7931a;
+      color: black;
+      padding: 2px 6px;
+      font-size: 12px;
+      border-radius: 12px;
+      font-weight: bold;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      opacity: ${badgeOpacity};
+      transition: opacity 0.2s ease;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    ">${rewardText}</div>
+  </div>
+`
         console.log(`Marker ${this.markerId} content updated with new design`)
       }
     }
