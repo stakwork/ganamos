@@ -38,7 +38,7 @@ export interface Database {
       posts: {
         Row: {
           id: string
-          user_id: string | null // << MODIFIED
+          user_id: string | null
           title: string
           description: string
           image_url: string
@@ -52,7 +52,7 @@ export interface Database {
           fixed: boolean
           fixed_at: string | null
           fixed_image_url: string | null
-          fixed_by: string | null
+          fixed_by: string | null // For logged-in users who fix
           created_at: string
           group_id: string | null
           city: string | null
@@ -71,14 +71,19 @@ export interface Database {
           original_reward: number | null
           total_boost_amount: number
           boost_applied: boolean
-          is_anonymous: boolean | null // << ADDED
-          funding_payment_request: string | null // << ADDED
-          funding_r_hash: string | null // << ADDED
-          funding_status: "pending" | "paid" | "expired" | null // << ADDED
+          is_anonymous: boolean | null
+          funding_payment_request: string | null
+          funding_r_hash: string | null
+          funding_status: "pending" | "paid" | "expired" | null
+          // Fields for anonymous fix claims
+          anonymous_fixer_claim_code: string | null
+          anonymous_fixer_claim_code_expires_at: string | null // << ADDED (TIMESTAMPTZ in DB)
+          reward_claimed_anonymously: boolean // << ADDED (defaults to false)
+          fixed_by_is_anonymous: boolean // << ADDED (defaults to false)
         }
         Insert: {
           id?: string
-          user_id?: string | null // << MODIFIED
+          user_id?: string | null
           title: string
           description: string
           image_url: string
@@ -111,14 +116,19 @@ export interface Database {
           original_reward?: number | null
           total_boost_amount?: number
           boost_applied?: boolean
-          is_anonymous?: boolean | null // << ADDED
-          funding_payment_request?: string | null // << ADDED
-          funding_r_hash?: string | null // << ADDED
-          funding_status?: "pending" | "paid" | "expired" | null // << ADDED
+          is_anonymous?: boolean | null
+          funding_payment_request?: string | null
+          funding_r_hash?: string | null
+          funding_status?: "pending" | "paid" | "expired" | null
+          // Fields for anonymous fix claims
+          anonymous_fixer_claim_code?: string | null
+          anonymous_fixer_claim_code_expires_at?: string | null
+          reward_claimed_anonymously?: boolean
+          fixed_by_is_anonymous?: boolean
         }
         Update: {
           id?: string
-          user_id?: string | null // << MODIFIED
+          user_id?: string | null
           title?: string
           description?: string
           image_url?: string
@@ -151,10 +161,15 @@ export interface Database {
           original_reward?: number | null
           total_boost_amount?: number
           boost_applied?: boolean
-          is_anonymous?: boolean | null // << ADDED
-          funding_payment_request?: string | null // << ADDED
-          funding_r_hash?: string | null // << ADDED
-          funding_status?: "pending" | "paid" | "expired" | null // << ADDED
+          is_anonymous?: boolean | null
+          funding_payment_request?: string | null
+          funding_r_hash?: string | null
+          funding_status?: "pending" | "paid" | "expired" | null
+          // Fields for anonymous fix claims
+          anonymous_fixer_claim_code?: string | null
+          anonymous_fixer_claim__code_expires_at?: string | null // << ADDED (Corrected typo)
+          reward_claimed_anonymously?: boolean
+          fixed_by_is_anonymous?: boolean
         }
       }
       groups: {
