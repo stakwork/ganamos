@@ -911,9 +911,10 @@ export function MapView({
           <Button
             onClick={handleDonationClick}
             size="icon"
-            className="h-12 w-12 rounded-full bg-orange-500 hover:bg-orange-600 text-white shadow-lg border-0"
+            variant="outline"
+            className="h-12 w-12 rounded-full bg-white hover:bg-gray-50 shadow-lg border-gray-200 text-gray-600 hover:text-gray-800"
           >
-            <Heart className="h-5 w-5" />
+            <Heart className="h-5 w-5 fill-pink-400 stroke-pink-600 stroke-2" />
           </Button>
         </div>
       </div>
