@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import MapView from "@/components/map-view"
+import { MapView } from "@/components/map-view"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { useAuth } from "@/components/auth-provider"
 import { reverseGeocode } from "@/lib/geocoding"

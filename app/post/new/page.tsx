@@ -20,6 +20,7 @@ import {
   createFundedAnonymousPostAction,
 } from "@/app/actions/post-actions"
 import QRCode from "@/components/qr-code"
+import { getCurrentLocationWithName } from "@/lib/geocoding" // Import the geocoding utility
 
 // Pre-load the camera component
 import dynamic from "next/dynamic"
@@ -60,7 +61,7 @@ export default function NewPostPage() {
     name: string
     lat: number
     lng: number
-    displayName?: string
+    displayName?: string // Keep displayName for UI consistency
   } | null>(null)
   const [isGettingLocation, setIsGettingLocation] = useState(false)
   const [userGroups, setUserGroups] = useState<Group[]>([])
@@ -191,24 +192,24 @@ export default function NewPostPage() {
               description,
               reward,
               image_url: image,
-              location: currentLocation?.name || null,
+              location: currentLocation?.name || null, // Use the name from geocoding
               latitude: currentLocation?.lat || null,
               longitude: currentLocation?.lng || null,
-              city: currentLocation?.displayName || null,
+              city: currentLocation?.displayName || currentLocation?.name || null, // Use displayName or fallback to name
               funding_r_hash: fundingRHash,
-              funding_payment_request: fundingPaymentRequest!, // Should be set if we are here
+              funding_payment_request: fundingPaymentRequest!,
             }
 
             const creationResult = await createFundedAnonymousPostAction(postDetails)
             if (creationResult.success && creationResult.postId) {
-              setLastCreatedPostId(creationResult.postId) // Store postId for navigation
+              setLastCreatedPostId(creationResult.postId)
               toast({
                 title: "🎉 Anonymous Post Created!",
                 description: "Your issue has been posted successfully.",
                 variant: "success",
                 duration: 4000,
               })
-              setShowCreateAccountPrompt(true) // Show create account prompt
+              setShowCreateAccountPrompt(true)
             } else {
               toast({
                 title: "Error Creating Post",
@@ -220,14 +221,12 @@ export default function NewPostPage() {
             setFundingPaymentRequest(null)
             setFundingRHash(null)
           } else if (!statusResult.success) {
-            // Optional: handle polling errors, maybe stop polling after too many errors
             console.error("Error polling payment status:", statusResult.error)
           }
         } catch (error) {
           console.error("Exception during payment polling:", error)
-          // Optional: handle exceptions, maybe stop polling
         }
-      }, 5000) // Poll every 5 seconds
+      }, 5000)
     }
 
     return () => {
@@ -245,7 +244,7 @@ export default function NewPostPage() {
     toast,
     router,
     fundingPaymentRequest,
-  ]) // Removed router from here as navigation is handled by prompt
+  ])
 
   const handleCapture = (imageSrc: string) => {
     setImage(imageSrc)
@@ -253,96 +252,51 @@ export default function NewPostPage() {
   }
 
   const handleGetLocation = async () => {
-    if (!navigator.geolocation) {
-      toast({
-        title: "Geolocation not supported",
-        description: "Your browser doesn't support geolocation",
-        variant: "destructive",
-      })
-      return
-    }
-
     setIsGettingLocation(true)
+    setLocationErrorCount(0) // Reset error count on new attempt
 
     try {
-      // Use a promise-based approach for better error handling
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => resolve(pos),
-          (err) => reject(err),
-          {
-            enableHighAccuracy: false, // Set to false to avoid issues in preview environments
-            timeout: 10000,
-            maximumAge: 300000, // Allow cached positions up to 5 minutes old
-          },
-        )
-      })
+      const locationInfo = await getCurrentLocationWithName() // Use the imported utility
 
-      const { latitude, longitude } = position.coords
-
-      // Set initial location with coordinates
-      const locationData = {
-        name: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
-        lat: latitude,
-        lng: longitude,
-        displayName: "Unknown", // Default fallback
+      if (locationInfo) {
+        setCurrentLocation({
+          name: locationInfo.name, // This is the geocoded name (e.g., "City, State")
+          lat: locationInfo.latitude,
+          lng: locationInfo.longitude,
+          displayName: locationInfo.name, // Use the geocoded name for display
+        })
+        toast({
+          title: "Location Added",
+          description: `Location set to: ${locationInfo.name}`,
+          variant: "default",
+        })
+      } else {
+        // This case handles if getCurrentLocationWithName returns null (e.g., geolocation not supported)
+        setLocationErrorCount((prev) => prev + 1)
+        toast({
+          title: "Location Unavailable",
+          description: "Could not retrieve location. Geolocation might not be supported or enabled.",
+          variant: "destructive",
+        })
       }
-
-      try {
-        // Try to get city name via reverse geocoding
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
-        )
-
-        if (response.ok) {
-          const data = await response.json()
-          const cityName = data.address?.city || data.address?.town || data.address?.village || "Unknown"
-          locationData.displayName = cityName
-        }
-      } catch (error) {
-        console.error("Reverse geocoding failed:", error)
-        // Keep the default "Unknown" fallback
-      }
-
-      setCurrentLocation(locationData)
-      setIsGettingLocation(false)
-      toast({
-        title: "Location added",
-        description: "Your location has been added to the post",
-        variant: "default",
-      })
     } catch (error: any) {
-      console.error("Error getting location:", error)
-      setIsGettingLocation(false)
+      // Catch any unexpected errors from the utility or promise
+      console.error("Error in handleGetLocation:", error)
       setLocationErrorCount((prev) => prev + 1)
-
-      const errorMessage = "Location unavailable"
-      let errorDescription = "Failed to get your location. You can still post without location."
-
-      if (error.code) {
-        switch (error.code) {
-          case 1: // PERMISSION_DENIED
-            errorDescription = "Location permission denied. You can still post without location."
-            break
-          case 2: // POSITION_UNAVAILABLE
-            errorDescription = "Location information unavailable. You can still post without location."
-            break
-          case 3: // TIMEOUT
-            errorDescription = "Location request timed out. You can still post without location."
-            break
-        }
+      let errorDescription = "Failed to get your location. You can still post without it."
+      if (error.message) {
+        errorDescription = `${error.message}. You can still post without location.`
       }
-
-      // If we've tried multiple times, give a more detailed message
       if (locationErrorCount > 1) {
-        errorDescription += " This may be due to browser restrictions in preview environments."
+        errorDescription += " This may be due to browser restrictions or network issues."
       }
-
       toast({
-        title: errorMessage,
+        title: "Location Error",
         description: errorDescription,
-        variant: "default",
+        variant: "destructive",
       })
+    } finally {
+      setIsGettingLocation(false)
     }
   }
 
@@ -357,7 +311,7 @@ export default function NewPostPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true) // Indicate submission process has started
+    setIsSubmitting(true)
 
     const isAnonymousSubmit = !user
 
@@ -402,7 +356,6 @@ export default function NewPostPage() {
       return
     }
 
-    // --- ANONYMOUS POST FUNDING FLOW ---
     if (isAnonymousSubmit) {
       try {
         const fundingInvoiceResult = await createPostFundingInvoiceAction(reward)
@@ -412,12 +365,10 @@ export default function NewPostPage() {
           setFundingRHash(fundingInvoiceResult.rHash)
           setShowFundingModal(true)
           setIsAwaitingPayment(true)
-          // Polling for payment is handled by the useEffect hook
           toast({
             title: "Payment Required",
             description: "Please pay the Lightning invoice to publish your post.",
           })
-          // setIsSubmitting will remain true until payment confirmed or modal cancelled
           return
         } else {
           toast({
@@ -440,31 +391,28 @@ export default function NewPostPage() {
       }
     }
 
-    // --- LOGGED-IN USER POST CREATION ---
     try {
       const now = new Date()
       const postId = uuidv4()
 
-      // Data for Supabase insert
       const postDataForSupabase = {
         id: postId,
-        user_id: activeUserId || user!.id, // user is guaranteed to exist here
-        created_by: profile!.name, // profile is guaranteed to exist here
+        user_id: activeUserId || user!.id,
+        created_by: profile!.name,
         created_by_avatar: profile!.avatar_url,
         title: description.substring(0, 50),
         description,
         image_url: image,
-        location: currentLocation ? currentLocation.name : null,
-        latitude: currentLocation ? currentLocation.lat : null,
-        longitude: currentLocation ? currentLocation.lng : null,
+        location: currentLocation?.name || null, // Use geocoded name
+        latitude: currentLocation?.lat || null,
+        longitude: currentLocation?.lng || null,
         reward,
         claimed: false,
         fixed: false,
         created_at: now.toISOString(),
-        group_id: selectedGroupId, // This will be null for anonymous, handled by UI
-        city: currentLocation ? currentLocation.displayName : null,
-        is_anonymous: false, // Explicitly false for logged-in users
-        // funding_payment_request, funding_r_hash, funding_status will be null/default
+        group_id: selectedGroupId,
+        city: currentLocation?.displayName || currentLocation?.name || null, // Use displayName or fallback to name
+        is_anonymous: false,
       }
 
       if (supabase) {
@@ -539,7 +487,6 @@ export default function NewPostPage() {
           <h1 className="text-2xl font-bold">Post Issue</h1>
         </div>
 
-        {/* Bitcoin Balance Pill */}
         {!isAnonymous && (
           <button
             onClick={() => router.push("/wallet")}
@@ -557,17 +504,16 @@ export default function NewPostPage() {
         <DynamicCameraCapture onCapture={handleCapture} />
       ) : (
         <>
-          {isAnonymous &&
-            !showCreateAccountPrompt && ( // Hide if create account prompt is shown
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-700 text-sm">
-                <p>
-                  You are posting anonymously. A minimum reward of <strong>{MIN_ANONYMOUS_REWARD} sats</strong> is
-                  required.
-                </p>
-                <p className="mt-1">Your post will be public. Group posting is available for registered users.</p>
-              </div>
-            )}
-          {!showCreateAccountPrompt && ( // Hide form if create account prompt is shown
+          {isAnonymous && !showCreateAccountPrompt && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-700 text-sm">
+              <p>
+                You are posting anonymously. A minimum reward of <strong>{MIN_ANONYMOUS_REWARD} sats</strong> is
+                required.
+              </p>
+              <p className="mt-1">Your post will be public. Group posting is available for registered users.</p>
+            </div>
+          )}
+          {!showCreateAccountPrompt && (
             <form onSubmit={handleSubmit} className="space-y-6">
               {image && (
                 <div className="relative w-full h-48 overflow-hidden rounded-lg">
@@ -609,9 +555,7 @@ export default function NewPostPage() {
                 />
               </div>
 
-              {/* Location and Visibility Row */}
               <div className="flex gap-2">
-                {/* Location Section */}
                 <div className="flex-1">
                   <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg h-12">
                     {currentLocation ? (
@@ -633,7 +577,7 @@ export default function NewPostPage() {
                         </svg>
                         <div className="flex-1 min-w-0">
                           <span className="text-xs font-medium text-green-700 dark:text-green-400 block truncate">
-                            {currentLocation.displayName}
+                            {currentLocation.displayName || currentLocation.name}
                           </span>
                         </div>
                       </div>
@@ -683,7 +627,6 @@ export default function NewPostPage() {
                   </div>
                 </div>
 
-                {/* Visibility Section - Only show if NOT anonymous AND groups are loaded */}
                 {!isAnonymous && !loadingGroups && (
                   <div className="flex-1">
                     {userGroups.length > 0 ? (
@@ -818,10 +761,8 @@ export default function NewPostPage() {
               </div>
 
               <div className="space-y-6">
-                {/* Apple Cash Style Reward Selector */}
                 <div className="flex flex-col items-center space-y-4 py-6">
                   <div className="flex items-center justify-between w-full max-w-xs">
-                    {/* Minus Button */}
                     <button
                       type="button"
                       onClick={() => setReward((prev) => Math.max(isAnonymous ? MIN_ANONYMOUS_REWARD : 0, prev - 500))}
@@ -843,7 +784,6 @@ export default function NewPostPage() {
                       </svg>
                     </button>
 
-                    {/* Central Amount Display */}
                     <button
                       type="button"
                       onClick={() => setShowKeypad(!showKeypad)}
@@ -854,7 +794,6 @@ export default function NewPostPage() {
                       </span>
                     </button>
 
-                    {/* Plus Button */}
                     <button
                       type="button"
                       onClick={() => setReward(reward + 500)}
@@ -877,7 +816,6 @@ export default function NewPostPage() {
                     </button>
                   </div>
 
-                  {/* Bitcoin and Sats Label */}
                   <div className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
                     <div className="w-4 h-4 relative">
                       <Image
@@ -891,7 +829,6 @@ export default function NewPostPage() {
                     <span>sats reward</span>
                   </div>
 
-                  {/* Custom Input Field */}
                   {showKeypad && (
                     <div className="w-full max-w-xs">
                       <input
@@ -957,9 +894,9 @@ export default function NewPostPage() {
                 setIsAwaitingPayment(false)
                 setFundingPaymentRequest(null)
                 setFundingRHash(null)
-                setIsSubmitting(false) // Allow user to try again or modify post
+                setIsSubmitting(false)
               }}
-              disabled={isSubmitting && isAwaitingPayment} // Disable cancel if payment confirmed and post creation is in progress
+              disabled={isSubmitting && isAwaitingPayment}
             >
               Cancel
             </Button>
@@ -994,7 +931,6 @@ export default function NewPostPage() {
             <div className="space-y-3">
               <Button
                 onClick={() => {
-                  // Optionally, pass the postId to redirect back after login/register
                   router.push(`/auth/register?redirect=/post/${lastCreatedPostId}`)
                 }}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white"
