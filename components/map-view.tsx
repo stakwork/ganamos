@@ -213,8 +213,8 @@ export function MapView({
         if (point) {
           console.log(`Positioning marker ${this.markerId} at pixel coordinates:`, point)
           // Adjust positioning to center the marker (48px width / 2 = 24px)
-          this.containerDiv.style.left = point.x - 24 + "px" // Center horizontally
-          this.containerDiv.style.top = point.y - 24 + "px" // Center vertically
+          this.containerDiv.style.left = point.x - 19 + "px" // Center horizontally (38px / 2)
+          this.containerDiv.style.top = point.y - 19 + "px" // Center vertically (38px / 2)
 
           // Make sure the marker is visible
           this.containerDiv.style.display = "block"
@@ -260,8 +260,8 @@ export function MapView({
         this.containerDiv.innerHTML = `
           <div class="custom-marker" style="
             position: relative;
-            width: 48px;
-            height: 48px;
+            width: 38px;
+            height: 38px;
             border-radius: 50%;
             background: #f7931a;
             display: flex;
@@ -272,9 +272,9 @@ export function MapView({
             transition: transform 0.2s ease;
           ">
             <div style="
-              width: 24px;
-              height: 24px;
-              background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9InN2ZyI+CjxwYXRoIGQ9IlExMiAyTDEzLjA5IDguMjZMMEEgOUwxMy4wOSAxNS43NEwxMiAyMkwxMC45MSAxNS43NEw0IDlMMTAuOTEgOC4yNkwxMiAyWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg==');
+              width: 19px;
+              height: 19px;
+              background-image: url('/images/bitcoin-logo.png');
               background-size: contain;
               background-repeat: no-repeat;
               background-position: center;
