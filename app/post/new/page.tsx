@@ -265,11 +265,6 @@ export default function NewPostPage() {
           lng: locationInfo.longitude,
           displayName: locationInfo.name, // Use the geocoded name for display
         })
-        toast({
-          title: "Location Added",
-          description: `Location set to: ${locationInfo.name}`,
-          variant: "default",
-        })
       } else {
         // This case handles if getCurrentLocationWithName returns null (e.g., geolocation not supported)
         // This path might not be hit if getCurrentLocationWithName always rejects on failure.
@@ -603,7 +598,7 @@ export default function NewPostPage() {
                         </svg>
                         <div className="flex-1 min-w-0">
                           <span className="text-xs font-medium text-green-700 dark:text-green-400 block truncate">
-                            {currentLocation.displayName || currentLocation.name}
+                            {(currentLocation.displayName || currentLocation.name).split(",")[0].trim()}
                           </span>
                         </div>
                       </div>
