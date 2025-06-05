@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react" // Added useRef
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,12 @@ import { v4 as uuidv4 } from "@/lib/uuid"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import type { Group } from "@/lib/types"
-import { createPostFundingInvoiceAction } from "@/app/actions/post-actions"
+import {
+  createPostFundingInvoiceAction,
+  checkPostFundingStatusAction,
+  createFundedAnonymousPostAction,
+} from "@/app/actions/post-actions"
+import QRCode from "@/components/qr-code" // Import QRCode
 
 // Pre-load the camera component
 import dynamic from "next/dynamic"
@@ -71,6 +76,7 @@ export default function NewPostPage() {
   const [fundingRHash, setFundingRHash] = useState<string | null>(null)
   const [isAwaitingPayment, setIsAwaitingPayment] = useState(false)
   const [showFundingModal, setShowFundingModal] = useState(false)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (isAnonymous) {
@@ -157,6 +163,85 @@ export default function NewPostPage() {
       }
     }
   }, [step])
+
+  // Polling for payment status
+  useEffect(() => {
+    if (isAwaitingPayment && fundingRHash) {
+      pollingIntervalRef.current = setInterval(async () => {
+        try {
+          console.log("Polling for payment status for rHash:", fundingRHash)
+          const statusResult = await checkPostFundingStatusAction(fundingRHash)
+          if (statusResult.success && statusResult.settled) {
+            console.log("Payment confirmed for rHash:", fundingRHash)
+            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
+            setIsAwaitingPayment(false)
+            setShowFundingModal(false)
+            toast({
+              title: "Payment Confirmed!",
+              description: "Your payment has been received. Creating your post...",
+              variant: "success",
+            })
+
+            // Now create the funded anonymous post
+            const postDetails = {
+              description,
+              reward,
+              image_url: image,
+              location: currentLocation?.name || null,
+              latitude: currentLocation?.lat || null,
+              longitude: currentLocation?.lng || null,
+              city: currentLocation?.displayName || null,
+              funding_r_hash: fundingRHash,
+              funding_payment_request: fundingPaymentRequest!, // Should be set if we are here
+            }
+
+            const creationResult = await createFundedAnonymousPostAction(postDetails)
+            if (creationResult.success && creationResult.postId) {
+              toast({
+                title: "🎉 Anonymous Post Created!",
+                description: "Your issue has been posted successfully.",
+                variant: "success",
+                duration: 4000,
+              })
+              // TODO: Prompt to create account
+              router.push(`/dashboard?newPost=${creationResult.postId}`) // Or a specific "post created" page
+            } else {
+              toast({
+                title: "Error Creating Post",
+                description: creationResult.error || "Failed to create post after payment.",
+                variant: "destructive",
+              })
+            }
+            setIsSubmitting(false)
+            setFundingPaymentRequest(null)
+            setFundingRHash(null)
+          } else if (!statusResult.success) {
+            // Optional: handle polling errors, maybe stop polling after too many errors
+            console.error("Error polling payment status:", statusResult.error)
+          }
+        } catch (error) {
+          console.error("Exception during payment polling:", error)
+          // Optional: handle exceptions, maybe stop polling
+        }
+      }, 5000) // Poll every 5 seconds
+    }
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
+    }
+  }, [
+    isAwaitingPayment,
+    fundingRHash,
+    description,
+    reward,
+    image,
+    currentLocation,
+    toast,
+    router,
+    fundingPaymentRequest,
+  ])
 
   const handleCapture = (imageSrc: string) => {
     setImage(imageSrc)
@@ -297,15 +382,6 @@ export default function NewPostPage() {
     // --- ANONYMOUS POST FUNDING FLOW ---
     if (isAnonymousSubmit) {
       try {
-        // STEP 1: Call server action to create funding invoice (to be implemented)
-        // const fundingInvoiceResult = await createPostFundingInvoiceAction(reward);
-        // For now, let's simulate a successful response:
-        // const fundingInvoiceResult = {
-        //   success: true,
-        //   paymentRequest: "lnbc100n1p...", // Placeholder
-        //   rHash: "r_hash_placeholder_" + Date.now(), // Placeholder
-        // }
-        // ---
         const fundingInvoiceResult = await createPostFundingInvoiceAction(reward)
 
         if (fundingInvoiceResult.success && fundingInvoiceResult.paymentRequest && fundingInvoiceResult.rHash) {
@@ -313,19 +389,17 @@ export default function NewPostPage() {
           setFundingRHash(fundingInvoiceResult.rHash)
           setShowFundingModal(true)
           setIsAwaitingPayment(true)
-          // Polling for payment will be handled by an effect or a component within the modal
-          // For now, we'll stop here in handleSubmit for anonymous users.
-          // The actual post creation will happen *after* payment is confirmed.
+          // Polling for payment is handled by the useEffect hook
           toast({
             title: "Payment Required",
             description: "Please pay the Lightning invoice to publish your post.",
           })
-          // setIsSubmitting will remain true or be handled by the modal flow
+          // setIsSubmitting will remain true until payment confirmed or modal cancelled
           return
         } else {
           toast({
             title: "Error",
-            description: "Could not create funding invoice. Please try again.",
+            description: fundingInvoiceResult.error || "Could not create funding invoice. Please try again.",
             variant: "destructive",
           })
           setIsSubmitting(false)
@@ -418,18 +492,6 @@ export default function NewPostPage() {
   const navigateToWallet = () => {
     router.push("/wallet")
   }
-
-  // if (!user) {
-  //   return (
-  //     <div className="container px-4 py-6 mx-auto max-w-md">
-  //       <div className="text-center">
-  //         <h1 className="text-2xl font-bold mb-4">Authentication Required</h1>
-  //         <p className="mb-4">Please log in to post an issue</p>
-  //         <Button onClick={() => router.push("/auth/login")}>Log In</Button>
-  //       </div>
-  //     </div>
-  //   );
-  // }
 
   return (
     <div className="container px-4 py-6 mx-auto max-w-md">
@@ -828,34 +890,8 @@ export default function NewPostPage() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <div className="flex items-center">
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Posting...
-                </div>
-              ) : (
-                "Post Issue"
-              )}
+            <Button type="submit" className="w-full" disabled={isSubmitting || isAwaitingPayment}>
+              {isAwaitingPayment ? "Awaiting Payment..." : isSubmitting ? "Processing..." : "Post Issue"}
             </Button>
           </form>
         </>
@@ -869,11 +905,12 @@ export default function NewPostPage() {
               To publish your anonymous post with a reward of {formatSatsValue(reward)}, please pay the Lightning
               invoice below.
             </p>
-            <div className="mb-4 p-3 border rounded-md break-all bg-gray-50 dark:bg-gray-700">
+            <div className="mb-4 p-3 border rounded-md break-all bg-gray-50 dark:bg-gray-700 text-xs">
               <code>{fundingPaymentRequest}</code>
             </div>
-            {/* QR Code would go here - we can use the existing QRCode component */}
-            {/* <QRCode value={fundingPaymentRequest} size={256} /> */}
+            <div className="flex justify-center my-4">
+              <QRCode value={fundingPaymentRequest} size={200} />
+            </div>
             <p className="text-center my-2 text-sm">Scan or copy the invoice above.</p>
 
             {isAwaitingPayment && (
@@ -889,16 +926,17 @@ export default function NewPostPage() {
               variant="outline"
               className="w-full mt-4"
               onClick={() => {
+                if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
                 setShowFundingModal(false)
-                setIsAwaitingPayment(false) // Stop polling if implemented
+                setIsAwaitingPayment(false)
                 setFundingPaymentRequest(null)
                 setFundingRHash(null)
                 setIsSubmitting(false) // Allow user to try again or modify post
               }}
+              disabled={isSubmitting && isAwaitingPayment} // Disable cancel if payment confirmed and post creation is in progress
             >
               Cancel
             </Button>
-            {/* We might add a "I've Paid" button later if polling is slow, or rely on auto-detection */}
           </div>
         </div>
       )}

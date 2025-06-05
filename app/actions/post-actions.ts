@@ -1,14 +1,13 @@
 "use server"
 
-import { createInvoice } from "@/lib/lightning"
-import { v4 as uuidv4 } from "uuid"
+import { createInvoice, checkInvoice } from "@/lib/lightning"
+import { v4 as uuidv4 } from "uuid" // Ensure uuid is imported if used, e.g. in createFundedAnonymousPostAction
+import { createServerSupabaseClient } from "@/lib/supabase" // For createFundedAnonymousPostAction
 
-// We might need Supabase client for temporary invoice storage later, but not for initial invoice creation.
-// import { createServerSupabaseClient } from "@/lib/supabase"
-// async function getCookieStore() {
-//   const { cookies } = await import("next/headers")
-//   return cookies()
-// }
+async function getCookieStore() {
+  const { cookies } = await import("next/headers")
+  return cookies()
+}
 
 /**
  * Creates a Lightning invoice for funding an anonymous post.
@@ -71,11 +70,6 @@ export async function createPostFundingInvoiceAction(amount: number): Promise<{
 
     console.log(`Funding invoice created for anonymous post: ${amount} sats, rHash: ${rHashStr}`)
 
-    // At this point, we are NOT saving to the 'posts' table yet.
-    // We return the invoice details to the client.
-    // The client will then wait for payment.
-    // Once payment is confirmed, the client will call another action to create the post.
-
     return {
       success: true,
       paymentRequest: invoiceResult.paymentRequest,
@@ -93,45 +87,116 @@ export async function createPostFundingInvoiceAction(amount: number): Promise<{
 
 /**
  * Checks the status of a funding invoice for an anonymous post.
- * (To be implemented more fully later - this is a placeholder)
  */
 export async function checkPostFundingStatusAction(rHash: string): Promise<{
   success: boolean
   settled: boolean
   error?: string
+  details?: any
 }> {
-  // Placeholder: In a real scenario, this would call `checkInvoice(rHash)`
-  // from `lib/lightning.ts` and potentially update a temporary record.
-  console.log(`Checking funding status for rHash (placeholder): ${rHash}`)
-  // Simulate a 50/50 chance of being settled for testing
-  // const isSettled = Math.random() < 0.5;
-  // return { success: true, settled: isSettled };
+  if (!rHash) {
+    return { success: false, settled: false, error: "rHash is required." }
+  }
 
-  // For now, let's assume it's not settled until we implement polling properly
-  return { success: true, settled: false }
+  // Basic check for Lightning configuration
+  const LND_REST_URL = process.env.LND_REST_URL
+  const LND_ADMIN_MACAROON = process.env.LND_ADMIN_MACAROON
+
+  if (!LND_REST_URL || !LND_ADMIN_MACAROON) {
+    console.error("Lightning configuration missing in checkPostFundingStatusAction")
+    return {
+      success: false,
+      settled: false,
+      error: "Lightning configuration missing. Cannot check invoice status.",
+    }
+  }
+
+  try {
+    const checkResult = await checkInvoice(rHash)
+    if (!checkResult.success) {
+      console.error("Failed to check invoice status:", checkResult.error, checkResult.details)
+      return {
+        success: false,
+        settled: false,
+        error: "Failed to check invoice status.",
+        details: checkResult.error || checkResult.details,
+      }
+    }
+
+    console.log(`Invoice status for rHash ${rHash}: settled = ${checkResult.settled}`)
+    return {
+      success: true,
+      settled: checkResult.settled || false, // Ensure settled is boolean
+    }
+  } catch (error) {
+    console.error("Unexpected error in checkPostFundingStatusAction:", error)
+    return {
+      success: false,
+      settled: false,
+      error: "An unexpected error occurred while checking invoice status.",
+      details: error instanceof Error ? error.message : String(error),
+    }
+  }
 }
 
 /**
  * Creates the actual post in the database AFTER an anonymous user has funded it.
- * (To be implemented more fully later)
  */
 export async function createFundedAnonymousPostAction(postDetails: {
   description: string
   reward: number
-  image: string | null // Assuming image is a URL or base64 string
-  locationName: string | null
+  image_url: string | null // Renamed from image to image_url to match DB
+  location: string | null // Renamed from locationName
   latitude: number | null
   longitude: number | null
   city: string | null
-  fundingRHash: string // The r_hash of the paid funding invoice
+  funding_r_hash: string // Renamed from fundingRHash
+  funding_payment_request: string // Added this
 }): Promise<{ success: boolean; postId?: string; error?: string }> {
-  console.log("Placeholder for createFundedAnonymousPostAction", postDetails)
-  // 1. Verify fundingRHash again, or ensure it's from a trusted source (e.g. session after payment)
-  // 2. Insert into Supabase 'posts' table with is_anonymous = true, funding_r_hash, funding_status = 'paid'
-  // const supabase = createServerSupabaseClient(); // Or service role if needed
-  // const postId = uuidv4();
-  // const { data, error } = await supabase.from("posts").insert({ ...postDetails, id: postId, is_anonymous: true, funding_status: 'paid' ... }).select().single();
-  // if (error) return { success: false, error: error.message };
-  // return { success: true, postId: data.id };
-  return { success: true, postId: uuidv4() } // Placeholder
+  const supabase = createServerSupabaseClient(await getCookieStore())
+  const postId = uuidv4()
+  const now = new Date()
+
+  try {
+    const { data, error } = await supabase
+      .from("posts")
+      .insert({
+        id: postId,
+        user_id: null, // Anonymous post
+        created_by: "Anonymous",
+        created_by_avatar: null,
+        title: postDetails.description.substring(0, 50),
+        description: postDetails.description,
+        image_url: postDetails.image_url,
+        location: postDetails.location,
+        latitude: postDetails.latitude,
+        longitude: postDetails.longitude,
+        reward: postDetails.reward,
+        claimed: false,
+        fixed: false,
+        created_at: now.toISOString(),
+        group_id: null, // Anonymous posts are public
+        city: postDetails.city,
+        is_anonymous: true,
+        funding_r_hash: postDetails.funding_r_hash,
+        funding_payment_request: postDetails.funding_payment_request,
+        funding_status: "paid",
+      })
+      .select("id")
+      .single()
+
+    if (error) {
+      console.error("Error inserting funded anonymous post:", error)
+      return { success: false, error: error.message }
+    }
+
+    console.log("Funded anonymous post created successfully:", data.id)
+    return { success: true, postId: data.id }
+  } catch (error) {
+    console.error("Unexpected error in createFundedAnonymousPostAction:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "An unexpected error occurred.",
+    }
+  }
 }
