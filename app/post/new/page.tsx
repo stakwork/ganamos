@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from "@/lib/uuid"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import type { Group } from "@/lib/types"
+import { createPostFundingInvoiceAction } from "@/app/actions/post-actions"
 
 // Pre-load the camera component
 import dynamic from "next/dynamic"
@@ -299,12 +300,13 @@ export default function NewPostPage() {
         // STEP 1: Call server action to create funding invoice (to be implemented)
         // const fundingInvoiceResult = await createPostFundingInvoiceAction(reward);
         // For now, let's simulate a successful response:
-        const fundingInvoiceResult = {
-          success: true,
-          paymentRequest: "lnbc100n1p...", // Placeholder
-          rHash: "r_hash_placeholder_" + Date.now(), // Placeholder
-        }
+        // const fundingInvoiceResult = {
+        //   success: true,
+        //   paymentRequest: "lnbc100n1p...", // Placeholder
+        //   rHash: "r_hash_placeholder_" + Date.now(), // Placeholder
+        // }
         // ---
+        const fundingInvoiceResult = await createPostFundingInvoiceAction(reward)
 
         if (fundingInvoiceResult.success && fundingInvoiceResult.paymentRequest && fundingInvoiceResult.rHash) {
           setFundingPaymentRequest(fundingInvoiceResult.paymentRequest)
