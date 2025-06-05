@@ -7,26 +7,23 @@ import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { mockPosts } from "@/lib/mock-data"
 import type { Post } from "@/lib/types"
 import { MapView } from "@/components/map-view"
+import LoadingSpinner from "@/components/loading-spinner" // Assuming you have a spinner
 
 export default function MapPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, loading } = useAuth()
+  const { user, loading: authLoading } = useAuth() // Renamed to authLoading for clarity
   const [posts, setPosts] = useState<Post[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [postsLoading, setPostsLoading] = useState(true) // Separate loading for posts
   const supabase = createBrowserSupabaseClient()
 
-  // Get center post ID from URL params if provided
   const centerPostId = searchParams.get("centerPost")
-  const centerPost = posts.find((post) => post.id === centerPostId) || undefined
-
-  // After the centerPostId line, add these lines to get location parameters
   const lat = searchParams.get("lat")
   const lng = searchParams.get("lng")
   const zoomType = searchParams.get("zoom")
   const locationName = searchParams.get("name")
 
-  // Create userLocation object if parameters exist
+  const centerPost = posts.find((post) => post.id === centerPostId) || undefined
   const userLocation =
     lat && lng
       ? {
@@ -38,66 +35,73 @@ export default function MapPage() {
       : undefined
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/auth/login")
-      return
+    // Fetch posts regardless of login state, once auth state is determined
+    // if (authLoading) return; // Optionally wait for auth to resolve, or fetch immediately
+
+    const fetchPosts = async () => {
+      setPostsLoading(true)
+      try {
+        if (supabase) {
+          const { data, error } = await supabase
+            .from("posts")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .eq("fixed", false)
+            .neq("under_review", true)
+
+          if (data && !error) {
+            setPosts(data)
+          } else if (error) {
+            console.error("Error fetching posts from Supabase:", error)
+            // Fall back to mock data on error
+            const filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
+            setPosts(filteredPosts)
+          } else {
+            // No data and no error, fall back to mock
+            const filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
+            setPosts(filteredPosts)
+          }
+        } else {
+          // Fall back to mock data if Supabase client isn't available
+          const filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
+          setPosts(filteredPosts)
+        }
+      } catch (error) {
+        console.error("Error fetching posts:", error)
+        const filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
+        setPosts(filteredPosts)
+      } finally {
+        setPostsLoading(false)
+      }
     }
 
     fetchPosts()
-  }, [user, loading, router])
-
-  const fetchPosts = async () => {
-    setIsLoading(true)
-    try {
-      // Try to fetch from Supabase first
-      if (supabase) {
-        const { data, error } = await supabase
-          .from("posts")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .eq("fixed", false)
-          .neq("under_review", true)
-
-        if (data && !error) {
-          setPosts(data)
-          setIsLoading(false)
-          return
-        }
-      }
-
-      // Fall back to mock data if Supabase fails
-      const filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
-      setPosts(filteredPosts)
-    } catch (error) {
-      console.error("Error fetching posts:", error)
-      // Fall back to mock data
-      const filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
-      setPosts(filteredPosts)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  }, []) // Fetch posts once on mount, or if supabase client changes. User state doesn't gate fetching.
 
   const handleClose = () => {
     router.back()
   }
 
-  if (loading || !user) {
+  // Show loading spinner if auth state is still loading OR if posts are loading
+  if (authLoading || postsLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-center">Loading...</div>
+        <LoadingSpinner />
+        <p className="ml-2 text-lg">Loading Map...</p>
       </div>
     )
   }
 
+  // At this point, auth state is resolved (user might be null) and posts are loaded (or failed to mock)
   return (
     <div className="h-screen w-screen">
       <MapView
         posts={posts}
         centerPost={centerPost}
         onClose={handleClose}
-        isLoading={isLoading}
+        isLoading={postsLoading} // Pass postsLoading to MapView if it needs it
         userLocation={userLocation}
+        currentUser={user} // Pass the user (can be null) to MapView
       />
     </div>
   )
