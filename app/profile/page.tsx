@@ -234,7 +234,7 @@ export default function ProfilePage() {
       const { data, error } = await supabase
         .from("donations")
         .select("*, donation_pools(location_name)")
-        .eq("status", "completed")
+        .in("status", ["pending", "completed"])
         .order("created_at", { ascending: false })
         .limit(20)
 
