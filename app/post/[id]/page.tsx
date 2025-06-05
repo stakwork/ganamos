@@ -26,6 +26,8 @@ import { markPostFixedAnonymouslyAction, submitAnonymousFixForReviewAction } fro
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
   // const { id } = useParams() // params.id is used directly
+  const [showAnonymousRewardOptions, setShowAnonymousRewardOptions] = useState(false)
+  const [anonymousFixedPostId, setAnonymousFixedPostId] = useState<string | null>(null)
   const [post, setPost] = useState<Post | null>(null)
   const [loading, setLoading] = useState(true)
   const [submittingFix, setSubmittingFix] = useState(false)
@@ -254,7 +256,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             })
             // TODO: Next step will be to show how to claim the reward.
             // For now, navigate back or show a success message.
-            router.push("/dashboard") // Or a dedicated "thank you" page
+            setAnonymousFixedPostId(post.id)
+            setShowAnonymousRewardOptions(true)
+            // Do not redirect yet, the UI will change based on showAnonymousRewardOptions
           } else {
             toast({
               title: "Error Recording Fix",
@@ -296,7 +300,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               description: "Your fix has low AI confidence and has been submitted for manual review. Thank you!",
               duration: 7000,
             })
-            router.push("/dashboard")
+            router.push("/") // Redirect to homepage/map for now after submitting for review
           } else {
             toast({
               title: "Error Submitting for Review",
@@ -1128,6 +1132,52 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             </div>
           </CardContent>
         </Card>
+      )}
+      {showAnonymousRewardOptions && anonymousFixedPostId === post.id && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardContent className="p-6 text-center">
+              <h2 className="text-2xl font-bold mb-4">Fix Submitted Successfully!</h2>
+              <p className="mb-2 text-muted-foreground">
+                Your fix has been recorded. You've earned {formatSatsValue(post.reward)} sats!
+              </p>
+              <p className="mb-6 text-sm text-muted-foreground">
+                You can withdraw your reward now or create an account to save your earnings and track your
+                contributions.
+              </p>
+              <div className="space-y-3">
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  onClick={() => {
+                    // Placeholder for withdraw action
+                    toast({ title: "Withdraw action coming soon!" })
+                    setShowAnonymousRewardOptions(false)
+                    router.push("/") // Go to homepage after attempting withdraw
+                  }}
+                >
+                  Withdraw {formatSatsValue(post.reward)} sats
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => router.push(`/auth/signup?postId=${anonymousFixedPostId}`)} // Or /auth/login
+                >
+                  Create Account & Save Reward
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => {
+                    setShowAnonymousRewardOptions(false)
+                    router.push("/") // Go to homepage
+                  }}
+                >
+                  Maybe Later
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   )
