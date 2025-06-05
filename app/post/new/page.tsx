@@ -1,9 +1,10 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef } from "react" // Added useRef
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import Link from "next/link" // Import Link
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
@@ -18,7 +19,7 @@ import {
   checkPostFundingStatusAction,
   createFundedAnonymousPostAction,
 } from "@/app/actions/post-actions"
-import QRCode from "@/components/qr-code" // Import QRCode
+import QRCode from "@/components/qr-code"
 
 // Pre-load the camera component
 import dynamic from "next/dynamic"
@@ -77,6 +78,8 @@ export default function NewPostPage() {
   const [isAwaitingPayment, setIsAwaitingPayment] = useState(false)
   const [showFundingModal, setShowFundingModal] = useState(false)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [showCreateAccountPrompt, setShowCreateAccountPrompt] = useState(false)
+  const [lastCreatedPostId, setLastCreatedPostId] = useState<string | null>(null)
 
   useEffect(() => {
     if (isAnonymous) {
@@ -197,14 +200,14 @@ export default function NewPostPage() {
 
             const creationResult = await createFundedAnonymousPostAction(postDetails)
             if (creationResult.success && creationResult.postId) {
+              setLastCreatedPostId(creationResult.postId) // Store postId for navigation
               toast({
                 title: "🎉 Anonymous Post Created!",
                 description: "Your issue has been posted successfully.",
                 variant: "success",
                 duration: 4000,
               })
-              // TODO: Prompt to create account
-              router.push(`/dashboard?newPost=${creationResult.postId}`) // Or a specific "post created" page
+              setShowCreateAccountPrompt(true) // Show create account prompt
             } else {
               toast({
                 title: "Error Creating Post",
@@ -241,7 +244,7 @@ export default function NewPostPage() {
     toast,
     router,
     fundingPaymentRequest,
-  ])
+  ]) // Removed router from here as navigation is handled by prompt
 
   const handleCapture = (imageSrc: string) => {
     setImage(imageSrc)
@@ -465,9 +468,9 @@ export default function NewPostPage() {
       setTimeout(() => successToast.dismiss(), 3000)
 
       if (selectedGroupId) {
-        router.push(`/groups/${selectedGroupId}?newPost=true`)
+        router.push(`/groups/${selectedGroupId}?newPost=${postId}`)
       } else {
-        router.push("/dashboard?newPost=true")
+        router.push(`/dashboard?newPost=${postId}`)
       }
     } catch (error) {
       console.error("Error creating post:", error)
@@ -534,162 +537,194 @@ export default function NewPostPage() {
         <DynamicCameraCapture onCapture={handleCapture} />
       ) : (
         <>
-          {isAnonymous && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-700 text-sm">
-              <p>
-                You are posting anonymously. A minimum reward of <strong>{MIN_ANONYMOUS_REWARD} sats</strong> is
-                required.
-              </p>
-              <p className="mt-1">Your post will be public. Group posting is available for registered users.</p>
-            </div>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {image && (
-              <div className="relative w-full h-48 overflow-hidden rounded-lg">
-                <img src={image || "/placeholder.svg"} alt="Issue preview" className="object-cover w-full h-full" />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="secondary"
-                  className="absolute top-2 right-2"
-                  onClick={() => setStep("photo")}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-                    <circle cx="12" cy="13" r="3" />
-                  </svg>
-                  <span className="sr-only">Retake photo</span>
-                </Button>
+          {isAnonymous &&
+            !showCreateAccountPrompt && ( // Hide if create account prompt is shown
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-700 text-sm">
+                <p>
+                  You are posting anonymously. A minimum reward of <strong>{MIN_ANONYMOUS_REWARD} sats</strong> is
+                  required.
+                </p>
+                <p className="mt-1">Your post will be public. Group posting is available for registered users.</p>
               </div>
             )}
-
-            <div className="space-y-2">
-              <Textarea
-                placeholder="Describe the issue..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={2}
-                required
-                className="resize-none"
-              />
-            </div>
-
-            {/* Location and Visibility Row */}
-            <div className="flex gap-2">
-              {/* Location Section */}
-              <div className="flex-1">
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg h-12">
-                  {currentLocation ? (
-                    <div className="flex items-center flex-1">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="mr-1 text-green-600 flex-shrink-0"
-                      >
-                        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                        <circle cx="12" cy="10" r="3" />
-                      </svg>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-medium text-green-700 dark:text-green-400 block truncate">
-                          {currentLocation.displayName}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center flex-1">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="mr-1 text-muted-foreground flex-shrink-0"
-                      >
-                        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                        <circle cx="12" cy="10" r="3" />
-                      </svg>
-                      <span className="text-xs text-muted-foreground">No location</span>
-                    </div>
-                  )}
-
-                  {currentLocation ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRemoveLocation}
-                      className="text-xs h-6 px-2 ml-1 flex-shrink-0"
+          {!showCreateAccountPrompt && ( // Hide form if create account prompt is shown
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {image && (
+                <div className="relative w-full h-48 overflow-hidden rounded-lg">
+                  <img src={image || "/placeholder.svg"} alt="Issue preview" className="object-cover w-full h-full" />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    className="absolute top-2 right-2"
+                    onClick={() => setStep("photo")}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     >
-                      ×
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleGetLocation}
-                      className="text-xs h-6 px-2 flex-shrink-0"
-                      disabled={isGettingLocation}
-                    >
-                      {isGettingLocation ? "..." : "Add"}
-                    </Button>
-                  )}
+                      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                      <circle cx="12" cy="13" r="3" />
+                    </svg>
+                    <span className="sr-only">Retake photo</span>
+                  </Button>
                 </div>
+              )}
+
+              <div className="space-y-2">
+                <Textarea
+                  placeholder="Describe the issue..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
+                  required
+                  className="resize-none"
+                />
               </div>
 
-              {/* Visibility Section - Only show if NOT anonymous AND groups are loaded */}
-              {!isAnonymous && !loadingGroups && (
+              {/* Location and Visibility Row */}
+              <div className="flex gap-2">
+                {/* Location Section */}
                 <div className="flex-1">
-                  {userGroups.length > 0 ? (
-                    <Select
-                      value={selectedGroupId || "public"}
-                      onValueChange={(value) => setSelectedGroupId(value === "public" ? null : value)}
-                    >
-                      <SelectTrigger className="w-full h-12 p-3">
-                        <div className="flex items-center space-x-2 w-full">
-                          <div className="flex-shrink-0">
-                            {selectedGroupId ? (
+                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg h-12">
+                    {currentLocation ? (
+                      <div className="flex items-center flex-1">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="mr-1 text-green-600 flex-shrink-0"
+                        >
+                          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-medium text-green-700 dark:text-green-400 block truncate">
+                            {currentLocation.displayName}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center flex-1">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="mr-1 text-muted-foreground flex-shrink-0"
+                        >
+                          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                        <span className="text-xs text-muted-foreground">No location</span>
+                      </div>
+                    )}
+
+                    {currentLocation ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRemoveLocation}
+                        className="text-xs h-6 px-2 ml-1 flex-shrink-0"
+                      >
+                        ×
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGetLocation}
+                        className="text-xs h-6 px-2 flex-shrink-0"
+                        disabled={isGettingLocation}
+                      >
+                        {isGettingLocation ? "..." : "Add"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Visibility Section - Only show if NOT anonymous AND groups are loaded */}
+                {!isAnonymous && !loadingGroups && (
+                  <div className="flex-1">
+                    {userGroups.length > 0 ? (
+                      <Select
+                        value={selectedGroupId || "public"}
+                        onValueChange={(value) => setSelectedGroupId(value === "public" ? null : value)}
+                      >
+                        <SelectTrigger className="w-full h-12 p-3">
+                          <div className="flex items-center space-x-2 w-full">
+                            <div className="flex-shrink-0">
+                              {selectedGroupId ? (
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="text-orange-600"
+                                >
+                                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                                  <path d="m7 11V7a5 5 0 0 1 10 0v4" />
+                                </svg>
+                              ) : (
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="text-green-600"
+                                >
+                                  <circle cx="12" cy="12" r="10" />
+                                  <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
+                                  <path d="M2 12h20" />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="flex-1 text-left min-w-0">
+                              <div className="font-medium text-xs truncate">
+                                {selectedGroupId
+                                  ? userGroups.find((g) => g.id === selectedGroupId)?.name || "Group"
+                                  : "Public"}
+                              </div>
+                            </div>
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="public">
+                            <div className="flex items-center space-x-3 py-1">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="text-orange-600"
-                              >
-                                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                                <path d="m7 11V7a5 5 0 0 1 10 0v4" />
-                              </svg>
-                            ) : (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="14"
-                                height="14"
+                                width="18"
+                                height="18"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
@@ -702,198 +737,169 @@ export default function NewPostPage() {
                                 <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
                                 <path d="M2 12h20" />
                               </svg>
-                            )}
-                          </div>
-                          <div className="flex-1 text-left min-w-0">
-                            <div className="font-medium text-xs truncate">
-                              {selectedGroupId
-                                ? userGroups.find((g) => g.id === selectedGroupId)?.name || "Group"
-                                : "Public"}
-                            </div>
-                          </div>
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="public">
-                          <div className="flex items-center space-x-3 py-1">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="18"
-                              height="18"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="text-green-600"
-                            >
-                              <circle cx="12" cy="12" r="10" />
-                              <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
-                              <path d="M2 12h20" />
-                            </svg>
-                            <div>
-                              <div className="font-medium">Public</div>
-                              <div className="text-xs text-muted-foreground">Anyone can see this post</div>
-                            </div>
-                          </div>
-                        </SelectItem>
-                        {userGroups.map((group) => (
-                          <SelectItem key={group.id} value={group.id}>
-                            <div className="flex items-center space-x-3 py-1">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="18"
-                                height="18"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="text-orange-600"
-                              >
-                                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                                <path d="m7 11V7a5 5 0 0 1 10 0v4" />
-                              </svg>
                               <div>
-                                <div className="font-medium">{group.name}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  Only group members can see this post
-                                </div>
+                                <div className="font-medium">Public</div>
+                                <div className="text-xs text-muted-foreground">Anyone can see this post</div>
                               </div>
                             </div>
                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="flex items-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg h-12">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="text-green-600 mr-2 flex-shrink-0"
-                      >
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
-                        <path d="M2 12h20" />
-                      </svg>
-                      <span className="text-xs font-medium">Public</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-6">
-              {/* Apple Cash Style Reward Selector */}
-              <div className="flex flex-col items-center space-y-4 py-6">
-                <div className="flex items-center justify-between w-full max-w-xs">
-                  {/* Minus Button */}
-                  <button
-                    type="button"
-                    onClick={() => setReward((prev) => Math.max(isAnonymous ? MIN_ANONYMOUS_REWARD : 0, prev - 500))}
-                    className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="text-gray-600 dark:text-gray-300"
-                    >
-                      <path d="M5 12h14" />
-                    </svg>
-                  </button>
-
-                  {/* Central Amount Display */}
-                  <button
-                    type="button"
-                    onClick={() => setShowKeypad(!showKeypad)}
-                    className="w-32 text-center hover:opacity-80 transition-opacity"
-                  >
-                    <span className="text-5xl font-light text-gray-900 dark:text-white">
-                      {reward === 0 ? "0" : formatSatsValue(reward).replace(" sats", "").replace(".0", "")}
-                    </span>
-                  </button>
-
-                  {/* Plus Button */}
-                  <button
-                    type="button"
-                    onClick={() => setReward(reward + 500)}
-                    className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="text-gray-600 dark:text-gray-300"
-                    >
-                      <path d="M12 5v14m-7-7h14" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Bitcoin and Sats Label */}
-                <div className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
-                  <div className="w-4 h-4 relative">
-                    <Image
-                      src="/images/bitcoin-logo.png"
-                      alt="Bitcoin"
-                      width={16}
-                      height={16}
-                      className="object-contain"
-                    />
-                  </div>
-                  <span>sats reward</span>
-                </div>
-
-                {/* Custom Input Field */}
-                {showKeypad && (
-                  <div className="w-full max-w-xs">
-                    <input
-                      type="number"
-                      value={reward}
-                      onChange={(e) => {
-                        let newAmount = Number(e.target.value) || 0
-                        if (isAnonymous) {
-                          newAmount = Math.max(newAmount, MIN_ANONYMOUS_REWARD)
-                        }
-                        setReward(newAmount)
-                      }}
-                      placeholder="Enter amount"
-                      className="w-full px-4 py-3 text-center text-lg border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                      min="0"
-                      max="50000"
-                      autoFocus
-                    />
+                          {userGroups.map((group) => (
+                            <SelectItem key={group.id} value={group.id}>
+                              <div className="flex items-center space-x-3 py-1">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="18"
+                                  height="18"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="text-orange-600"
+                                >
+                                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                                  <path d="m7 11V7a5 5 0 0 1 10 0v4" />
+                                </svg>
+                                <div>
+                                  <div className="font-medium">{group.name}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Only group members can see this post
+                                  </div>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="flex items-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg h-12">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-green-600 mr-2 flex-shrink-0"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
+                          <path d="M2 12h20" />
+                        </svg>
+                        <span className="text-xs font-medium">Public</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            </div>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting || isAwaitingPayment}>
-              {isAwaitingPayment ? "Awaiting Payment..." : isSubmitting ? "Processing..." : "Post Issue"}
-            </Button>
-          </form>
+              <div className="space-y-6">
+                {/* Apple Cash Style Reward Selector */}
+                <div className="flex flex-col items-center space-y-4 py-6">
+                  <div className="flex items-center justify-between w-full max-w-xs">
+                    {/* Minus Button */}
+                    <button
+                      type="button"
+                      onClick={() => setReward((prev) => Math.max(isAnonymous ? MIN_ANONYMOUS_REWARD : 0, prev - 500))}
+                      className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-gray-600 dark:text-gray-300"
+                      >
+                        <path d="M5 12h14" />
+                      </svg>
+                    </button>
+
+                    {/* Central Amount Display */}
+                    <button
+                      type="button"
+                      onClick={() => setShowKeypad(!showKeypad)}
+                      className="w-32 text-center hover:opacity-80 transition-opacity"
+                    >
+                      <span className="text-5xl font-light text-gray-900 dark:text-white">
+                        {reward === 0 ? "0" : formatSatsValue(reward).replace(" sats", "").replace(".0", "")}
+                      </span>
+                    </button>
+
+                    {/* Plus Button */}
+                    <button
+                      type="button"
+                      onClick={() => setReward(reward + 500)}
+                      className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-gray-600 dark:text-gray-300"
+                      >
+                        <path d="M12 5v14m-7-7h14" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Bitcoin and Sats Label */}
+                  <div className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                    <div className="w-4 h-4 relative">
+                      <Image
+                        src="/images/bitcoin-logo.png"
+                        alt="Bitcoin"
+                        width={16}
+                        height={16}
+                        className="object-contain"
+                      />
+                    </div>
+                    <span>sats reward</span>
+                  </div>
+
+                  {/* Custom Input Field */}
+                  {showKeypad && (
+                    <div className="w-full max-w-xs">
+                      <input
+                        type="number"
+                        value={reward}
+                        onChange={(e) => {
+                          let newAmount = Number(e.target.value) || 0
+                          if (isAnonymous) {
+                            newAmount = Math.max(newAmount, MIN_ANONYMOUS_REWARD)
+                          }
+                          setReward(newAmount)
+                        }}
+                        placeholder="Enter amount"
+                        className="w-full px-4 py-3 text-center text-lg border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                        min="0"
+                        max="50000"
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full" disabled={isSubmitting || isAwaitingPayment}>
+                {isAwaitingPayment ? "Awaiting Payment..." : isSubmitting ? "Processing..." : "Post Issue"}
+              </Button>
+            </form>
+          )}
         </>
       )}
 
@@ -937,6 +943,63 @@ export default function NewPostPage() {
             >
               Cancel
             </Button>
+          </div>
+        </div>
+      )}
+
+      {showCreateAccountPrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[100]">
+          <div className="bg-white dark:bg-gray-900 p-8 rounded-lg shadow-2xl max-w-md w-full text-center">
+            <div className="mb-6">
+              <svg
+                className="mx-auto h-16 w-16 text-green-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold mb-3 text-gray-900 dark:text-white">Post Created Successfully!</h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              Your anonymous post is now live. Create an account to easily track your posts, manage rewards, and join
+              community groups.
+            </p>
+            <div className="space-y-3">
+              <Button
+                onClick={() => {
+                  // Optionally, pass the postId to redirect back after login/register
+                  router.push(`/auth/register?redirect=/post/${lastCreatedPostId}`)
+                }}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+              >
+                Create Account
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowCreateAccountPrompt(false)
+                  router.push(lastCreatedPostId ? `/post/${lastCreatedPostId}` : "/dashboard")
+                }}
+                className="w-full text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                Maybe Later
+              </Button>
+            </div>
+            {lastCreatedPostId && (
+              <Link
+                href={`/post/${lastCreatedPostId}`}
+                className="mt-6 inline-block text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-500"
+              >
+                View Your Post
+              </Link>
+            )}
           </div>
         </div>
       )}
