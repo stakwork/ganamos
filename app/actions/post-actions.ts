@@ -200,3 +200,113 @@ export async function createFundedAnonymousPostAction(postDetails: {
     }
   }
 }
+
+/**
+ * Marks a post as fixed by an anonymous user after successful AI verification.
+ * This is typically called when AI confidence is high.
+ */
+export async function markPostFixedAnonymouslyAction(
+  postId: string,
+  fixImageUrl: string,
+  fixerNote: string | null,
+  aiConfidence: number,
+  aiAnalysis: string | null,
+): Promise<{ success: boolean; error?: string }> {
+  if (!postId || !fixImageUrl) {
+    return { success: false, error: "Post ID and Fix Image URL are required." }
+  }
+
+  const supabase = createServerSupabaseClient(await getCookieStore())
+  const now = new Date().toISOString()
+
+  try {
+    const { error } = await supabase
+      .from("posts")
+      .update({
+        fixed: true,
+        fixed_at: now,
+        fixed_by: null, // Explicitly null for anonymous
+        fixed_by_is_anonymous: true,
+        fixed_image_url: fixImageUrl,
+        fixer_note: fixerNote,
+        under_review: false, // No longer under review if auto-approved
+        // Optionally store AI verification details for the successful fix
+        ai_confidence_score: aiConfidence,
+        ai_analysis: aiAnalysis,
+        // Clear any previous submission for review fields if they existed
+        submitted_fix_by_id: null,
+        submitted_fix_by_name: null,
+        submitted_fix_by_avatar: null,
+        submitted_fix_at: null,
+        // submitted_fix_image_url: null, // Keep this if we want to see what was submitted vs what was approved
+        // submitted_fix_note: null, // Keep this
+      })
+      .eq("id", postId)
+
+    if (error) {
+      console.error("Error in markPostFixedAnonymouslyAction:", error)
+      return { success: false, error: error.message }
+    }
+
+    console.log(`Post ${postId} marked as fixed anonymously.`)
+    // TODO: In a later step, we'll need to handle the reward payout mechanism for anonymous users.
+    // This might involve generating a claim code or a pre-image for a LNURL-withdraw.
+    return { success: true }
+  } catch (error) {
+    console.error("Unexpected error in markPostFixedAnonymouslyAction:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "An unexpected error occurred.",
+    }
+  }
+}
+
+/**
+ * Submits an anonymous fix for manual review when AI confidence is low.
+ */
+export async function submitAnonymousFixForReviewAction(
+  postId: string,
+  fixImageUrl: string,
+  fixerNote: string | null,
+  aiConfidence: number,
+  aiAnalysis: string | null,
+): Promise<{ success: boolean; error?: string }> {
+  if (!postId || !fixImageUrl) {
+    return { success: false, error: "Post ID and Fix Image URL are required." }
+  }
+  const supabase = createServerSupabaseClient(await getCookieStore())
+  const now = new Date().toISOString()
+
+  try {
+    const { error } = await supabase
+      .from("posts")
+      .update({
+        under_review: true,
+        submitted_fix_by_id: null, // Indicates anonymous submission for review
+        submitted_fix_by_name: "Anonymous Fixer (Pending Review)",
+        submitted_fix_by_avatar: null,
+        submitted_fix_at: now,
+        submitted_fix_image_url: fixImageUrl,
+        submitted_fix_note: fixerNote,
+        ai_confidence_score: aiConfidence,
+        ai_analysis: aiAnalysis,
+        // Ensure these are not set yet
+        fixed: false,
+        fixed_by_is_anonymous: false, // Not yet fixed by anonymous, just submitted
+      })
+      .eq("id", postId)
+
+    if (error) {
+      console.error("Error in submitAnonymousFixForReviewAction:", error)
+      return { success: false, error: error.message }
+    }
+    console.log(`Anonymous fix for post ${postId} submitted for review.`)
+    return { success: true }
+  } catch (error) {
+    console.error("Unexpected error in submitAnonymousFixForReviewAction:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "An unexpected error occurred.",
+    }
+  }
+}

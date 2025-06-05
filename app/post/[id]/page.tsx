@@ -21,6 +21,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import type { Post } from "@/lib/types"
 import { reverseGeocode } from "@/lib/geocoding"
+// Add the new server actions to imports
+import { markPostFixedAnonymouslyAction, submitAnonymousFixForReviewAction } from "@/app/actions/post-actions" // Adjust path if necessary
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
   // const { id } = useParams() // params.id is used directly
@@ -187,6 +189,11 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
       })
       return
     }
+    if (!post) {
+      toast({ title: "Error", description: "Post data not loaded.", variant: "destructive" })
+      return
+    }
+
     setSubmittingFix(true)
     try {
       console.log("🔍 FIX SUBMISSION - Starting AI verification process")
@@ -202,51 +209,114 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
       })
       console.log("🔍 FIX SUBMISSION - Verification API response status:", verificationResponse.status)
       if (!verificationResponse.ok) {
-        throw new Error("Failed to verify fix with AI")
+        const errorData = await verificationResponse.text()
+        console.error("🔍 FIX SUBMISSION - AI Verification API Error:", errorData)
+        throw new Error(`Failed to verify fix with AI. Status: ${verificationResponse.status}. ${errorData}`)
       }
       const verificationResult = await verificationResponse.json()
       console.log("🔍 FIX SUBMISSION - AI Verification Result:", verificationResult)
 
-      // ANONYMOUS FIX HANDLING (Placeholder for now - will be expanded)
+      // ANONYMOUS FIX HANDLING
       if (!user) {
         console.log("Anonymous user submitted fix. Confidence:", verificationResult.confidence)
         if (verificationResult.confidence >= 7) {
-          // TODO: Handle anonymous fix approval - generate claim code
-          toast({
-            title: "Fix Verified (Anonymous)!",
-            description: "Your fix is verified. Claim details will be shown (TODO).",
-            variant: "success",
-          })
-          // For now, just navigate back
-          router.push("/dashboard")
+          // High confidence: Auto-approve anonymous fix
+          const actionResult = await markPostFixedAnonymouslyAction(
+            post.id,
+            fixImage,
+            fixerNote,
+            verificationResult.confidence,
+            verificationResult.reasoning,
+          )
+
+          if (actionResult.success) {
+            setPost((prevPost) =>
+              prevPost
+                ? {
+                    ...prevPost,
+                    fixed: true,
+                    fixed_at: new Date().toISOString(),
+                    fixed_by: null,
+                    fixed_by_is_anonymous: true,
+                    fixed_image_url: fixImage,
+                    fixer_note: fixerNote,
+                    under_review: false,
+                    ai_confidence_score: verificationResult.confidence,
+                    ai_analysis: verificationResult.reasoning,
+                  }
+                : null,
+            )
+            toast({
+              title: "Fix Verified (Anonymous)!",
+              description: "Your fix has been successfully recorded. Thank you for your contribution!",
+              variant: "success",
+              duration: 7000,
+            })
+            // TODO: Next step will be to show how to claim the reward.
+            // For now, navigate back or show a success message.
+            router.push("/dashboard") // Or a dedicated "thank you" page
+          } else {
+            toast({
+              title: "Error Recording Fix",
+              description: actionResult.error || "Could not record your anonymous fix.",
+              variant: "destructive",
+            })
+          }
         } else {
-          // TODO: Handle anonymous fix low confidence - submit for review
-          toast({
-            title: "Fix Submitted for Review (Anonymous)",
-            description: "Your fix needs manual review. (TODO)",
-          })
-          router.push("/dashboard")
+          // Low confidence: Submit anonymous fix for review
+          const actionResult = await submitAnonymousFixForReviewAction(
+            post.id,
+            fixImage,
+            fixerNote,
+            verificationResult.confidence,
+            verificationResult.reasoning,
+          )
+
+          if (actionResult.success) {
+            setPost((prevPost) =>
+              prevPost
+                ? {
+                    ...prevPost,
+                    under_review: true,
+                    submitted_fix_by_id: null,
+                    submitted_fix_by_name: "Anonymous Fixer (Pending Review)",
+                    submitted_fix_by_avatar: null,
+                    submitted_fix_at: new Date().toISOString(),
+                    submitted_fix_image_url: fixImage,
+                    submitted_fix_note: fixerNote,
+                    ai_confidence_score: verificationResult.confidence,
+                    ai_analysis: verificationResult.reasoning,
+                    fixed: false, // Ensure fixed is false as it's under review
+                    fixed_by_is_anonymous: false, // Not yet fixed by anonymous
+                  }
+                : null,
+            )
+            toast({
+              title: "Fix Submitted for Review (Anonymous)",
+              description: "Your fix has low AI confidence and has been submitted for manual review. Thank you!",
+              duration: 7000,
+            })
+            router.push("/dashboard")
+          } else {
+            toast({
+              title: "Error Submitting for Review",
+              description: actionResult.error || "Could not submit your anonymous fix for review.",
+              variant: "destructive",
+            })
+          }
         }
         setSubmittingFix(false)
         return
       }
 
-      // Logged-in user fix handling
+      // Logged-in user fix handling (remains largely the same)
       if (verificationResult.confidence >= 7) {
-        console.log("🔍 FIX SUBMISSION - HIGH CONFIDENCE: Auto-approving fix")
+        // ... (existing high-confidence logged-in user logic)
+        console.log("🔍 FIX SUBMISSION - HIGH CONFIDENCE: Auto-approving fix for logged-in user")
         if (post && user && profile) {
           const now = new Date()
           const nowIso = now.toISOString()
-          const updatedPost = {
-            ...post,
-            fixed: true,
-            fixedAt: now,
-            fixed_at: nowIso,
-            fixedImageUrl: fixImage,
-            fixed_image_url: fixImage,
-            fixed_by: activeUserId || user.id,
-            fixer_note: fixerNote || null,
-          }
+
           if (supabase) {
             const { error } = await supabase
               .from("posts")
@@ -256,49 +326,82 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 fixed_by: activeUserId || user.id,
                 fixed_image_url: fixImage,
                 fixer_note: fixerNote || null,
+                under_review: false, // Clear review status
+                ai_confidence_score: verificationResult.confidence, // Store AI score
+                ai_analysis: verificationResult.reasoning, // Store AI reasoning
+                fixed_by_is_anonymous: false, // Explicitly false for logged-in user
               })
               .eq("id", post.id)
-            if (error) console.error("Error updating post in Supabase:", error)
-            await supabase
-              .from("profiles")
-              .update({ fixed_issues_count: (profile.fixed_issues_count || 0) + 1 })
-              .eq("id", activeUserId || user.id)
-          }
-          const postIndex = mockPosts.findIndex((p) => p.id === post.id)
-          if (postIndex !== -1) mockPosts[postIndex] = updatedPost
-          setPost(updatedPost)
-          const currentBalance = profile.balance || 0
-          console.log("🔍 BALANCE UPDATE - Starting balance update process")
-          console.log("🔍 BALANCE UPDATE - Current balance:", currentBalance)
-          console.log("🔍 BALANCE UPDATE - Reward amount:", post.reward)
-          const newBalance = currentBalance + post.reward
-          console.log("🔍 BALANCE UPDATE - New calculated balance:", newBalance)
-          try {
-            console.log("🔍 BALANCE UPDATE - Calling updateBalance with new balance:", newBalance)
-            await updateBalance(newBalance)
-            console.log("🔍 BALANCE UPDATE - updateBalance function completed")
-            if (supabase) {
-              const { data: updatedProfile, error } = await supabase
-                .from("profiles")
-                .select("balance")
-                .eq("id", user.id)
-                .single()
-              if (error) console.error("🔍 BALANCE UPDATE - Error verifying balance update:", error)
-              else console.log("🔍 BALANCE UPDATE - Verified balance in database:", updatedProfile?.balance)
+            if (error) {
+              console.error("Error updating post in Supabase:", error)
+              throw new Error("Failed to update post in database.")
             }
-          } catch (error) {
-            console.error("🔍 BALANCE UPDATE - Error updating balance:", error)
+
+            // Update fixer's profile: balance and fixed_issues_count
+            const { data: fixerProfileData, error: profileError } = await supabase
+              .from("profiles")
+              .select("balance, fixed_issues_count")
+              .eq("id", activeUserId || user.id)
+              .single()
+
+            if (profileError) {
+              console.error("Error fetching fixer profile for update:", profileError)
+              // Decide if this is critical enough to stop the process
+            } else if (fixerProfileData) {
+              const newBalance = (fixerProfileData.balance || 0) + post.reward
+              const newFixedCount = (fixerProfileData.fixed_issues_count || 0) + 1
+              const { error: updateProfileError } = await supabase
+                .from("profiles")
+                .update({ balance: newBalance, fixed_issues_count: newFixedCount })
+                .eq("id", activeUserId || user.id)
+              if (updateProfileError) {
+                console.error("Error updating fixer profile (balance/count):", updateProfileError)
+              } else {
+                console.log("🔍 BALANCE UPDATE - Profile balance and count updated for user:", activeUserId || user.id)
+                // Call updateBalance from useAuth to reflect in UI immediately if possible
+                await updateBalance(newBalance)
+              }
+            }
           }
-          window.dispatchEvent(new Event("storage"))
+
+          // Update local state
+          setPost((prevPost) =>
+            prevPost
+              ? {
+                  ...prevPost,
+                  fixed: true,
+                  fixed_at: nowIso,
+                  fixed_by: activeUserId || user.id,
+                  fixed_image_url: fixImage,
+                  fixer_note: fixerNote || null,
+                  under_review: false,
+                  ai_confidence_score: verificationResult.confidence,
+                  ai_analysis: verificationResult.reasoning,
+                  fixed_by_is_anonymous: false,
+                }
+              : null,
+          )
+
+          // The mockPosts update is likely not needed if Supabase is the source of truth
+          // const postIndex = mockPosts.findIndex((p) => p.id === post.id)
+          // if (postIndex !== -1) mockPosts[postIndex] = updatedPost
+
+          // Balance update logic for logged-in user
+          // This part might be redundant if updateBalance in useAuth already handles Supabase update
+          // and local state update. The key is to ensure Supabase is updated first.
+          // The updateBalance call above should handle the UI part.
+
+          window.dispatchEvent(new Event("storage")) // To sync across tabs/components if needed
+          toast({
+            title: "🎊 Fix verified!",
+            description: `${formatSatsValue(post.reward)} sats have been added to your balance 💰`,
+            variant: "success",
+          })
+          router.push("/dashboard")
         }
-        toast({
-          title: "🎊 Fix verified!",
-          description: `${post?.reward} sats have been added to your balance 💰`,
-          variant: "success",
-        })
-        router.push("/dashboard")
       } else {
-        console.log("🔍 FIX SUBMISSION - LOW CONFIDENCE: Issue not resolved")
+        // Low confidence for logged-in user: Submit for review
+        console.log("🔍 FIX SUBMISSION - LOW CONFIDENCE: Submitting for review (logged-in user)")
         if (post && supabase && user && profile) {
           const nowIso = new Date().toISOString()
           const { error } = await supabase
@@ -306,16 +409,39 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             .update({
               under_review: true,
               submitted_fix_by_id: activeUserId || user.id,
-              submitted_fix_by_name: profile.name || user.email?.split("@")[0] || "Anonymous",
+              submitted_fix_by_name: profile.name || user.email?.split("@")[0] || "Unknown User",
               submitted_fix_by_avatar: profile.avatar_url,
               submitted_fix_at: nowIso,
               submitted_fix_image_url: fixImage,
               submitted_fix_note: fixerNote || null,
               ai_confidence_score: verificationResult.confidence,
               ai_analysis: verificationResult.reasoning,
+              fixed: false, // Ensure not marked as fixed
+              fixed_by_is_anonymous: false, // Not an anonymous submission
             })
             .eq("id", post.id)
-          if (error) console.error("Error updating post review status:", error)
+          if (error) {
+            console.error("Error updating post review status:", error)
+            throw new Error("Failed to submit fix for review.")
+          }
+          setPost((prevPost) =>
+            prevPost
+              ? {
+                  ...prevPost,
+                  under_review: true,
+                  submitted_fix_by_id: activeUserId || user.id,
+                  submitted_fix_by_name: profile.name || user.email?.split("@")[0] || "Unknown User",
+                  submitted_fix_by_avatar: profile.avatar_url,
+                  submitted_fix_at: nowIso,
+                  submitted_fix_image_url: fixImage,
+                  submitted_fix_note: fixerNote || null,
+                  ai_confidence_score: verificationResult.confidence,
+                  ai_analysis: verificationResult.reasoning,
+                  fixed: false,
+                  fixed_by_is_anonymous: false,
+                }
+              : null,
+          )
         }
         toast({
           title: "Fix submitted for review",
@@ -324,8 +450,12 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         router.push("/dashboard")
       }
     } catch (error) {
-      console.error("🔍 FIX SUBMISSION - Error during verification:", error)
-      toast({ title: "Error", description: "Could not verify the fix", variant: "destructive" })
+      console.error("🔍 FIX SUBMISSION - Error during verification or submission:", error)
+      toast({
+        title: "Error",
+        description: `Could not process the fix: ${error instanceof Error ? error.message : "Unknown error"}`,
+        variant: "destructive",
+      })
     } finally {
       setSubmittingFix(false)
     }
