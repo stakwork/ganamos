@@ -3,16 +3,13 @@
 import type React from "react"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { useJsApiLoader } from "@react-google-maps/api"
 import { useRouter } from "next/navigation"
 import { Loader2, X, RefreshCw, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
 import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
-import { LoadingSpinner } from "@/components/loading-spinner"
 import { useAuth } from "@/components/auth-provider"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
-// import { mockPosts } from "@/lib/mock-data"
 
 const containerStyle = {
   width: "100%",
@@ -75,11 +72,6 @@ export function MapView({
   cityName,
   cityBounds,
 }: MapViewProps) {
-  const { isLoaded } = useJsApiLoader({
-    id: "google-map-script",
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-  })
-
   const router = useRouter()
   const mapRef = useRef<HTMLDivElement>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -136,7 +128,11 @@ export function MapView({
       setIsLoading(true)
       try {
         if (supabase) {
-          const { data, error } = await supabase.from("posts").select("*").order("created_at", { ascending: false })
+          const { data, error } = await supabase
+            .from("posts")
+            .select("*")
+            .eq("fixed", false)
+            .order("created_at", { ascending: false })
           if (error) {
             console.error("Error fetching posts:", error)
             setAllPosts([])
@@ -851,14 +847,6 @@ export function MapView({
 
   // Set container classes based on whether it's in a modal or not
   const containerClasses = isModal ? "h-full w-full relative" : "h-screen w-screen relative"
-
-  if (!isLoaded) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <LoadingSpinner size="lg" />
-      </div>
-    )
-  }
 
   return (
     <div className={containerClasses}>
