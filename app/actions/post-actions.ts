@@ -3,10 +3,130 @@
 import { createInvoice, checkInvoice } from "@/lib/lightning"
 import { v4 as uuidv4 } from "uuid" // Ensure uuid is imported if used, e.g. in createFundedAnonymousPostAction
 import { createServerSupabaseClient } from "@/lib/supabase" // For createFundedAnonymousPostAction
+import { validateLightningInvoice, validateInvoiceAmount } from "@/lib/lightning-validation"
 
 async function getCookieStore() {
   const { cookies } = await import("next/headers")
   return cookies()
+}
+
+/**
+ * Processes Lightning invoice payment for anonymous reward claims.
+ * Validates the post has an unclaimed anonymous reward, decodes the invoice,
+ * pays it via Lightning, and marks the reward as claimed.
+ */
+export async function payAnonymousRewardAction(
+  postId: string,
+  lightningInvoice: string,
+): Promise<{
+  success: boolean
+  paymentHash?: string
+  error?: string
+  details?: any
+}> {
+  if (!postId || !lightningInvoice) {
+    return { success: false, error: "Post ID and Lightning invoice are required." }
+  }
+
+  const supabase = createServerSupabaseClient(await getCookieStore())
+
+  try {
+    // 1. Fetch the post and validate it has an unclaimed anonymous reward
+    const { data: post, error: fetchError } = await supabase.from("posts").select("*").eq("id", postId).single()
+
+    if (fetchError || !post) {
+      console.error("Error fetching post for anonymous payout:", fetchError)
+      return { success: false, error: "Post not found." }
+    }
+
+    // Validate this is an anonymous fix that hasn't been paid yet
+    if (!post.fixed_by_is_anonymous) {
+      return { success: false, error: "This reward is not available for anonymous claim." }
+    }
+
+    if (post.anonymous_reward_paid_at) {
+      return { success: false, error: "This reward has already been claimed." }
+    }
+
+    if (!post.fixed) {
+      return { success: false, error: "This post has not been marked as fixed yet." }
+    }
+
+    // 2. Enhanced Lightning invoice validation
+    if (!validateLightningInvoice(lightningInvoice)) {
+      return { success: false, error: "Invalid Lightning invoice format." }
+    }
+
+    // 3. Validate invoice amount matches reward (if amount is specified in invoice)
+    if (!validateInvoiceAmount(lightningInvoice, post.reward)) {
+      return {
+        success: false,
+        error: `Invoice amount doesn't match reward amount of ${post.reward} sats.`,
+      }
+    }
+
+    // 3. Check Lightning configuration
+    const LND_REST_URL = process.env.LND_REST_URL
+    const LND_ADMIN_MACAROON = process.env.LND_ADMIN_MACAROON
+
+    if (!LND_REST_URL || !LND_ADMIN_MACAROON) {
+      console.error("Lightning configuration missing in payAnonymousRewardAction")
+      return {
+        success: false,
+        error: "Lightning payment system is currently unavailable.",
+      }
+    }
+
+    // 4. Attempt to pay the Lightning invoice
+    console.log(`Attempting to pay anonymous reward for post ${postId}: ${post.reward} sats`)
+
+    const { payInvoice } = await import("@/lib/lightning")
+    const paymentResult = await payInvoice(lightningInvoice.trim())
+
+    if (!paymentResult.success) {
+      console.error("Failed to pay Lightning invoice:", paymentResult.error, paymentResult.details)
+      return {
+        success: false,
+        error: "Failed to process Lightning payment. Please check your invoice and try again.",
+        details: paymentResult.error,
+      }
+    }
+
+    // 5. Mark the reward as claimed in the database
+    const now = new Date().toISOString()
+    const { error: updateError } = await supabase
+      .from("posts")
+      .update({
+        anonymous_reward_paid_at: now,
+        anonymous_reward_payment_hash: paymentResult.paymentHash || paymentResult.paymentPreimage,
+      })
+      .eq("id", postId)
+
+    if (updateError) {
+      console.error("Error marking anonymous reward as paid:", updateError)
+      // Payment was successful but we couldn't update the database
+      // This is a critical issue that needs manual intervention
+      return {
+        success: false,
+        error: "Payment was sent but there was an error updating our records. Please contact support.",
+        details: updateError.message,
+      }
+    }
+
+    console.log(`Anonymous reward successfully paid for post ${postId}. Payment hash: ${paymentResult.paymentHash}`)
+
+    return {
+      success: true,
+      paymentHash: paymentResult.paymentHash || paymentResult.paymentPreimage,
+    }
+  } catch (error) {
+    console.error("Unexpected error in payAnonymousRewardAction:", error)
+    return {
+      success: false,
+      error: "An unexpected error occurred while processing the payment.",
+      details: error instanceof Error ? error.message : String(error),
+    }
+  }
 }
 
 /**

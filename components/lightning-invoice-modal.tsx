@@ -70,15 +70,23 @@ export function LightningInvoiceModal({
     setStep("processing")
 
     try {
-      // TODO: Replace with actual server action call
-      // const result = await payAnonymousRewardAction(postId, invoice.trim())
+      // Import the server action
+      const { payAnonymousRewardAction } = await import("@/app/actions/post-actions")
 
-      // Simulate API call for now
-      await new Promise((resolve) => setTimeout(resolve, 3000))
+      // Call the server action to process the payment
+      const result = await payAnonymousRewardAction(postId, invoice.trim())
 
-      // Simulate success for now
+      if (!result.success) {
+        setError(result.error || "Failed to process payment")
+        setStep("input")
+        return
+      }
+
+      // Payment successful
+      console.log("Anonymous reward payment successful:", result.paymentHash)
       setStep("success")
 
+      // Auto-close and call success callback after showing success state
       setTimeout(() => {
         onSuccess()
         onOpenChange(false)
