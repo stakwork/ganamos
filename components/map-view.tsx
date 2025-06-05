@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from "@react-google-maps/api"
+import { useJsApiLoader } from "@react-google-maps/api"
 import { useRouter } from "next/navigation"
 import { Loader2, X, RefreshCw, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -28,11 +28,11 @@ const defaultZoom = 13
 
 // Update the MapViewProps interface to include userLocation
 interface MapViewProps {
-  posts?: Post[]
+  posts: Post[]
   centerPost?: Post // Optional post to center the map on
   center?: { lat: number; lng: number } // Custom center coordinates
   bounds?: google.maps.LatLngBounds // Optional bounds to fit the map to
-  onClose?: () => void
+  onClose: () => void
   isLoading?: boolean
   isModal?: boolean // Flag to indicate if map is in a modal
   initialSearchQuery?: string // Initial search query to populate the search bar
@@ -63,7 +63,7 @@ declare global {
 
 // Update the function parameters to include userLocation
 export function MapView({
-  posts: initialPosts,
+  posts,
   centerPost,
   center,
   bounds,
@@ -96,7 +96,6 @@ export function MapView({
   const [showResults, setShowResults] = useState(false)
   const [autocompleteService, setAutocompleteService] = useState<google.maps.places.AutocompleteService | null>(null)
   const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null)
-  const [posts, setPosts] = useState<Post[]>([])
   const [mapCenter, setMapCenter] = useState(
     userLocation ? { lat: userLocation.latitude, lng: userLocation.longitude } : defaultCenter,
   )
@@ -104,6 +103,7 @@ export function MapView({
   const { user } = useAuth()
   const supabase = createBrowserSupabaseClient()
   const googleMapRef = useRef<google.maps.Map | null>(null)
+  const [allPosts, setAllPosts] = useState<Post[]>(posts)
 
   const onLoad = useCallback(
     (map: google.maps.Map) => {
@@ -139,16 +139,16 @@ export function MapView({
           const { data, error } = await supabase.from("posts").select("*").order("created_at", { ascending: false })
           if (error) {
             console.error("Error fetching posts:", error)
-            setPosts(mockPosts)
+            setAllPosts(mockPosts)
           } else {
-            setPosts(data || [])
+            setAllPosts(data || [])
           }
         } else {
-          setPosts(mockPosts)
+          setAllPosts(mockPosts)
         }
       } catch (error) {
         console.error("Error in fetchPosts:", error)
-        setPosts(mockPosts)
+        setAllPosts(mockPosts)
       } finally {
         setIsLoading(false)
       }
@@ -196,7 +196,7 @@ export function MapView({
   console.log("MapView received posts:", posts)
 
   // Filter posts that have location data
-  const postsWithLocation = posts.filter(
+  const postsWithLocation = allPosts.filter(
     (post) => post.latitude && post.longitude && !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
   )
 
@@ -242,7 +242,7 @@ export function MapView({
       console.log("Posts changed, updating markers...")
       addPostMarkers(mapInstance)
     }
-  }, [posts, mapInstance, mapInitialized])
+  }, [allPosts, mapInstance, mapInitialized])
 
   // Create PostMarker class after Google Maps is loaded
   const createPostMarkerClass = () => {
@@ -861,7 +861,7 @@ export function MapView({
   }
 
   return (
-    <div className="relative h-screen">
+    <div className={containerClasses}>
       {/* Close Button - Only show if not in modal */}
       {!isModal && (
         <Button
@@ -980,78 +980,6 @@ export function MapView({
           </div>
         </div>
       )}
-      <GoogleMap
-        mapContainerStyle={containerStyle}
-        center={mapCenter}
-        zoom={zoom}
-        onLoad={onLoad}
-        onUnmount={onUnmount}
-        options={{
-          fullscreenControl: false,
-          streetViewControl: false,
-          mapTypeControl: false,
-          zoomControl: true,
-        }}
-      >
-        {userLocation && (
-          <Marker
-            position={{ lat: userLocation.latitude, lng: userLocation.longitude }}
-            icon={{
-              path: window.google.maps.SymbolPath.CIRCLE,
-              scale: 7,
-              fillColor: "#4285F4",
-              fillOpacity: 1,
-              strokeColor: "#ffffff",
-              strokeWeight: 2,
-            }}
-          />
-        )}
-
-        {posts.map((post) => {
-          if (!post.latitude || !post.longitude) return null
-          return (
-            <Marker
-              key={post.id}
-              position={{ lat: post.latitude, lng: post.longitude }}
-              onClick={() => handleMarkerClick(post)}
-              icon={{
-                path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 10,
-                fillColor: post.fixed ? "#34D399" : "#EF4444",
-                fillOpacity: 0.8,
-                strokeColor: "#ffffff",
-                strokeWeight: 2,
-              }}
-            />
-          )
-        })}
-
-        {selectedPost && (
-          <InfoWindow
-            position={{ lat: selectedPost.latitude!, lng: selectedPost.longitude! }}
-            onCloseClick={handleInfoWindowClose}
-          >
-            <div className="p-2 max-w-xs">
-              <h3 className="font-semibold text-sm mb-1">{selectedPost.title}</h3>
-              <p className="text-xs text-gray-600 mb-2 line-clamp-2">{selectedPost.description}</p>
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-medium">
-                  {selectedPost.fixed ? "Fixed ✅" : `Reward: ${selectedPost.reward} sats`}
-                </span>
-                <Button size="sm" onClick={handleViewPost}>
-                  View
-                </Button>
-              </div>
-            </div>
-          </InfoWindow>
-        )}
-      </GoogleMap>
-
-      <div className="absolute bottom-20 right-4">
-        <Button onClick={handleNewPost} className="rounded-full shadow-lg bg-orange-500 hover:bg-orange-600">
-          Report Issue
-        </Button>
-      </div>
     </div>
   )
 }
