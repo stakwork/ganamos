@@ -727,15 +727,22 @@ export default function ProfilePage() {
                 </div>
               </div>
               <div>
-                <h2 className="text-xl font-bold">{profile.name}</h2>
-                {!isChildAccount && <p className="text-sm text-muted-foreground">{profile.email}</p>}
+                <h2 className="text-2xl font-bold">
+                  {profile.name
+                    ? profile.name
+                        .split(" ")
+                        .map((part, index, array) =>
+                          index === array.length - 1 && array.length > 1 ? part.charAt(0) + "." : part,
+                        )
+                        .join(" ")
+                    : profile.name}
+                </h2>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
+            <div className="flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" className="h-9 w-9 rounded-md">
+                  <Button variant="outline" size="default" className="h-10 w-10 rounded-md">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="20"
@@ -747,9 +754,7 @@ export default function ProfilePage() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
-                      <circle cx="12" cy="6" r="1" />
-                      <circle cx="12" cy="12" r="1" />
-                      <circle cx="12" cy="18" r="1" />
+                      <path d="m6 9 6 6 6-6" />
                     </svg>
                     <span className="sr-only">Open menu</span>
                   </Button>
@@ -867,6 +872,12 @@ export default function ProfilePage() {
                       <line x1="24" y1="8" x2="19" y2="13" />
                     </svg>
                     Add Connected Account
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem>
+                    <ThemeToggle />
                   </DropdownMenuItem>
 
                   <DropdownMenuSeparator />
