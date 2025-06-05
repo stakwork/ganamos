@@ -46,17 +46,10 @@ export function DonationModal({ open, onOpenChange }: DonationModalProps) {
       const supabase = createBrowserSupabaseClient()
       const { data, error } = await supabase
         .from("posts")
-        .select(`
-          *,
-          profiles:user_id (
-            id,
-            username,
-            avatar_url
-          )
-        `)
+        .select("*")
+        .order("created_at", { ascending: false })
         .eq("fixed", false)
         .neq("under_review", true)
-        .order("created_at", { ascending: false })
 
       if (error) {
         console.error("Error fetching posts:", error)
