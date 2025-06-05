@@ -43,7 +43,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const { user, profile, updateBalance, activeUserId } = useAuth() // user can be null for anonymous
   const supabase = createBrowserSupabaseClient()
   const [displayLocation, setDisplayLocation] = useState<string>("")
-  const [isReviewing, setIsReviewing] = useState(isReviewing)
+  const [isReviewing, setIsReviewing] = useState(false)
   const [showFullAnalysis, setShowFullAnalysis] = useState(false)
 
   // Force hide bottom nav when camera is shown
@@ -248,6 +248,12 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                   }
                 : null,
             )
+            toast({
+              title: "Fix Verified (Anonymous)!",
+              description: "Your fix has been successfully recorded. Thank you for your contribution!",
+              variant: "success",
+              duration: 7000,
+            })
             setAnonymousFixedPostId(post.id)
             setShowAnonymousRewardOptions(true)
             setShowBeforeAfter(false)
@@ -1130,13 +1136,17 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md">
             <CardContent className="p-6 text-center">
-              <h2 className="text-2xl font-bold mb-4">🎉 Fix Verified!</h2>
-              <p className="mb-6 text-muted-foreground">
-                You've earned {formatSatsValue(post.reward)} sats for fixing this issue!
+              <h2 className="text-2xl font-bold mb-4">Fix Submitted Successfully!</h2>
+              <p className="mb-2 text-muted-foreground">
+                Your fix has been recorded. You've earned {formatSatsValue(post.reward)} sats!
+              </p>
+              <p className="mb-6 text-sm text-muted-foreground">
+                You can withdraw your reward now or create an account to save your earnings and track your
+                contributions.
               </p>
               <div className="space-y-3">
                 <Button
-                  className="w-full bg-green-600 hover:bg-green-700 flex items-center justify-center"
+                  className="w-full bg-green-600 hover:bg-green-700"
                   onClick={() => {
                     // Placeholder for withdraw action
                     toast({ title: "Withdraw action coming soon!" })
@@ -1144,8 +1154,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                     router.push("/") // Go to homepage after attempting withdraw
                   }}
                 >
-                  <BitcoinLogo size={16} className="mr-2" />
-                  Withdraw {formatSatsValue(post.reward)}
+                  Withdraw {formatSatsValue(post.reward)} sats
                 </Button>
                 <Button
                   variant="outline"
@@ -1158,15 +1167,11 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                   variant="ghost"
                   className="w-full"
                   onClick={() => {
-                    // Placeholder for donate action
-                    toast({ title: "Donate reward action coming soon!" });
-                    setShowAnonymousRewardOptions(false);
-                    // Potentially call a server action here in the future
-                    // For now, just close modal and go to homepage
-                    router.push("/");
+                    setShowAnonymousRewardOptions(false)
+                    router.push("/") // Go to homepage
                   }}
                 >
-                  Donate Reward to Global Pool
+                  Maybe Later
                 </Button>
               </div>
             </CardContent>

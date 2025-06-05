@@ -24,6 +24,7 @@ interface MapViewProps {
     longitude: number
     zoomType: string
     name: string
+    bounds?: google.maps.LatLngBounds
   }
 }
 
@@ -500,31 +501,34 @@ export function MapView({
         }
         map.setCenter(userLatLng)
 
-        // Set initial zoom based on zoomType
-        if (userLocation.zoomType === "city") {
+        // If bounds are provided, use them for smart zooming
+        if (userLocation.bounds) {
+          console.log("Fitting map to user location bounds")
+          map.fitBounds(userLocation.bounds)
+        } else if (userLocation.zoomType === "city") {
           map.setZoom(12) // City level zoom
+        }
 
-          // If we have a location name, set it in the search bar
-          if (userLocation.name) {
-            setSearchQuery(userLocation.name)
-          } else {
-            // If no name provided, try to get location name using reverse geocoding
-            const geocoder = new window.google.maps.Geocoder()
-            geocoder.geocode({ location: userLatLng }, (results, status) => {
-              if (status === "OK" && results && results[0]) {
-                // Find locality (city) component
-                const cityComponent = results[0].address_components.find((component) =>
-                  component.types.includes("locality"),
-                )
-                if (cityComponent) {
-                  setSearchQuery(cityComponent.long_name)
-                } else {
-                  // Fall back to formatted address
-                  setSearchQuery(results[0].formatted_address)
-                }
+        // Set location name in search bar if available
+        if (userLocation.name) {
+          setSearchQuery(userLocation.name)
+        } else {
+          // If no name provided, try to get location name using reverse geocoding
+          const geocoder = new window.google.maps.Geocoder()
+          geocoder.geocode({ location: userLatLng }, (results, status) => {
+            if (status === "OK" && results && results[0]) {
+              // Find locality (city) component
+              const cityComponent = results[0].address_components.find((component) =>
+                component.types.includes("locality"),
+              )
+              if (cityComponent) {
+                setSearchQuery(cityComponent.long_name)
+              } else {
+                // Fall back to formatted address
+                setSearchQuery(results[0].formatted_address)
               }
-            })
-          }
+            }
+          })
         }
       }
 

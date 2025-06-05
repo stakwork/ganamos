@@ -8,6 +8,7 @@ import { mockPosts } from "@/lib/mock-data"
 import type { Post } from "@/lib/types"
 import { MapView } from "@/components/map-view"
 import { Loader2 } from "lucide-react" // For a generic loading indicator
+import { getCurrentLocationWithName } from "@/lib/geocoding"
 
 export default function MapPage() {
   const router = useRouter()
@@ -16,6 +17,7 @@ export default function MapPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoadingPosts, setIsLoadingPosts] = useState(true)
   const supabase = createBrowserSupabaseClient()
+  const [userLocationBounds, setUserLocationBounds] = useState<google.maps.LatLngBounds | null>(null)
 
   const centerPostId = searchParams.get("centerPost")
   const centerPost = posts.find((post) => post.id === centerPostId) || undefined
@@ -25,25 +27,60 @@ export default function MapPage() {
   const zoomType = searchParams.get("zoom")
   const locationName = searchParams.get("name")
 
-  const userLocation =
-    lat && lng
-      ? {
-          latitude: Number.parseFloat(lat),
-          longitude: Number.parseFloat(lng),
-          zoomType: zoomType || "default",
-          name: locationName || "",
+  const getCurrentUserLocationWithBounds = async () => {
+    try {
+      const locationData = await getCurrentLocationWithName()
+      if (locationData) {
+        // Use Google Places API to get bounds for the city
+        if (typeof window !== "undefined" && window.google && window.google.maps) {
+          const geocoder = new window.google.maps.Geocoder()
+          const placesService = new window.google.maps.places.PlacesService(document.createElement("div"))
+
+          // First, try to find the place using Places API for better bounds
+          const request = {
+            query: locationData.name,
+            fields: ["geometry", "name"],
+          }
+
+          placesService.textSearch(request, (results, status) => {
+            if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
+              const place = results[0]
+              if (place.geometry?.viewport) {
+                setUserLocationBounds(place.geometry.viewport)
+              } else if (place.geometry?.bounds) {
+                setUserLocationBounds(place.geometry.bounds)
+              }
+            } else {
+              // Fallback to geocoding
+              geocoder.geocode({ address: locationData.name }, (results, status) => {
+                if (status === "OK" && results && results[0]) {
+                  if (results[0].geometry.viewport) {
+                    setUserLocationBounds(results[0].geometry.viewport)
+                  } else if (results[0].geometry.bounds) {
+                    setUserLocationBounds(results[0].geometry.bounds)
+                  }
+                }
+              })
+            }
+          })
         }
-      : undefined
+      }
+    } catch (error) {
+      console.error("Error getting user location with bounds:", error)
+    }
+  }
 
   useEffect(() => {
-    // Fetch posts regardless of login state,
-    // but wait until the session is loaded to avoid potential race conditions
-    // or if you want to fetch different posts for logged-in vs anonymous users.
-    // For now, we fetch the same posts for everyone.
+    // Fetch posts and handle user location if no specific location params are provided
     if (sessionLoaded) {
       fetchPosts()
+
+      // If no specific location parameters are provided, get user's current location
+      if (!lat && !lng) {
+        getCurrentUserLocationWithBounds()
+      }
     }
-  }, [sessionLoaded]) // Depend on sessionLoaded
+  }, [sessionLoaded, lat, lng]) // Also depend on lat/lng to avoid getting location when specific coords are provided
 
   const fetchPosts = async () => {
     setIsLoadingPosts(true)
@@ -86,6 +123,24 @@ export default function MapPage() {
     router.back()
   }
 
+  const userLocation =
+    lat && lng
+      ? {
+          latitude: Number.parseFloat(lat),
+          longitude: Number.parseFloat(lng),
+          zoomType: zoomType || "default",
+          name: locationName || "",
+        }
+      : userLocationBounds
+        ? {
+            latitude: userLocationBounds.getCenter().lat(),
+            longitude: userLocationBounds.getCenter().lng(),
+            zoomType: "city",
+            name: "",
+            bounds: userLocationBounds,
+          }
+        : undefined
+
   // Show a loading indicator while auth state is being determined or posts are loading
   if (authLoading || isLoadingPosts) {
     return (
@@ -108,6 +163,7 @@ export default function MapPage() {
         onClose={handleClose}
         isLoading={isLoadingPosts} // Pass post loading state to MapView
         userLocation={userLocation}
+        bounds={userLocation?.bounds}
         // Potentially pass 'user' to MapView if it needs to behave differently for logged-in users
         // user={user}
       />
