@@ -258,44 +258,41 @@ export function MapView({
         const badgeOpacity = this.isSelected ? "1" : "0.95"
 
         this.containerDiv.innerHTML = `
-  <div class="custom-marker" style="
+  <div class="btc-marker-container" style="
     position: relative;
     width: 38px;
     height: 38px;
-    border-radius: 50%;
-    background: #f7931a;
-    border: 4px solid #e67e22;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-    transform: scale(${markerScale});
-    transition: transform 0.2s ease;
   ">
-    <div style="
+    <div class="btc-marker" style="
       position: relative;
-      width: 24px;
-      height: 24px;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: #f7931a;
+      border: 1px solid #e67e22;
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 2;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+      transform: scale(${markerScale});
+      transition: transform 0.2s ease;
+      z-index: 1;
     ">
       <img src="/images/bitcoin-logo.png" alt="Bitcoin" style="
-        width: 20px;
-        height: 20px;
+        width: 28px;
+        height: 28px;
         object-fit: contain;
       ">
     </div>
-    <div style="
+    <div class="btc-badge" style="
       position: absolute;
-      bottom: -12px;
+      bottom: -10px;
       left: 50%;
       transform: translateX(-50%);
       background: white;
-      border: 2px solid #f7931a;
+      border: 1px solid #e67e22;
       color: black;
-      padding: 1px 6px;
+      padding: 2px 6px;
       font-size: 12px;
       border-radius: 12px;
       font-weight: bold;
@@ -305,6 +302,7 @@ export function MapView({
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       min-width: 28px;
       text-align: center;
+      z-index: 2;
     ">${rewardText}</div>
   </div>
 `
