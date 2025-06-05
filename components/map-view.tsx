@@ -62,7 +62,7 @@ declare global {
 }
 
 // Update the function parameters to include userLocation
-export function MapView({
+export default function MapView({
   posts: initialPosts,
   centerPost,
   center,
@@ -997,7 +997,7 @@ export function MapView({
           <Marker
             position={{ lat: userLocation.latitude, lng: userLocation.longitude }}
             icon={{
-              path: google.maps.SymbolPath.CIRCLE,
+              path: window.google.maps.SymbolPath.CIRCLE,
               scale: 7,
               fillColor: "#4285F4",
               fillOpacity: 1,
@@ -1015,7 +1015,7 @@ export function MapView({
               position={{ lat: post.latitude, lng: post.longitude }}
               onClick={() => handleMarkerClick(post)}
               icon={{
-                path: google.maps.SymbolPath.CIRCLE,
+                path: window.google.maps.SymbolPath.CIRCLE,
                 scale: 10,
                 fillColor: post.fixed ? "#34D399" : "#EF4444",
                 fillOpacity: 0.8,
