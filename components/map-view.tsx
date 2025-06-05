@@ -260,8 +260,8 @@ export function MapView({
         this.containerDiv.innerHTML = `
   <div class="btc-marker" style="
     position: relative;
-    width: 44px;
-    height: 44px;
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
     background: #FED56B;
     border: 1px solid #C5792D;
@@ -273,8 +273,8 @@ export function MapView({
     transition: transform 0.2s ease;
   ">
     <img src="/images/bitcoin-logo.png" alt="Bitcoin" style="
-      width: 38px;
-      height: 38px;
+      width: 32px;
+      height: 32px;
       filter: drop-shadow(0px -1px 1px rgba(255, 255, 255, 0.4));
     ">
     <div class="btc-badge" style="
@@ -284,7 +284,7 @@ export function MapView({
       transform: translateX(-50%);
       background: white;
       color: black;
-      padding: 2px 8px;
+      padding: 2px 6px;
       font-size: 12px;
       font-weight: bold;
       border-radius: 16px;
