@@ -130,9 +130,7 @@ export default function PostPage() {
                 </div>
 
                 {/* --- MODIFIED SECTION FOR "SUBMIT FIX" BUTTON --- */}
-                {!post.fixed && ( // If the post is NOT fixed
-                  <Button onClick={() => setShowCamera(true)}>Submit Fix</Button>
-                )}
+                {!post.fixed && <Button onClick={() => setShowCamera(true)}>Submit Fix</Button>}
 
                 {post.fixed && ( // If the post IS fixed
                   <Badge
