@@ -79,7 +79,6 @@ export function MapView({
   const [locationError, setLocationError] = useState<string | null>(null)
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null)
   const [mapInitialized, setMapInitialized] = useState(false)
-  const [selectedPost, setSelectedPost] = useState<Post | null>(centerPost || null)
   const markersRef = useRef<{ [key: string]: any }>({})
   const PostMarkerClassRef = useRef<any>(null)
 
@@ -97,6 +96,7 @@ export function MapView({
   const googleMapRef = useRef<google.maps.Map | null>(null)
   const [allPosts, setAllPosts] = useState<Post[]>(posts)
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null)
 
   const onLoad = useCallback(
     (map: google.maps.Map) => {
@@ -470,7 +470,7 @@ export function MapView({
       // Check if already loaded
       if (window.google && window.google.maps) {
         console.log("Google Maps already loaded")
-        setIsLoading(true)
+
         // Create PostMarker class
         PostMarkerClassRef.current = createPostMarkerClass()
         console.log("PostMarker class created:", !!PostMarkerClassRef.current)
@@ -480,7 +480,6 @@ export function MapView({
 
       // Load Google Maps JavaScript API
       console.log("Loading Google Maps JavaScript API...")
-      setIsLoading(true)
 
       await new Promise<void>((resolve, reject) => {
         // Check if script already exists
@@ -526,7 +525,7 @@ export function MapView({
       })
 
       console.log("Google Maps loaded, initializing map...")
-      setIsLoading(true)
+
       initializeMap()
     } catch (error) {
       console.error("Error loading Google Maps:", error)
@@ -560,7 +559,6 @@ export function MapView({
 
     try {
       console.log("Creating map instance...")
-      setIsLoading(true)
 
       // Determine center location
       let defaultCenter = { lat: 37.7749, lng: -122.4194 } // Default fallback
@@ -813,6 +811,7 @@ export function MapView({
     setLocationError(null)
     setMapInitialized(false)
     setMapInstance(null)
+
     loadGoogleMaps()
   }
 
