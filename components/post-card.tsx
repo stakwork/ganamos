@@ -14,6 +14,72 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { MapModal } from "@/components/map-modal"
 import { reverseGeocode } from "@/lib/geocoding"
 
+// State abbreviation mapping
+const stateAbbreviations: { [key: string]: string } = {
+  Alabama: "AL",
+  Alaska: "AK",
+  Arizona: "AZ",
+  Arkansas: "AR",
+  California: "CA",
+  Colorado: "CO",
+  Connecticut: "CT",
+  Delaware: "DE",
+  Florida: "FL",
+  Georgia: "GA",
+  Hawaii: "HI",
+  Idaho: "ID",
+  Illinois: "IL",
+  Indiana: "IN",
+  Iowa: "IA",
+  Kansas: "KS",
+  Kentucky: "KY",
+  Louisiana: "LA",
+  Maine: "ME",
+  Maryland: "MD",
+  Massachusetts: "MA",
+  Michigan: "MI",
+  Minnesota: "MN",
+  Mississippi: "MS",
+  Missouri: "MO",
+  Montana: "MT",
+  Nebraska: "NE",
+  Nevada: "NV",
+  "New Hampshire": "NH",
+  "New Jersey": "NJ",
+  "New Mexico": "NM",
+  "New York": "NY",
+  "North Carolina": "NC",
+  "North Dakota": "ND",
+  Ohio: "OH",
+  Oklahoma: "OK",
+  Oregon: "OR",
+  Pennsylvania: "PA",
+  "Rhode Island": "RI",
+  "South Carolina": "SC",
+  "South Dakota": "SD",
+  Tennessee: "TN",
+  Texas: "TX",
+  Utah: "UT",
+  Vermont: "VT",
+  Virginia: "VA",
+  Washington: "WA",
+  "West Virginia": "WV",
+  Wisconsin: "WI",
+  Wyoming: "WY",
+}
+
+function abbreviateLocation(location: string): string {
+  // Split by comma and process each part
+  const parts = location.split(",").map((part) => part.trim())
+
+  return parts
+    .map((part) => {
+      // Check if this part is a full state name that should be abbreviated
+      return stateAbbreviations[part] || part
+    })
+    .join(", ")
+}
+
 export function PostCard({ post }: { post: Post }) {
   const router = useRouter()
   const [imageError, setImageError] = useState(false)
@@ -253,7 +319,7 @@ export function PostCard({ post }: { post: Post }) {
                     <circle cx="12" cy="10" r="3" />
                   </svg>
                   <span className="text-xs text-muted-foreground hover:text-blue-600 transition-colors">
-                    {locationName}
+                    {abbreviateLocation(locationName)}
                   </span>
                 </div>
               )}
