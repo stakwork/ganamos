@@ -1,5 +1,7 @@
 "use client"
 
+import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
@@ -31,7 +33,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { AddConnectedAccountDialog } from "@/components/add-connected-account-dialog"
@@ -760,11 +761,11 @@ export default function ProfilePage() {
                     <span className="sr-only">Open menu</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="w-64 p-2">
                   {/* Primary Account */}
                   <DropdownMenuItem
                     onClick={() => (!isConnectedAccount ? null : resetToMainAccount())}
-                    className={!isConnectedAccount ? "bg-muted" : "cursor-pointer"}
+                    className={`p-4 ${!isConnectedAccount ? "bg-muted" : "cursor-pointer"}`}
                   >
                     <div className="flex items-center justify-between w-full">
                       <div className="flex items-center">
@@ -804,7 +805,7 @@ export default function ProfilePage() {
                       onClick={() =>
                         isConnectedAccount && profile?.id === account.id ? null : switchToAccount(account.id)
                       }
-                      className={isConnectedAccount && profile?.id === account.id ? "bg-muted" : "cursor-pointer"}
+                      className={`p-4 ${isConnectedAccount && profile?.id === account.id ? "bg-muted" : "cursor-pointer"}`}
                     >
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center">
@@ -854,7 +855,7 @@ export default function ProfilePage() {
 
                   <DropdownMenuSeparator />
 
-                  <DropdownMenuItem onClick={() => setShowAddAccountDialog(true)}>
+                  <DropdownMenuItem onClick={() => setShowAddAccountDialog(true)} className="p-4">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="16"
@@ -877,7 +878,7 @@ export default function ProfilePage() {
 
                   <DropdownMenuSeparator />
 
-                  <DropdownMenuItem onClick={signOut}>
+                  <DropdownMenuItem onClick={signOut} className="p-4">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="16"
