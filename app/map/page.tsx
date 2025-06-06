@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { MapView } from "@/components/map-view"
+import { LoadingSpinner } from "@/components/loading-spinner"
 import { useAuth } from "@/components/auth-provider"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { getCurrentLocationWithName } from "@/lib/geocoding"
@@ -92,6 +93,14 @@ export default function MapPage() {
     initializeMapData()
   }, [supabase])
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
   return (
     <MapView
       posts={posts}
@@ -108,7 +117,6 @@ export default function MapPage() {
             }
           : null
       }
-      isLoading={isLoading}
     />
   )
 }

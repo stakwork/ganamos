@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, X, RefreshCw, AlertCircle, Heart } from "lucide-react"
+import { X, RefreshCw, AlertCircle, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
 import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
@@ -79,6 +79,7 @@ export function MapView({
   const [locationError, setLocationError] = useState<string | null>(null)
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null)
   const [mapInitialized, setMapInitialized] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<Post | null>(centerPost || null)
   const markersRef = useRef<{ [key: string]: any }>({})
   const PostMarkerClassRef = useRef<any>(null)
 
@@ -96,7 +97,6 @@ export function MapView({
   const googleMapRef = useRef<google.maps.Map | null>(null)
   const [allPosts, setAllPosts] = useState<Post[]>(posts)
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false)
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null)
 
   const onLoad = useCallback(
     (map: google.maps.Map) => {
@@ -843,6 +843,14 @@ export function MapView({
   // Set container classes based on whether it's in a modal or not
   const containerClasses = isModal ? "h-full w-full relative" : "h-screen w-screen relative"
 
+  // Add this useEffect to handle cityName updates
+  useEffect(() => {
+    if (cityName && cityName !== searchQuery) {
+      setSearchQuery(cityName)
+      console.log("MapView: Updated searchQuery with cityName:", cityName)
+    }
+  }, [cityName, searchQuery])
+
   return (
     <div className={containerClasses}>
       {/* Close Button - Only show if not in modal */}
@@ -916,11 +924,24 @@ export function MapView({
       </div>
 
       {showLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-40">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-            <span>Loading...</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 z-40">
+          {/* Replicate LoadingSpinner structure */}
+          <div className="mb-4">
+            <svg
+              className="animate-spin h-10 w-10 text-primary"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
           </div>
+          <p className="text-lg font-medium text-center">Loading...</p>
         </div>
       )}
 
