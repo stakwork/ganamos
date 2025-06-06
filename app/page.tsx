@@ -50,15 +50,6 @@ export default function Home() {
           <Button size="lg" variant="secondary" className="w-full max-w-xs" asChild>
             <a href="/auth/login">Log In</a>
           </Button>
-          <Button
-            size="xs"
-            variant="secondary"
-            className="w-auto px-3 py-1.5 rounded-full text-xs flex items-center gap-2 mt-6 text-muted-foreground hover:bg-orange-100"
-            onClick={() => setShowDonationModal(true)}
-          >
-            <BitcoinLogo className="w-4 h-4" />
-            Boost Your Community
-          </Button>
         </div>
       </div>
 
