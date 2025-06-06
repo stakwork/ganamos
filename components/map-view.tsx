@@ -79,7 +79,6 @@ export function MapView({
   const [locationError, setLocationError] = useState<string | null>(null)
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null)
   const [mapInitialized, setMapInitialized] = useState(false)
-  const [loadingStep, setLoadingStep] = useState<string>("Initializing...")
   const [selectedPost, setSelectedPost] = useState<Post | null>(centerPost || null)
   const markersRef = useRef<{ [key: string]: any }>({})
   const PostMarkerClassRef = useRef<any>(null)
@@ -239,7 +238,6 @@ export function MapView({
     console.log("Map view mounted, starting initialization...")
     setIsLoading(true)
     setLocationError(null)
-    setLoadingStep("Loading map library...")
 
     loadGoogleMaps()
   }, [mapInitialized])
@@ -472,7 +470,7 @@ export function MapView({
       // Check if already loaded
       if (window.google && window.google.maps) {
         console.log("Google Maps already loaded")
-        setLoadingStep("Initializing map...")
+        setIsLoading(true)
         // Create PostMarker class
         PostMarkerClassRef.current = createPostMarkerClass()
         console.log("PostMarker class created:", !!PostMarkerClassRef.current)
@@ -482,7 +480,7 @@ export function MapView({
 
       // Load Google Maps JavaScript API
       console.log("Loading Google Maps JavaScript API...")
-      setLoadingStep("Loading map components...")
+      setIsLoading(true)
 
       await new Promise<void>((resolve, reject) => {
         // Check if script already exists
@@ -528,7 +526,7 @@ export function MapView({
       })
 
       console.log("Google Maps loaded, initializing map...")
-      setLoadingStep("Setting up map...")
+      setIsLoading(true)
       initializeMap()
     } catch (error) {
       console.error("Error loading Google Maps:", error)
@@ -562,7 +560,7 @@ export function MapView({
 
     try {
       console.log("Creating map instance...")
-      setLoadingStep("Creating map...")
+      setIsLoading(true)
 
       // Determine center location
       let defaultCenter = { lat: 37.7749, lng: -122.4194 } // Default fallback
@@ -815,7 +813,6 @@ export function MapView({
     setLocationError(null)
     setMapInitialized(false)
     setMapInstance(null)
-    setLoadingStep("Retrying...")
     loadGoogleMaps()
   }
 
@@ -923,7 +920,7 @@ export function MapView({
         <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-40">
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-            <span>{loadingStep}</span>
+            <span>Loading...</span>
           </div>
         </div>
       )}
