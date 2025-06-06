@@ -335,6 +335,16 @@ export function MapView({
         const targetPane = panes.overlayMouseTarget
         targetPane.appendChild(this.containerDiv)
         console.log(`Marker ${this.markerId} added to DOM in overlayMouseTarget`)
+
+        const btcMarkerElement = this.containerDiv.querySelector(".btc-marker")
+        if (btcMarkerElement && this.isClickable) {
+          this.containerDiv.addEventListener("mouseenter", () => {
+            btcMarkerElement.classList.add("marker-hovered")
+          })
+          this.containerDiv.addEventListener("mouseleave", () => {
+            btcMarkerElement.classList.remove("marker-hovered")
+          })
+        }
       }
 
       // Called when the overlay's position should be drawn
@@ -414,6 +424,10 @@ export function MapView({
     transform: translateY(0px) scale(${markerScale});
     opacity: 1;
   }
+}
+.btc-marker.marker-hovered {
+  transform: scale(${this.isSelected ? 1.18 : 1.08});
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 0 0 1px #F4C14F;
 }
 </style>
 <div class="btc-marker" style="
