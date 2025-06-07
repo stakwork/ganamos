@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { X, RefreshCw, AlertCircle, Heart } from "lucide-react"
+import { X, RefreshCw, AlertCircle, Heart, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
 import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
@@ -1003,8 +1003,9 @@ export function MapView({
       >
         <Button
           onClick={handleNewPost}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium flex items-center gap-2"
         >
+          <Plus className="h-4 w-4" />
           New Issue
         </Button>
       </div>
