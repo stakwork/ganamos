@@ -82,6 +82,7 @@ export default function NewPostPage() {
   const [showCreateAccountPrompt, setShowCreateAccountPrompt] = useState(false)
   const [lastCreatedPostId, setLastCreatedPostId] = useState<string | null>(null)
   const [locationErrorCount, setLocationErrorCount] = useState(0)
+  const [showFullInvoice, setShowFullInvoice] = useState(false)
 
   useEffect(() => {
     if (isAnonymous) {
@@ -890,18 +891,41 @@ export default function NewPostPage() {
       {showFundingModal && fundingPaymentRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full">
-            <h2 className="text-xl font-semibold mb-4">Fund Your Anonymous Post</h2>
+            <h2 className="text-xl font-semibold mb-4">Fund Your Post</h2>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-              To publish your anonymous post with a reward of {formatSatsValue(reward)}, please pay the Lightning
-              invoice below.
+              To publish your post, fund your {formatSatsValue(reward)} reward by paying the Lightning invoice.
             </p>
-            <div className="mb-4 p-3 border rounded-md break-all bg-gray-50 dark:bg-gray-700 text-xs">
-              <code>{fundingPaymentRequest}</code>
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Lightning Invoice</span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(fundingPaymentRequest)
+                    toast({
+                      title: "Copied!",
+                      description: "Invoice copied to clipboard",
+                      variant: "success",
+                    })
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                >
+                  Copy
+                </button>
+              </div>
+              <div
+                className="p-3 border rounded-md bg-gray-50 dark:bg-gray-700 text-xs cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                onClick={() => setShowFullInvoice(!showFullInvoice)}
+              >
+                <code className="break-all">
+                  {showFullInvoice
+                    ? fundingPaymentRequest
+                    : `${fundingPaymentRequest.slice(0, 20)}...${fundingPaymentRequest.slice(-20)}`}
+                </code>
+              </div>
             </div>
             <div className="flex justify-center my-4">
               <QRCode value={fundingPaymentRequest} size={200} />
             </div>
-            <p className="text-center my-2 text-sm">Scan or copy the invoice above.</p>
 
             {isAwaitingPayment && (
               <div className="text-center my-4">
