@@ -783,18 +783,14 @@ export default function NewPostPage() {
                   <div className="flex items-center justify-between w-full max-w-xs">
                     <button
                       type="button"
-                      onClick={() => {
-                        const newReward = Math.max(isAnonymous ? MIN_ANONYMOUS_REWARD : 0, reward - 500)
-                        if (isAnonymous && newReward === MIN_ANONYMOUS_REWARD && reward > MIN_ANONYMOUS_REWARD) {
-                          toast({
-                            title: "Minimum Reward Required",
-                            description: `Anonymous posts require a minimum reward of ${MIN_ANONYMOUS_REWARD} sats.`,
-                            variant: "destructive",
-                          })
-                        }
-                        setReward(newReward)
-                      }}
-                      className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      onClick={() => setReward(Math.max(isAnonymous ? MIN_ANONYMOUS_REWARD : 0, reward - 500))}
+                      disabled={isAnonymous && reward <= MIN_ANONYMOUS_REWARD}
+                      className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-800"
+                      title={
+                        isAnonymous && reward <= MIN_ANONYMOUS_REWARD
+                          ? "Anonymous posts require a minimum reward of 500 sats."
+                          : ""
+                      }
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
