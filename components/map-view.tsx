@@ -859,9 +859,9 @@ export function MapView({
           variant="outline"
           size="icon"
           onClick={onClose}
-          className="absolute top-4 right-4 z-50 h-8 w-8 rounded-full bg-white hover:bg-gray-50 shadow-lg border-gray-200 text-gray-600 hover:text-gray-800"
+          className="absolute top-4 right-4 z-50 h-12 w-12 rounded-full bg-white hover:bg-gray-50 shadow-lg border-gray-200 text-gray-600 hover:text-gray-800"
         >
-          <X className="h-4 w-4" />
+          <X className="h-5 w-5" />
         </Button>
       )}
 
