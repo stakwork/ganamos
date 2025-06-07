@@ -1003,7 +1003,7 @@ export function MapView({
       >
         <Button
           onClick={handleNewPost}
-          className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium"
         >
           New Issue
         </Button>
