@@ -393,6 +393,11 @@ export default function NewPostPage() {
         const fundingInvoiceResult = await createPostFundingInvoiceAction(reward)
 
         if (fundingInvoiceResult.success && fundingInvoiceResult.paymentRequest && fundingInvoiceResult.rHash) {
+          console.log("Setting funding modal state:", {
+            paymentRequest: fundingInvoiceResult.paymentRequest,
+            rHash: fundingInvoiceResult.rHash,
+            paymentRequestLength: fundingInvoiceResult.paymentRequest.length,
+          })
           setFundingPaymentRequest(fundingInvoiceResult.paymentRequest)
           setFundingRHash(fundingInvoiceResult.rHash)
           setShowFundingModal(true)
@@ -930,7 +935,14 @@ export default function NewPostPage() {
               </div>
             </div>
             <div className="flex justify-center my-4">
-              <QRCode value={fundingPaymentRequest} size={200} />
+              {(() => {
+                console.log("QRCode component rendering with:", {
+                  fundingPaymentRequest,
+                  length: fundingPaymentRequest?.length,
+                  size: 200,
+                })
+                return <QRCode value={fundingPaymentRequest} size={200} />
+              })()}
             </div>
 
             {isAwaitingPayment && (
