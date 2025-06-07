@@ -963,7 +963,7 @@ export function MapView({
 
       {/* Airbnb-style Preview Card - Only show if not in modal and post is selected */}
       {selectedPost && !isModal && (
-        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-80 max-w-[calc(100%-1rem)]">
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-96 max-w-[calc(100%-1rem)]">
           <div
             className="bg-white rounded-xl shadow-lg p-3 cursor-pointer hover:shadow-xl transition-shadow relative"
             onClick={handlePreviewCardClick}
@@ -987,7 +987,7 @@ export function MapView({
                   {selectedPost.description || "No description available"}
                 </p>
                 <div className="flex items-center gap-1 mb-1">
-                  <span className="font-semibold text-orange-500">₿</span>
+                  <img src="/images/bitcoin-logo.png" alt="Bitcoin" className="w-4 h-4 object-contain" />
                   <span className="font-medium text-xs text-gray-700">{formatSatsValue(selectedPost.reward)}</span>
                 </div>
                 <div className="text-xs text-gray-500">{formatPostDate(selectedPost)}</div>
