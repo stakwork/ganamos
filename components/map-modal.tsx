@@ -507,7 +507,7 @@ export function MapModal({ isOpen, onClose, posts, centerPost }: MapModalProps) 
 
           {/* Airbnb-style Preview Card */}
           {selectedPost && (
-            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-80 max-w-[calc(100vw-2rem)]">
+            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-[30rem] max-w-[calc(100vw-2rem)]">
               <div
                 className="bg-white rounded-xl shadow-lg p-3 cursor-pointer hover:shadow-xl transition-shadow relative"
                 onClick={handlePreviewCardClick}

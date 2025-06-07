@@ -963,7 +963,7 @@ export function MapView({
 
       {/* Airbnb-style Preview Card - Only show if not in modal and post is selected */}
       {selectedPost && !isModal && (
-        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-96 max-w-[calc(100%-1rem)]">
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-[36rem] max-w-[calc(100%-1rem)]">
           <div
             className="bg-white rounded-xl shadow-lg p-3 cursor-pointer hover:shadow-xl transition-shadow relative"
             onClick={handlePreviewCardClick}
@@ -999,7 +999,7 @@ export function MapView({
 
       {/* New Issue Button - Always visible at bottom center */}
       <div
-        className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 z-40 transition-all duration-200 ${selectedPost && !isModal ? "translate-y-[-5rem]" : ""}`}
+        className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 z-40 transition-all duration-200 ${selectedPost && !isModal ? "translate-y-[-8rem]" : ""}`}
       >
         <Button
           onClick={handleNewPost}
