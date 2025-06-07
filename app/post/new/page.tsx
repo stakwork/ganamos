@@ -910,10 +910,18 @@ export default function NewPostPage() {
               To publish your post, fund your {formatSatsValue(reward)} reward by paying the Lightning invoice.
             </p>
             <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Lightning Invoice</span>
+              <div
+                className="p-3 border rounded-md bg-gray-50 dark:bg-gray-700 text-xs cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-between"
+                onClick={() => setShowFullInvoice(!showFullInvoice)}
+              >
+                <code className="break-all flex-1 mr-2">
+                  {showFullInvoice
+                    ? fundingPaymentRequest
+                    : `${fundingPaymentRequest.slice(0, 20)}...${fundingPaymentRequest.slice(-20)}`}
+                </code>
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation()
                     navigator.clipboard.writeText(fundingPaymentRequest)
                     toast({
                       title: "Copied!",
@@ -921,20 +929,23 @@ export default function NewPostPage() {
                       variant: "success",
                     })
                   }}
-                  className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1 rounded transition-colors flex-shrink-0"
                 >
-                  Copy
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                  </svg>
                 </button>
-              </div>
-              <div
-                className="p-3 border rounded-md bg-gray-50 dark:bg-gray-700 text-xs cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                onClick={() => setShowFullInvoice(!showFullInvoice)}
-              >
-                <code className="break-all">
-                  {showFullInvoice
-                    ? fundingPaymentRequest
-                    : `${fundingPaymentRequest.slice(0, 20)}...${fundingPaymentRequest.slice(-20)}`}
-                </code>
               </div>
             </div>
             <div className="flex justify-center my-4">
