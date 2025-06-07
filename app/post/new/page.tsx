@@ -981,7 +981,7 @@ export default function NewPostPage() {
           <div className="bg-white dark:bg-gray-900 p-8 rounded-lg shadow-2xl max-w-md w-full text-center">
             <div className="mb-6">
               <svg
-                className="mx-auto h-16 w-16 text-green-500"
+                className="mx-auto h-12 w-12 text-green-500"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -990,13 +990,13 @@ export default function NewPostPage() {
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth="2"
+                  strokeWidth="1.5"
                   d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
                 />
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth="2"
+                  strokeWidth="1.5"
                   d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                 />
               </svg>
