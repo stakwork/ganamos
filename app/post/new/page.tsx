@@ -1029,7 +1029,7 @@ export default function NewPostPage() {
                 variant="secondary"
                 onClick={() => {
                   setShowCreateAccountPrompt(false)
-                  router.push(lastCreatedPostId ? `/map?post=${lastCreatedPostId}` : "/map")
+                  router.push(lastCreatedPostId ? `/map?selectedPost=${lastCreatedPostId}` : "/map")
                 }}
                 className="w-full"
               >
