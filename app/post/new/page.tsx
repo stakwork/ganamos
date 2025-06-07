@@ -4,7 +4,6 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import Link from "next/link" // Import Link
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
@@ -992,43 +991,40 @@ export default function NewPostPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth="2"
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                 />
               </svg>
             </div>
             <h2 className="text-2xl font-bold mb-3 text-gray-900 dark:text-white">Post Created Successfully!</h2>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Your anonymous post is now live. Create an account to easily track your posts, manage rewards, and join
-              community groups.
+              Your post is live. Create an account to track your posts, earn bitcoin, and join community groups.
             </p>
             <div className="space-y-3">
               <Button
                 onClick={() => {
                   router.push(`/auth/register?redirect=/post/${lastCreatedPostId}`)
                 }}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
               >
                 Create Account
               </Button>
               <Button
-                variant="ghost"
+                variant="secondary"
                 onClick={() => {
                   setShowCreateAccountPrompt(false)
-                  router.push(lastCreatedPostId ? `/post/${lastCreatedPostId}` : "/dashboard")
+                  router.push(lastCreatedPostId ? `/map?post=${lastCreatedPostId}` : "/map")
                 }}
-                className="w-full text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="w-full"
               >
                 Maybe Later
               </Button>
             </div>
-            {lastCreatedPostId && (
-              <Link
-                href={`/post/${lastCreatedPostId}`}
-                className="mt-6 inline-block text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-500"
-              >
-                View Your Post
-              </Link>
-            )}
           </div>
         </div>
       )}
