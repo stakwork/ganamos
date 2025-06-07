@@ -388,6 +388,7 @@ export default function NewPostPage() {
       return
     }
 
+    // Handle anonymous submission
     if (isAnonymousSubmit) {
       try {
         const fundingInvoiceResult = await createPostFundingInvoiceAction(reward)
@@ -402,6 +403,8 @@ export default function NewPostPage() {
           setFundingRHash(fundingInvoiceResult.rHash)
           setShowFundingModal(true)
           setIsAwaitingPayment(true)
+          setIsSubmitting(false) // Reset submitting state
+          return // Return early to prevent executing the registered user flow
         } else {
           toast({
             title: "Error",
@@ -423,6 +426,7 @@ export default function NewPostPage() {
       }
     }
 
+    // This code only runs for registered users
     try {
       const now = new Date()
       const postId = uuidv4()
