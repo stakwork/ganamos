@@ -366,6 +366,16 @@ export default function NewPostPage() {
       return
     }
 
+    if (isAnonymousSubmit && !currentLocation) {
+      toast({
+        title: "Location Required",
+        description: "Anonymous posts require a location. Please add your location before posting.",
+        variant: "destructive",
+      })
+      setIsSubmitting(false)
+      return
+    }
+
     if (!isAnonymousSubmit && reward > 0 && (!user || !profile || profile.balance < reward)) {
       toast({
         title: "Insufficient balance",
@@ -386,11 +396,6 @@ export default function NewPostPage() {
           setFundingRHash(fundingInvoiceResult.rHash)
           setShowFundingModal(true)
           setIsAwaitingPayment(true)
-          toast({
-            title: "Payment Required",
-            description: "Please pay the Lightning invoice to publish your post.",
-          })
-          return
         } else {
           toast({
             title: "Error",
@@ -525,15 +530,6 @@ export default function NewPostPage() {
         <DynamicCameraCapture onCapture={handleCapture} />
       ) : (
         <>
-          {isAnonymous && !showCreateAccountPrompt && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-700 text-sm">
-              <p>
-                You are posting anonymously. A minimum reward of <strong>{MIN_ANONYMOUS_REWARD} sats</strong> is
-                required.
-              </p>
-              <p className="mt-1">Your post will be public. Group posting is available for registered users.</p>
-            </div>
-          )}
           {!showCreateAccountPrompt && (
             <form onSubmit={handleSubmit} className="space-y-6">
               {image && (
@@ -786,7 +782,17 @@ export default function NewPostPage() {
                   <div className="flex items-center justify-between w-full max-w-xs">
                     <button
                       type="button"
-                      onClick={() => setReward((prev) => Math.max(isAnonymous ? MIN_ANONYMOUS_REWARD : 0, prev - 500))}
+                      onClick={() => {
+                        const newReward = Math.max(isAnonymous ? MIN_ANONYMOUS_REWARD : 0, reward - 500)
+                        if (isAnonymous && newReward === MIN_ANONYMOUS_REWARD && reward > MIN_ANONYMOUS_REWARD) {
+                          toast({
+                            title: "Minimum Reward Required",
+                            description: `Anonymous posts require a minimum reward of ${MIN_ANONYMOUS_REWARD} sats.`,
+                            variant: "destructive",
+                          })
+                        }
+                        setReward(newReward)
+                      }}
                       className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                     >
                       <svg
