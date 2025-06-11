@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { redirect } from "next/navigation"
-import { Button } from "@/components/ui/button"
 import { LandingHero } from "@/components/landing-hero"
 import { getCurrentUser } from "@/lib/auth"
 import { BackgroundImage } from "@/components/background-image"
@@ -40,26 +39,26 @@ export default function Home() {
       <div className="container relative z-10 px-4 py-8 mx-auto">
         <LandingHero />
         <div className="flex flex-col items-center justify-center gap-4 mt-8">
-          <Button
-            size="lg"
-            className="h-11 rounded-md px-8 w-full max-w-xs bg-green-600 hover:bg-green-700 text-white"
-            asChild
+          <a
+            href="/map"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-11 rounded-md px-8 w-full max-w-xs bg-green-600 hover:bg-green-700 text-white"
           >
-            <a href="/map" className="inline-flex items-center justify-center gap-2">
-              <div className="scale-75">
-                <img
-                  src="/images/bitcoin-logo.png"
-                  alt="Bitcoin"
-                  className="inline-block h-6 w-6 mr-1"
-                  style={{ verticalAlign: "middle" }}
-                />
-              </div>
-              Earn Bitcoin
-            </a>
-          </Button>
-          <Button size="lg" variant="secondary" className="h-11 rounded-md px-8 w-full max-w-xs" asChild>
-            <a href="/auth/login">Log In</a>
-          </Button>
+            <div className="scale-75">
+              <img
+                src="/images/bitcoin-logo.png"
+                alt="Bitcoin"
+                className="inline-block h-6 w-6 mr-1"
+                style={{ verticalAlign: "middle" }}
+              />
+            </div>
+            Earn Bitcoin
+          </a>
+          <a
+            href="/auth/login"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-11 rounded-md px-8 w-full max-w-xs"
+          >
+            Log In
+          </a>
         </div>
       </div>
 
