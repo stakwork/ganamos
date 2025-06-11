@@ -160,7 +160,6 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
           ) : (
             <div className="relative">
               <video ref={videoRef} autoPlay playsInline muted className="w-full h-[85vh] object-cover" />
-              <div className="absolute inset-0 pointer-events-none border-4 border-white border-opacity-50 rounded-lg m-4"></div>
 
               {/* Overlay controls on the camera view - using inline styles for safe area */}
               <div style={safeAreaStyles}>
@@ -170,7 +169,7 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
                   onClick={takePhoto}
                   className="relative rounded-full w-20 h-20 p-0 bg-white hover:bg-gray-100 shadow-lg border-4 border-white"
                 >
-                  <div className="w-16 h-16 bg-white rounded-full"></div>
+                  <div className="w-16 h-16 bg-white rounded-full border-2 border-gray-300"></div>
                   <span className="sr-only">Take Photo</span>
                 </Button>
               </div>
@@ -181,7 +180,7 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
                 variant="outline"
                 size="icon"
                 onClick={() => window.history.back()}
-                className="absolute top-4 left-4 bg-black/30 border-0 hover:bg-black/40 text-white"
+                className="absolute top-6 left-4 bg-black/30 border-0 hover:bg-black/40 text-white/70"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -204,7 +203,7 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
                   variant="outline"
                   size="icon"
                   onClick={switchCamera}
-                  className="absolute top-4 right-4 bg-black/30 border-0 hover:bg-black/40 text-white"
+                  className="absolute top-6 right-4 bg-black/30 border-0 hover:bg-black/40 text-white/70"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
