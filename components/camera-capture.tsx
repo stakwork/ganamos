@@ -168,26 +168,36 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
                   type="button"
                   size="lg"
                   onClick={takePhoto}
-                  className="rounded-full w-16 h-16 p-0 bg-green-500 hover:bg-green-600 shadow-lg"
+                  className="relative rounded-full w-20 h-20 p-0 bg-white hover:bg-gray-100 shadow-lg border-4 border-white"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                  </svg>
+                  <div className="w-16 h-16 bg-white rounded-full"></div>
                   <span className="sr-only">Take Photo</span>
                 </Button>
               </div>
 
               {/* Switch camera button positioned at the top-right */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => window.history.back()}
+                className="absolute top-4 left-4 bg-black/30 border-0 hover:bg-black/40 text-white"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+                <span className="sr-only">Back</span>
+              </Button>
               {isMobile && (
                 <Button
                   type="button"
@@ -219,8 +229,6 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
       </Card>
 
       <canvas ref={canvasRef} className="hidden" />
-
-      <p className="text-center text-sm text-muted-foreground">Take a clear photo of the issue</p>
     </div>
   )
 }
