@@ -193,8 +193,8 @@ export function PostCard({ post }: { post: Post }) {
 
   return (
     <>
-      <Card className="overflow-hidden border dark:border-gray-800">
-        <div className="relative w-full h-48 cursor-pointer" onClick={handleClick}>
+      <Card className="overflow-hidden border dark:border-gray-800 cursor-pointer" onClick={handleClick}>
+        <div className="relative w-full h-48">
           {imageError ? (
             <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
               <svg
@@ -258,9 +258,7 @@ export function PostCard({ post }: { post: Post }) {
         <CardContent className="p-4">
           <div className="flex flex-col space-y-3">
             <div>
-              <p className="text-base truncate cursor-pointer" onClick={handleClick}>
-                {post.description}
-              </p>
+              <p className="text-base truncate">{post.description}</p>
             </div>
 
             {/* Profile info row */}
