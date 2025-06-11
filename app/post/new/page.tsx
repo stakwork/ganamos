@@ -501,7 +501,7 @@ export default function NewPostPage() {
 
   return (
     <div className="container px-4 py-6 mx-auto max-w-md">
-      <div className="absolute top-9 left-1/2 transform -translate-x-1/2 z-50">
+      <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50">
         <div className="bg-black/50 text-white/70 px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
           Take a clear photo of the issue
         </div>
