@@ -32,10 +32,19 @@ export const createBrowserSupabaseClient = () => {
 // For server components and API routes
 export const createServerSupabaseClient = (options?: SupabaseOptions) => {
   const url = options?.supabaseUrl || (process.env.NEXT_PUBLIC_SUPABASE_URL as string)
-  const key =
-    options?.supabaseKey ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string)
+
+  // Only access sensitive environment variables on the server side
+  let key: string
+  if (typeof window === "undefined") {
+    // Server-side: can access sensitive environment variables
+    key =
+      options?.supabaseKey ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string)
+  } else {
+    // Client-side: only use public environment variables
+    key = options?.supabaseKey || (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string)
+  }
 
   // Create client with basic options first
   const clientOptions: any = {
@@ -46,8 +55,8 @@ export const createServerSupabaseClient = (options?: SupabaseOptions) => {
     },
   }
 
-  // Only add cookies if cookieStore is provided
-  if (options?.cookieStore) {
+  // Only add cookies if cookieStore is provided and we're on server
+  if (options?.cookieStore && typeof window === "undefined") {
     clientOptions.auth.cookies = {
       get(name: string) {
         return options.cookieStore.get(name)?.value
