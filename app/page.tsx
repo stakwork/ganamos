@@ -40,15 +40,26 @@ export default function Home() {
 
       <div className="container relative z-10 px-4 py-8 mx-auto">
         <LandingHero />
-        <div className="flex flex-col items-center justify-center gap-4 mt-8">
-          <Button size="lg" className="w-full max-w-xs bg-green-600 hover:bg-green-700 text-white" asChild>
-            <a href="/map" className="flex items-center justify-center gap-2">
+        <div className="flex flex-col items-center justify-center gap-6 mt-12 max-w-sm mx-auto">
+          <Button
+            size="lg"
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl"
+            asChild
+          >
+            <a href="/map" className="flex items-center justify-center gap-3">
               <BitcoinLogo className="w-5 h-5" />
               Earn Bitcoin
             </a>
           </Button>
-          <Button size="lg" variant="secondary" className="w-full max-w-xs" asChild>
-            <a href="/auth/login">Log In</a>
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full border-2 border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-6 rounded-lg shadow-md transition-all duration-200 hover:shadow-lg"
+            asChild
+          >
+            <a href="/auth/login" className="flex items-center justify-center">
+              Log In
+            </a>
           </Button>
         </div>
       </div>
