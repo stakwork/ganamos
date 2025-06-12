@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
 import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { MapModal } from "@/components/map-modal"
 import { reverseGeocode } from "@/lib/geocoding"
 
 // State abbreviation mapping
@@ -84,7 +83,8 @@ export function PostCard({ post }: { post: Post }) {
   const router = useRouter()
   const [imageError, setImageError] = useState(false)
   const [userId, setUserId] = useState<string>("")
-  const [isMapOpen, setIsMapOpen] = useState(false)
+  // Remove this line
+  // const [isMapOpen, setIsMapOpen] = useState(false)
 
   useEffect(() => {
     const postUserId = post.userId || post.user_id
@@ -154,8 +154,12 @@ export function PostCard({ post }: { post: Post }) {
   const handleLocationClick = (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent triggering the card click
 
-    if (post.latitude && post.longitude) {
-      setIsMapOpen(true)
+    if (locationName) {
+      // Navigate to map page with the location as a search parameter
+      router.push(`/map?search=${encodeURIComponent(locationName)}`)
+    } else if (post.latitude && post.longitude) {
+      // If we don't have a location name but have coordinates, pass those
+      router.push(`/map?lat=${post.latitude}&lng=${post.longitude}`)
     }
   }
 
@@ -342,13 +346,14 @@ export function PostCard({ post }: { post: Post }) {
         </CardFooter>
       </Card>
 
-      {/* Map Modal */}
+      {/* Map Modal - No longer needed as we're navigating to the map page
       <MapModal
         isOpen={isMapOpen}
         onClose={() => setIsMapOpen(false)}
-        posts={[post]} // Pass only this post to focus on it
-        centerPost={post} // Center the map on this specific post
+        posts={[post]} 
+        centerPost={post} 
       />
+      */}
     </>
   )
 }
