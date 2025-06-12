@@ -97,6 +97,7 @@ export function MapView({
   const googleMapRef = useRef<google.maps.Map | null>(null)
   const [allPosts, setAllPosts] = useState<Post[]>(posts)
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false)
+  const [userCleared, setUserCleared] = useState(false)
 
   const onLoad = useCallback(
     (map: google.maps.Map) => {
@@ -742,6 +743,7 @@ export function MapView({
   // Handle search input
   const handleSearchInput = (query: string) => {
     setSearchQuery(query)
+    setUserCleared(false) // Reset the flag when user starts typing
 
     if (!query.trim() || !autocompleteService) {
       setSearchResults([])
@@ -845,11 +847,11 @@ export function MapView({
 
   // Add this useEffect to handle cityName updates
   useEffect(() => {
-    if (cityName && cityName !== searchQuery) {
+    if (cityName && cityName !== searchQuery && !userCleared) {
       setSearchQuery(cityName)
       console.log("MapView: Updated searchQuery with cityName:", cityName)
     }
-  }, [cityName, searchQuery])
+  }, [cityName, userCleared])
 
   return (
     <div className={containerClasses}>
@@ -887,6 +889,7 @@ export function MapView({
                   setSearchQuery("")
                   setSearchResults([])
                   setShowResults(false)
+                  setUserCleared(true)
                 }}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors"
               >

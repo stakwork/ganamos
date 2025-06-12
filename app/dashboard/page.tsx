@@ -14,6 +14,7 @@ import { Plus, X, Filter, Map, User } from "lucide-react"
 import type { Post } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getCurrentLocationWithName } from "@/lib/geocoding"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface ActiveFilters {
   count: number
@@ -25,7 +26,18 @@ interface ActiveFilters {
 }
 
 export default function DashboardPage() {
-  const { user, profile, loading, session, sessionLoaded, isConnectedAccount } = useAuth()
+  const {
+    user,
+    profile,
+    loading,
+    session,
+    sessionLoaded,
+    isConnectedAccount,
+    connectedAccounts,
+    activeUserId,
+    switchToAccount,
+    resetToMainAccount,
+  } = useAuth()
   const router = useRouter()
   const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
   const [posts, setPosts] = useState<Post[]>([])
@@ -281,16 +293,6 @@ export default function DashboardPage() {
         <div className="container px-1 pt-6 mx-auto max-w-md">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              {/* Show connected account avatar if using a connected account */}
-              {isConnectedAccount && profile && (
-                <Avatar className="h-8 w-8 border-2 border-amber-500">
-                  <AvatarImage src={profile.avatar_url || undefined} alt={profile.name} />
-                  <AvatarFallback>
-                    <User className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-              )}
-
               <Button
                 variant="ghost"
                 onClick={async () => {
@@ -325,14 +327,79 @@ export default function DashboardPage() {
                 </button>
               )}
             </div>
-            <Button
-              variant="ghost"
-              onClick={handleSatsClick}
-              className="flex items-center px-3 py-1 text-sm font-medium bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
-            >
-              <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="mr-1" />
-              {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
-            </Button>
+            <div className="flex items-center space-x-2">
+              {/* Show connected account avatar if using a connected account */}
+              {isConnectedAccount && profile && (
+                <Avatar className="h-9 w-9 border-2 border-amber-500">
+                  <AvatarImage src={profile.avatar_url || undefined} alt={profile.name} />
+                  <AvatarFallback>
+                    <User className="h-4 w-4" />
+                  </AvatarFallback>
+                </Avatar>
+              )}
+
+              {/* Connected Accounts Dropdown - only show if user has connected accounts */}
+              {connectedAccounts.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-9 w-9 rounded-full p-0" aria-label="Switch connected account">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage
+                          src={profile?.avatar_url || undefined}
+                          alt={profile?.name || "Connected Account"}
+                        />
+                        <AvatarFallback>
+                          <User className="h-4 w-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    {/* Main Account */}
+                    <DropdownMenuItem
+                      onClick={resetToMainAccount}
+                      className={`flex items-center gap-2 ${!isConnectedAccount ? "bg-blue-50 dark:bg-blue-950" : ""}`}
+                    >
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={user?.user_metadata?.avatar_url || "/placeholder.svg"} alt="Main Account" />
+                        <AvatarFallback>
+                          <User className="h-3 w-3" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="flex-1">Main Account</span>
+                      {!isConnectedAccount && <span className="text-blue-600">✓</span>}
+                    </DropdownMenuItem>
+
+                    {/* Connected Accounts */}
+                    {connectedAccounts.map((account) => (
+                      <DropdownMenuItem
+                        key={account.id}
+                        onClick={() => switchToAccount(account.id)}
+                        className={`flex items-center gap-2 ${activeUserId === account.id ? "bg-blue-50 dark:bg-blue-950" : ""}`}
+                      >
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={account.avatar_url || undefined} alt={account.name} />
+                          <AvatarFallback>
+                            <User className="h-3 w-3" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="flex-1">{account.name}</span>
+                        {activeUserId === account.id && <span className="text-blue-600">✓</span>}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              <Button
+                variant="ghost"
+                onClick={handleSatsClick}
+                className="flex items-center px-3 py-1 text-sm font-medium bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+              >
+                <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="mr-1" />
+                {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
