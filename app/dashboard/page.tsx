@@ -328,16 +328,6 @@ export default function DashboardPage() {
               )}
             </div>
             <div className="flex items-center space-x-2">
-              {/* Show connected account avatar if using a connected account */}
-              {isConnectedAccount && profile && (
-                <Avatar className="h-9 w-9 border-2 border-amber-500">
-                  <AvatarImage src={profile.avatar_url || undefined} alt={profile.name} />
-                  <AvatarFallback>
-                    <User className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-              )}
-
               {/* Connected Accounts Dropdown - only show if user has connected accounts */}
               {connectedAccounts.length > 0 && (
                 <DropdownMenu>
@@ -354,19 +344,19 @@ export default function DashboardPage() {
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuContent align="end" className="w-64 p-2">
                     {/* Main Account */}
                     <DropdownMenuItem
                       onClick={resetToMainAccount}
-                      className={`flex items-center gap-2 ${!isConnectedAccount ? "bg-blue-50 dark:bg-blue-950" : ""}`}
+                      className={`flex items-center gap-3 py-3 px-3 text-base ${!isConnectedAccount ? "bg-blue-50 dark:bg-blue-950" : ""}`}
                     >
-                      <Avatar className="h-6 w-6">
+                      <Avatar className="h-8 w-8">
                         <AvatarImage src={user?.user_metadata?.avatar_url || "/placeholder.svg"} alt="Main Account" />
                         <AvatarFallback>
-                          <User className="h-3 w-3" />
+                          <User className="h-4 w-4" />
                         </AvatarFallback>
                       </Avatar>
-                      <span className="flex-1">Main Account</span>
+                      <span className="flex-1 font-medium">Main Account</span>
                       {!isConnectedAccount && <span className="text-blue-600">✓</span>}
                     </DropdownMenuItem>
 
@@ -375,15 +365,15 @@ export default function DashboardPage() {
                       <DropdownMenuItem
                         key={account.id}
                         onClick={() => switchToAccount(account.id)}
-                        className={`flex items-center gap-2 ${activeUserId === account.id ? "bg-blue-50 dark:bg-blue-950" : ""}`}
+                        className={`flex items-center gap-3 py-3 px-3 text-base ${activeUserId === account.id ? "bg-blue-50 dark:bg-blue-950" : ""}`}
                       >
-                        <Avatar className="h-6 w-6">
+                        <Avatar className="h-8 w-8">
                           <AvatarImage src={account.avatar_url || undefined} alt={account.name} />
                           <AvatarFallback>
-                            <User className="h-3 w-3" />
+                            <User className="h-4 w-4" />
                           </AvatarFallback>
                         </Avatar>
-                        <span className="flex-1">{account.name}</span>
+                        <span className="flex-1 font-medium">{account.name}</span>
                         {activeUserId === account.id && <span className="text-blue-600">✓</span>}
                       </DropdownMenuItem>
                     ))}
