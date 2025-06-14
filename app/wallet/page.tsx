@@ -19,11 +19,12 @@ function TransactionHistory() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const { profile } = useAuth()
-  const supabase = createBrowserSupabaseClient()
 
   useEffect(() => {
     async function fetchTransactions() {
       if (!profile) return
+
+      const supabase = createBrowserSupabaseClient()
 
       try {
         const { data, error } = await supabase
@@ -46,7 +47,7 @@ function TransactionHistory() {
     }
 
     fetchTransactions()
-  }, [profile, supabase])
+  }, [profile])
 
   if (loading) {
     return (
