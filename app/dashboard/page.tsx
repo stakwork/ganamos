@@ -10,10 +10,9 @@ import { mockPosts } from "@/lib/mock-data"
 import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { Plus, X, Filter, Map, User } from "lucide-react"
+import { Plus, X, Filter, User, SlidersHorizontal } from "lucide-react"
 import type { Post } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { getCurrentLocationWithName } from "@/lib/geocoding"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface ActiveFilters {
@@ -50,9 +49,6 @@ export default function DashboardPage() {
 
   const [activeFilters, setActiveFilters] = useState<ActiveFilters | null>(null)
   const [filterCleared, setFilterCleared] = useState(false)
-
-  // Map modal state
-  // const [isMapOpen, setIsMapOpen] = useState(false)
 
   // Add session guard with useEffect
   useEffect(() => {
@@ -295,25 +291,11 @@ export default function DashboardPage() {
             <div className="flex items-center space-x-2">
               <Button
                 variant="ghost"
-                onClick={async () => {
-                  try {
-                    const locationData = await getCurrentLocationWithName()
-                    if (locationData) {
-                      // Pass location data to map page to zoom to city bounds
-                      router.push(`/map?lat=${locationData.latitude}&lng=${locationData.longitude}&zoom=city`)
-                    } else {
-                      router.push("/map")
-                    }
-                  } catch (error) {
-                    console.error("Error getting location:", error)
-                    router.push("/map")
-                  }
-                }}
+                onClick={() => router.push("/search")}
                 className="flex items-center gap-1 h-9 px-3 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
-                aria-label="View map"
+                aria-label="Filter"
               >
-                <Map className="h-4 w-4" />
-                <span className="text-sm font-medium">Map</span>
+                <SlidersHorizontal className="h-4 w-4" />
               </Button>
 
               {activeFilters && activeFilters.count > 0 && (

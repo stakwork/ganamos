@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { mockPosts } from "@/lib/mock-data"
 import { formatSatsValue } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+import { X } from "lucide-react"
 
 export default function SearchPage() {
   // Group posts by reward range for the bar chart
@@ -69,12 +70,19 @@ export default function SearchPage() {
   return (
     <div className="container px-4 py-6 mx-auto max-w-md">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Search</h1>
+        <h1 className="text-2xl font-bold">Filter Issues</h1>
+        <Button
+          variant="ghost"
+          onClick={() => router.push("/dashboard")}
+          className="flex items-center gap-2"
+          aria-label="Close search"
+        >
+          <X className="h-4 w-4" />
+        </Button>
       </div>
 
       <div className="space-y-6">
         <div>
-          <label className="text-sm font-medium">Search</label>
           <div className="relative mt-1">
             <svg
               xmlns="http://www.w3.org/2000/svg"

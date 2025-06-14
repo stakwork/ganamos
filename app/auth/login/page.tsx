@@ -98,8 +98,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md px-4 z-10">
         <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm p-8 rounded-lg shadow-lg space-y-6">
           <div className="space-y-4 text-center">
-            <h1 className="app-title">Ganamos!</h1>
-            <p className="text-muted-foreground">Sign in to access your account</p>
+            <h1 className="app-title pb-2.5">Ganamos!</h1>
           </div>
 
           {error && (
@@ -213,14 +212,16 @@ export default function LoginPage() {
             </>
           )}
 
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link href="/auth/register" className="text-emerald-600 hover:underline">
-                Sign up
-              </Link>
-            </p>
-          </div>
+          {!showEmailForm && (
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">
+                Don't have an account?{" "}
+                <Link href="/auth/register" className="text-emerald-600 hover:underline">
+                  Sign up
+                </Link>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

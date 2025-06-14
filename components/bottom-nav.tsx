@@ -1,13 +1,15 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Home, Search, Wallet, User } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { Home, User, Map, Sprout } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useNotifications } from "@/components/notifications-provider"
+import { getCurrentLocationWithName } from "@/lib/geocoding"
 
 export function BottomNav() {
   const pathname = usePathname()
+  const router = useRouter()
   const { hasPendingRequests } = useNotifications()
 
   // Don't show bottom nav on home page or auth pages
@@ -19,6 +21,21 @@ export function BottomNav() {
     if (path === "/dashboard" && (pathname === "/dashboard" || pathname === "/")) return true
     if (path !== "/dashboard" && pathname.startsWith(path)) return true
     return false
+  }
+
+  const handleMapClick = async () => {
+    try {
+      const locationData = await getCurrentLocationWithName()
+      if (locationData) {
+        // Pass location data to map page to zoom to city bounds
+        router.push(`/map?lat=${locationData.latitude}&lng=${locationData.longitude}&zoom=city`)
+      } else {
+        router.push("/map")
+      }
+    } catch (error) {
+      console.error("Error getting location:", error)
+      router.push("/map")
+    }
   }
 
   return (
@@ -41,28 +58,28 @@ export function BottomNav() {
             />
           </Link>
 
-          {/* Search icon */}
-          <Link
-            href="/search"
-            className={cn("flex items-center justify-center", isActive("/search") && "text-primary dark:text-primary")}
+          {/* Map icon */}
+          <button
+            onClick={handleMapClick}
+            className={cn("flex items-center justify-center", pathname === "/map" && "text-primary dark:text-primary")}
           >
-            <Search
+            <Map
               className={cn(
                 "w-6 h-6 text-gray-500 dark:text-gray-400",
-                isActive("/search") && "text-primary dark:text-primary",
+                pathname === "/map" && "text-primary dark:text-primary",
               )}
             />
-          </Link>
+          </button>
 
-          {/* Wallet icon */}
+          {/* Donate icon */}
           <Link
-            href="/wallet"
-            className={cn("flex items-center justify-center", isActive("/wallet") && "text-primary dark:text-primary")}
+            href="/donate"
+            className={cn("flex items-center justify-center", isActive("/donate") && "text-primary dark:text-primary")}
           >
-            <Wallet
+            <Sprout
               className={cn(
                 "w-6 h-6 text-gray-500 dark:text-gray-400",
-                isActive("/wallet") && "text-primary dark:text-primary",
+                isActive("/donate") && "text-primary dark:text-primary",
               )}
             />
           </Link>
