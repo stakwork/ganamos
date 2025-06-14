@@ -69,7 +69,7 @@ export default function NewPostPage() {
   const isAnonymous = !user
   const MIN_ANONYMOUS_REWARD = 500
   const [fundingPaymentRequest, setFundingPaymentRequest] = useState<string | null>(null)
-  const [fundingRHash, setFundingRHash] = useState<string | null>(null)
+  const [fundingRHash, setFundingRHash = useState<string | null>(null)
   const [isAwaitingPayment, setIsAwaitingPayment] = useState(false)
   const [showFundingModal, setShowFundingModal] = useState(false)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -534,5 +534,228 @@ export default function NewPostPage() {
                    </svg>
                    <span className="sr-only">Back to camera</span>
                   </Button>
-                </div>\
+                </div>
               )}
+
+              <div>
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                  Description
+                </label>
+                <div className="mt-1">
+                  <textarea
+                    id="description"
+                    rows={3}
+                    className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    placeholder="Describe the issue"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="location" className="block text-sm font-medium text-gray-700">
+                  Location
+                </label>
+                <div className="mt-1 flex items-center justify-between">
+                  {currentLocation ? (
+                    <div className="flex items-center space-x-2">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-gray-500"
+                      >
+                        <path d="M20.42 8.42A8.38 8.38 0 0 0 12 2.16a8.38 8.38 0 0 0-8.42 8.42A8.18 8.18 0 0 0 3 16v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a8.18 8.18 0 0 0-.58-7.58z" />
+                        <circle cx="12" cy="11" r="3" />
+                      </svg>
+                      <span className="text-sm text-gray-900">{currentLocation.displayName}</span>
+                      <Button type="button" variant="ghost" size="sm" onClick={handleRemoveLocation}>
+                        Remove
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isGettingLocation}
+                      onClick={handleGetLocation}
+                    >
+                      {isGettingLocation ? (
+                        <>
+                          <svg
+                            className="animate-spin h-5 w-5 mr-2"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Getting location...
+                        </>
+                      ) : (
+                        "Add Location"
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="reward" className="block text-sm font-medium text-gray-700">
+                  Reward (Sats)
+                </label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
+                    <span className="text-gray-500">⚡</span>
+                  </div>
+                  <input
+                    type="number"
+                    name="reward"
+                    id="reward"
+                    className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
+                    placeholder="0"
+                    value={reward}
+                    onChange={(e) => setReward(parseInt(e.target.value))}
+                    min={0}
+                  />
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <span className="text-gray-500 sm:text-sm">sats</span>
+                  </div>
+                </div>
+              </div>
+
+              {user && userGroups.length > 0 && (
+                <div>
+                  <label htmlFor="group" className="block text-sm font-medium text-gray-700">
+                    Post to Group (Optional)
+                  </label>
+                  <div className="mt-1">
+                    <select
+                      id="group"
+                      name="group"
+                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                      value={selectedGroupId || ""}
+                      onChange={(e) => setSelectedGroupId(e.target.value)}
+                    >
+                      <option value="">Post to Public</option>
+                      {userGroups.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between">
+                <Button variant="secondary" onClick={handleBack}>
+                  Back
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <svg
+                        className="animate-spin h-5 w-5 mr-2"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Posting...
+                    </>
+                  ) : (
+                    "Post Issue"
+                  )}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* Funding Modal */}
+          {showFundingModal && fundingPaymentRequest && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+                <h2 className="text-lg font-semibold mb-4">Fund Your Anonymous Post</h2>
+                <p className="text-gray-700 mb-4">
+                  To create an anonymous post, you need to fund it with {reward} sats. Please use the following
+                  payment request:
+                </p>
+                <div className="bg-gray-100 p-3 rounded-md break-all">
+                  {showFullInvoice ? fundingPaymentRequest : `${fundingPaymentRequest.substring(0, 30)}...`}
+                  {!showFullInvoice && (
+                    <button
+                      onClick={() => setShowFullInvoice(true)}
+                      className="text-blue-500 hover:underline ml-1"
+                    >
+                      Show Full Invoice
+                    </button>
+                  )}
+                </div>
+                <p className="text-gray-700 mt-4">
+                  Open your Lightning wallet and pay the invoice to finalize your anonymous post.
+                </p>
+                <Button onClick={() => setShowFundingModal(false)} className="mt-4">
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Create Account Prompt */}
+          {showCreateAccountPrompt && lastCreatedPostId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+                <h2 className="text-lg font-semibold mb-4">Create an Account?</h2>
+                <p className="text-gray-700 mb-4">
+                  You&apos;ve successfully created an anonymous post. Would you like to create an account to manage
+                  your posts and earn rewards?
+                </p>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="secondary" onClick={() => setShowCreateAccountPrompt(false)}>
+                    No, thanks
+                  </Button>
+                  <Button onClick={() => router.push(`/register?postId=${lastCreatedPostId}`)}>
+                    Create Account
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
