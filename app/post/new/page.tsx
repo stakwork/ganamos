@@ -69,7 +69,7 @@ export default function NewPostPage() {
   const isAnonymous = !user
   const MIN_ANONYMOUS_REWARD = 500
   const [fundingPaymentRequest, setFundingPaymentRequest] = useState<string | null>(null)
-  const [fundingRHash, setFundingRHash = useState<string | null>(null)
+  const [fundingRHash, setFundingRHash] = useState<string | null>(null)
   const [isAwaitingPayment, setIsAwaitingPayment] = useState(false)
   const [showFundingModal, setShowFundingModal] = useState(false)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -519,20 +519,20 @@ export default function NewPostPage() {
                     className="absolute top-2 left-2"
                     onClick={() => setStep("photo")}
                   >
-                   <svg
-                     xmlns="http://www.w3.org/2000/svg"
-                     width="18"
-                     height="18"
-                     viewBox="0 0 24 24"
-                     fill="none"
-                     stroke="currentColor"
-                     strokeWidth="2"
-                     strokeLinecap="round"
-                     strokeLinejoin="round"
-                   >
-                     <path d="m15 18-6-6 6-6" />
-                   </svg>
-                   <span className="sr-only">Back to camera</span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="m15 18-6-6 6-6" />
+                    </svg>
+                    <span className="sr-only">Back to camera</span>
                   </Button>
                 </div>
               )}
@@ -581,12 +581,7 @@ export default function NewPostPage() {
                       </Button>
                     </div>
                   ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isGettingLocation}
-                      onClick={handleGetLocation}
-                    >
+                    <Button type="button" variant="outline" disabled={isGettingLocation} onClick={handleGetLocation}>
                       {isGettingLocation ? (
                         <>
                           <svg
@@ -634,7 +629,7 @@ export default function NewPostPage() {
                     className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
                     placeholder="0"
                     value={reward}
-                    onChange={(e) => setReward(parseInt(e.target.value))}
+                    onChange={(e) => setReward(Number.parseInt(e.target.value))}
                     min={0}
                   />
                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
@@ -710,16 +705,13 @@ export default function NewPostPage() {
               <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
                 <h2 className="text-lg font-semibold mb-4">Fund Your Anonymous Post</h2>
                 <p className="text-gray-700 mb-4">
-                  To create an anonymous post, you need to fund it with {reward} sats. Please use the following
-                  payment request:
+                  To create an anonymous post, you need to fund it with {reward} sats. Please use the following payment
+                  request:
                 </p>
                 <div className="bg-gray-100 p-3 rounded-md break-all">
                   {showFullInvoice ? fundingPaymentRequest : `${fundingPaymentRequest.substring(0, 30)}...`}
                   {!showFullInvoice && (
-                    <button
-                      onClick={() => setShowFullInvoice(true)}
-                      className="text-blue-500 hover:underline ml-1"
-                    >
+                    <button onClick={() => setShowFullInvoice(true)} className="text-blue-500 hover:underline ml-1">
                       Show Full Invoice
                     </button>
                   )}
@@ -740,16 +732,14 @@ export default function NewPostPage() {
               <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
                 <h2 className="text-lg font-semibold mb-4">Create an Account?</h2>
                 <p className="text-gray-700 mb-4">
-                  You&apos;ve successfully created an anonymous post. Would you like to create an account to manage
-                  your posts and earn rewards?
+                  You&apos;ve successfully created an anonymous post. Would you like to create an account to manage your
+                  posts and earn rewards?
                 </p>
                 <div className="flex justify-end space-x-2">
                   <Button variant="secondary" onClick={() => setShowCreateAccountPrompt(false)}>
                     No, thanks
                   </Button>
-                  <Button onClick={() => router.push(`/register?postId=${lastCreatedPostId}`)}>
-                    Create Account
-                  </Button>
+                  <Button onClick={() => router.push(`/register?postId=${lastCreatedPostId}`)}>Create Account</Button>
                 </div>
               </div>
             </div>
