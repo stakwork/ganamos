@@ -188,3 +188,51 @@ body {
 .custom-marker {
   animation: bounce-in 0.5s ease-out;
 }
+
+/* Add these styles to your globals.css file */
+
+/* Phone input styles */
+.PhoneInput {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.PhoneInputCountry {
+  display: flex;
+  align-items: center;
+  margin-right: 0.5rem;
+  padding: 0 0.5rem;
+}
+
+.PhoneInputCountryIcon {
+  width: 1.5rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+}
+
+.PhoneInputCountrySelectArrow {
+  border-style: solid;
+  border-width: 0.25rem 0.25rem 0 0.25rem;
+  border-color: #888 transparent transparent transparent;
+  margin-left: 0.5rem;
+}
+
+.PhoneInputInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0;
+  font-size: 1rem;
+  outline: none;
+  width: 100%;
+}
+
+/* Dark mode adjustments */
+.dark .PhoneInputInput {
+  color: white;
+}
+
+.dark .PhoneInputCountrySelectArrow {
+  border-color: #aaa transparent transparent transparent;
+}

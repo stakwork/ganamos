@@ -328,6 +328,14 @@ export default function DashboardPage() {
               )}
             </div>
             <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                onClick={handleSatsClick}
+                className="flex items-center px-3 py-1 text-sm font-medium bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+              >
+                <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="mr-1" />
+                {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
+              </Button>
               {/* Connected Accounts Dropdown - only show if user has connected accounts */}
               {connectedAccounts.length > 0 && (
                 <DropdownMenu>
@@ -380,15 +388,6 @@ export default function DashboardPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-
-              <Button
-                variant="ghost"
-                onClick={handleSatsClick}
-                className="flex items-center px-3 py-1 text-sm font-medium bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
-              >
-                <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="mr-1" />
-                {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
-              </Button>
             </div>
           </div>
         </div>

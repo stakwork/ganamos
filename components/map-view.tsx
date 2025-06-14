@@ -743,7 +743,6 @@ export function MapView({
   // Handle search input
   const handleSearchInput = (query: string) => {
     setSearchQuery(query)
-    setUserCleared(false) // Reset the flag when user starts typing
 
     if (!query.trim() || !autocompleteService) {
       setSearchResults([])

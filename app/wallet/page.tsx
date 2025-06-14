@@ -13,6 +13,7 @@ import { LoadingSpinner } from "@/components/loading-spinner"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { formatDistanceToNow } from "date-fns"
 import type { Transaction } from "@/lib/database.types"
+import { Skeleton } from "@/components/ui/skeleton"
 
 function TransactionHistory() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -49,8 +50,25 @@ function TransactionHistory() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-2">
-        <LoadingSpinner />
+      <div className="space-y-3">
+        {[...Array(4)].map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0"
+          >
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <div className="space-y-1">
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </div>
+            <div className="text-right space-y-1">
+              <Skeleton className="h-4 w-12" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          </div>
+        ))}
       </div>
     )
   }

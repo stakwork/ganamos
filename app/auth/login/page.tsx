@@ -201,6 +201,14 @@ export default function LoginPage() {
                 >
                   Sign in with Email
                 </Button>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => router.push("/auth/phone")}
+                  disabled={isLoading}
+                >
+                  Sign in with Phone
+                </Button>
               </div>
             </>
           )}

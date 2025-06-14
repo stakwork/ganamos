@@ -17,6 +17,7 @@ type AuthContextType = {
   sessionLoaded: boolean // Added to track when session loading is complete
   signInWithGoogle: () => Promise<void>
   signInWithEmail: (email: string, password: string) => Promise<{ success: boolean; message?: string }>
+  signInWithPhone: (phone: string) => Promise<{ success: boolean; message?: string }>
   signUpWithEmail: (email: string, password: string, name: string) => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<Profile>) => Promise<void>
@@ -439,6 +440,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Sign in with phone
+  const signInWithPhone = async (phone: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone,
+      })
+
+      if (error) {
+        return {
+          success: false,
+          message: error.message || "Failed to send verification code",
+        }
+      }
+
+      return { success: true }
+    } catch (error: any) {
+      console.error("Phone sign in failed:", error)
+      return {
+        success: false,
+        message: error?.message || "An unexpected error occurred",
+      }
+    }
+  }
+
   // Sign up with email
   const signUpWithEmail = async (email: string, password: string, name: string) => {
     try {
@@ -563,6 +588,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sessionLoaded,
         signInWithGoogle,
         signInWithEmail,
+        signInWithPhone,
         signUpWithEmail,
         signOut,
         updateProfile,
