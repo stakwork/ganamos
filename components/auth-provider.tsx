@@ -44,7 +44,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [sessionLoaded, setSessionLoaded] = useState(false) // Track when session is loaded
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createBrowserSupabaseClient({
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+    },
+  })
   const { toast } = useToast()
 
   // New state for account switching

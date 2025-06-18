@@ -3,14 +3,10 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Card, CardFooter } from "@/components/ui/card"
 import type { Post } from "@/lib/types"
-import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { formatTimeAgo } from "@/lib/utils"
 import { reverseGeocode } from "@/lib/geocoding"
 
 // State abbreviation mapping
@@ -95,7 +91,7 @@ export function PostCard({ post }: { post: Post }) {
     setUserId(postUserId)
   }, [post.userId, post.user_id])
 
-  // Handle location display - use stored city or convert coordinates to readable name if needed
+  // Handle location display - use stored city or convert coordinates to readable name
   const [locationName, setLocationName] = useState<string>("")
 
   useEffect(() => {
@@ -226,85 +222,46 @@ export function PostCard({ post }: { post: Post }) {
               onError={() => setImageError(true)}
             />
           )}
-          <div className="absolute top-2 right-2">
-            <Badge
-              variant={post.fixed || post.under_review ? "outline" : "default"}
-              className={
-                post.fixed
-                  ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900 dark:text-emerald-100 dark:hover:bg-emerald-900"
-                  : post.under_review
-                    ? "bg-orange-100 text-orange-800 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-100 dark:hover:bg-orange-900"
-                    : "flex items-center gap-1"
-              }
-            >
-              {post.fixed ? (
-                "Fixed"
-              ) : post.under_review ? (
-                "Under Review"
-              ) : (
-                <>
-                  <div className="w-3 h-3 relative">
-                    <Image
-                      src="/images/bitcoin-logo.png"
-                      alt="Bitcoin"
-                      width={12}
-                      height={12}
-                      className="object-contain"
-                    />
-                  </div>
-                  {formatSatsValue(post.reward)}
-                </>
-              )}
-            </Badge>
-          </div>
         </div>
 
-        <CardContent className="p-4">
-          <div className="flex flex-col space-y-3">
-            <div>
-              <p className="text-base truncate">{post.description}</p>
-            </div>
-
-            {/* Profile info row */}
-            <div className="flex items-center">
-              <div className="flex items-center cursor-pointer hover:opacity-80" onClick={handleProfileClick}>
-                <Avatar className="h-6 w-6 mr-2">
-                  <AvatarImage src={post.created_by_avatar || "/placeholder.svg"} alt={post.created_by || "User"} />
-                  <AvatarFallback>{getInitials()}</AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-medium">{post.created_by || "Anonymous"}</span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-
-        <CardFooter className="p-4 pt-0">
-          <div className="flex items-center justify-between w-full flex-wrap gap-2">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="mr-1 text-muted-foreground"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
-                <span className="text-xs text-muted-foreground">{formatDate()}</span>
+        <CardFooter className="p-4 pt-4">
+          <div className="flex items-start justify-between w-full">
+            {/* Left side: Location/Timestamp row above Poster info */}
+            <div className="flex flex-col space-y-2">
+              {/* Description */}
+              <div>
+                <p className="text-base truncate">{post.description}</p>
               </div>
 
-              {locationName && (
-                <div
-                  className="flex items-center cursor-pointer hover:text-blue-600 transition-colors"
-                  onClick={handleLocationClick}
-                >
+              {/* Location and timestamp row - flipped order */}
+              <div className="flex items-center space-x-3">
+                {locationName && (
+                  <div
+                    className="flex items-center cursor-pointer hover:text-blue-600 transition-colors"
+                    onClick={handleLocationClick}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-1 text-muted-foreground"
+                    >
+                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                      <circle cx="12" cy="10" r="3" />
+                    </svg>
+                    <span className="text-xs text-muted-foreground hover:text-blue-600 transition-colors">
+                      {abbreviateLocation(locationName)}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-center">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="14"
@@ -317,31 +274,101 @@ export function PostCard({ post }: { post: Post }) {
                     strokeLinejoin="round"
                     className="mr-1 text-muted-foreground"
                   >
-                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                    <circle cx="12" cy="10" r="3" />
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
                   </svg>
-                  <span className="text-xs text-muted-foreground hover:text-blue-600 transition-colors">
-                    {abbreviateLocation(locationName)}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{formatDate()}</span>
                 </div>
-              )}
+              </div>
+
+              {/* Poster info row */}
+              <div className="flex items-center cursor-pointer hover:opacity-80" onClick={handleProfileClick}>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-1 text-muted-foreground"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <span className="text-xs text-muted-foreground">
+                  {(() => {
+                    const name = post.created_by || "Anonymous"
+                    if (name === "Anonymous") return name
+                    const parts = name.split(" ")
+                    if (parts.length === 1) return parts[0]
+                    const firstName = parts[0]
+                    const lastInitial = parts[parts.length - 1].charAt(0)
+                    return `${firstName} ${lastInitial}.`
+                  })()}
+                </span>
+              </div>
             </div>
 
-            {!post.fixed && (
-              <Button size="sm" variant="outline" onClick={handleClick} className="dark:border-gray-700">
-                View Details
-              </Button>
-            )}
-
-            {post.fixed && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700 dark:text-emerald-400 dark:border-emerald-800/30 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/50"
+            {/* Bitcoin Map Marker with Sats Reward on the right */}
+            <div
+              className="relative cursor-pointer"
+              onClick={handleClick}
+              style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "50%",
+                background: "#FED56B",
+                border: "1px solid #C5792D",
+                boxShadow: "0 0 0 1px #F4C14F",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <img
+                src="/images/bitcoin-logo.png"
+                alt="Bitcoin"
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  filter: "drop-shadow(0px -1px 1px rgba(255, 255, 255, 0.4))",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "-10px",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "white",
+                  color: "black",
+                  padding: "2px 8px",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                  borderRadius: "12px",
+                  border: "1px solid #C5792D",
+                  boxShadow: "0 2px 3px rgba(0, 0, 0, 0.1)",
+                  fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+                  minWidth: "20px",
+                  textAlign: "center",
+                  zIndex: 2,
+                }}
               >
-                Fixed
-              </Button>
-            )}
+                {(() => {
+                  const sats = post.reward
+                  if (sats === 0) return "0"
+                  if (sats < 1000) return sats.toString()
+                  const inK = sats / 1000
+                  if (inK === Math.floor(inK)) {
+                    return `${Math.floor(inK)}k`
+                  }
+                  return `${inK.toFixed(1)}k`.replace(".0k", "k")
+                })()}
+              </div>
+            </div>
           </div>
         </CardFooter>
       </Card>

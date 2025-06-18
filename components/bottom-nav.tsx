@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Home, User, Map, Sprout } from "lucide-react"
+import { Home, User, Map, Sprout, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useNotifications } from "@/components/notifications-provider"
 import { getCurrentLocationWithName } from "@/lib/geocoding"
@@ -41,7 +41,7 @@ export function BottomNav() {
   return (
     <div className="fixed bottom-0 left-0 z-50 w-full h-16 bg-white/80 backdrop-blur-md dark:bg-gray-900/80">
       <div className="relative w-full max-w-md mx-auto h-full">
-        <div className="grid grid-cols-4 items-center h-full w-full px-6">
+        <div className="grid grid-cols-5 items-center h-full w-full px-6">
           {/* Home icon */}
           <Link
             href="/dashboard"
@@ -67,6 +67,23 @@ export function BottomNav() {
               className={cn(
                 "w-6 h-6 text-gray-500 dark:text-gray-400",
                 pathname === "/map" && "text-primary dark:text-primary",
+              )}
+            />
+          </button>
+
+          {/* New Post button - Center */}
+          <button
+            onClick={() => router.push("/post/new")}
+            className={cn(
+              "flex items-center justify-center",
+              pathname === "/post/new" && "text-primary dark:text-primary",
+            )}
+            aria-label="New Post"
+          >
+            <Plus
+              className={cn(
+                "w-6 h-6 text-gray-500 dark:text-gray-400",
+                pathname === "/post/new" && "text-primary dark:text-primary",
               )}
             />
           </button>

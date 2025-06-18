@@ -29,9 +29,8 @@ export default function PhoneAuthPage() {
 
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
-              Prefer another method?{" "}
               <Link href="/auth/login" className="text-emerald-600 hover:underline">
-                Sign in with email
+                Back to all sign in options
               </Link>
             </p>
           </div>

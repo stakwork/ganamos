@@ -162,6 +162,7 @@ export default function LoginPage() {
               <div className="space-y-4">
                 <Button
                   className="w-full flex items-center justify-center gap-2"
+                  variant="outline"
                   onClick={handleGoogleSignIn}
                   disabled={isLoading}
                 >
@@ -194,7 +195,7 @@ export default function LoginPage() {
 
                 <Button
                   className="w-full"
-                  variant="secondary"
+                  variant="outline"
                   onClick={() => setShowEmailForm(true)}
                   disabled={isLoading}
                 >
