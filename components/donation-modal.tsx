@@ -1,14 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { createDonationInvoice } from "@/app/actions/donation-actions"
+import { createDonationInvoice, checkDonationPayment } from "@/app/actions/donation-actions"
 import { QRCodeSVG } from "qrcode.react"
 import { LocationInput } from "@/components/location-input"
 import { MapView } from "@/components/map-view"
-import { Heart, Bitcoin, Copy, Eye, EyeOff } from "lucide-react"
+import { Heart, Bitcoin, Copy, Eye, EyeOff, CheckCircle, Loader2 } from "lucide-react"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 
 interface DonationModalProps {
@@ -29,11 +29,16 @@ export function DonationModal({ open, onOpenChange, preSelectedLocation }: Donat
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [selectedBounds, setSelectedBounds] = useState<google.maps.LatLngBounds | null>(null)
   const [paymentRequest, setPaymentRequest] = useState("")
+  const [paymentHash, setPaymentHash] = useState("")
   const [selectedAmount, setSelectedAmount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(false)
   const [showFullPaymentRequest, setShowFullPaymentRequest] = useState(false)
   const [posts, setPosts] = useState<any[]>([])
   const [isLoadingPosts, setIsLoadingPosts] = useState(false)
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false)
+  const [paymentDetected, setPaymentDetected] = useState(false)
+
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const donationAmounts = [
     { label: "1K sats", value: 1000 },
@@ -67,6 +72,49 @@ export function DonationModal({ open, onOpenChange, preSelectedLocation }: Donat
       setIsLoadingPosts(false)
     }
   }
+
+  // Start polling for payment when invoice is shown
+  useEffect(() => {
+    if (step === "invoice" && paymentHash && !paymentDetected) {
+      setIsCheckingPayment(true)
+
+      const pollPayment = async () => {
+        try {
+          const result = await checkDonationPayment(paymentHash)
+
+          if (result.success && result.settled) {
+            setPaymentDetected(true)
+            setIsCheckingPayment(false)
+
+            // Stop polling
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current)
+              pollingIntervalRef.current = null
+            }
+
+            // Auto-advance to success after a brief delay
+            setTimeout(() => {
+              setStep("success")
+            }, 1000)
+          }
+        } catch (error) {
+          console.error("Error polling payment:", error)
+        }
+      }
+
+      // Poll immediately, then every 3 seconds
+      pollPayment()
+      pollingIntervalRef.current = setInterval(pollPayment, 3000)
+    }
+
+    // Cleanup polling when step changes or component unmounts
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
+    }
+  }, [step, paymentHash, paymentDetected])
 
   useEffect(() => {
     if (open) {
@@ -132,6 +180,7 @@ export function DonationModal({ open, onOpenChange, preSelectedLocation }: Donat
 
       if (result.success) {
         setPaymentRequest(result.paymentRequest!)
+        setPaymentHash(result.paymentHash!)
         setStep("invoice")
       } else {
         console.error(result.error)
@@ -144,12 +193,21 @@ export function DonationModal({ open, onOpenChange, preSelectedLocation }: Donat
   }
 
   const resetForm = () => {
+    // Clear polling
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+      pollingIntervalRef.current = null
+    }
+
     setStep(preSelectedLocation ? "map" : "location")
     setLocationName(preSelectedLocation || "")
     setSelectedLocation(preSelectedLocation ? { lat: 0, lng: 0 } : null)
     setSelectedBounds(null)
     setPaymentRequest("")
+    setPaymentHash("")
     setSelectedAmount(0)
+    setIsCheckingPayment(false)
+    setPaymentDetected(false)
   }
 
   const handleClose = () => {
@@ -225,39 +283,55 @@ export function DonationModal({ open, onOpenChange, preSelectedLocation }: Donat
 
         {step === "invoice" && (
           <div className="space-y-4 text-center">
-            <p>Scan this QR code with your Lightning wallet:</p>
-            <div className="flex justify-center">
-              <QRCodeSVG value={paymentRequest} size={200} />
-            </div>
-            <div className="flex items-center gap-2 text-xs bg-gray-100 p-2 rounded">
-              <div className="flex-1 font-mono">
-                {showFullPaymentRequest
-                  ? paymentRequest
-                  : `${paymentRequest.slice(0, 20)}...${paymentRequest.slice(-20)}`}
+            {paymentDetected ? (
+              <div className="space-y-4">
+                <div className="flex justify-center">
+                  <CheckCircle className="w-16 h-16 text-green-500" />
+                </div>
+                <p className="text-lg font-semibold text-green-600">Payment Detected!</p>
+                <p className="text-sm text-gray-600">Processing your donation...</p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowFullPaymentRequest(!showFullPaymentRequest)}
-                className="h-6 w-6 p-0"
-              >
-                {showFullPaymentRequest ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigator.clipboard.writeText(paymentRequest)}
-                className="h-6 w-6 p-0"
-              >
-                <Copy className="h-3 w-3" />
-              </Button>
-            </div>
-            <p className="text-sm text-gray-600">
-              Donating {selectedAmount.toLocaleString()} sats to {locationName}
-            </p>
-            <Button onClick={() => setStep("success")} variant="outline">
-              I've Paid
-            </Button>
+            ) : (
+              <>
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  {isCheckingPayment && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <p>Scan this QR code with your Lightning wallet:</p>
+                </div>
+                <div className="flex justify-center">
+                  <QRCodeSVG value={paymentRequest} size={200} />
+                </div>
+                <div className="flex items-center gap-2 text-xs bg-gray-100 p-2 rounded">
+                  <div className="flex-1 font-mono">
+                    {showFullPaymentRequest
+                      ? paymentRequest
+                      : `${paymentRequest.slice(0, 20)}...${paymentRequest.slice(-20)}`}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowFullPaymentRequest(!showFullPaymentRequest)}
+                    className="h-6 w-6 p-0"
+                  >
+                    {showFullPaymentRequest ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigator.clipboard.writeText(paymentRequest)}
+                    className="h-6 w-6 p-0"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Donating {selectedAmount.toLocaleString()} sats to {locationName}
+                </p>
+                {isCheckingPayment && <p className="text-xs text-blue-600">Waiting for payment confirmation...</p>}
+                <Button onClick={() => setStep("success")} variant="outline" className="mt-4">
+                  I've Paid (Manual)
+                </Button>
+              </>
+            )}
           </div>
         )}
 

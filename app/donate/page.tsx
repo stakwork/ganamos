@@ -1,60 +1,26 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { MapPin, Sprout } from "lucide-react"
+import { MapPin, Sprout, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { LocationInput } from "@/components/location-input"
 import { createDonationInvoice } from "@/app/actions/donation-actions"
+import { getLocationRecommendations } from "@/app/actions/location-actions"
 import { LightningInvoiceModal } from "@/components/lightning-invoice-modal"
+import { getCurrentLocationWithName } from "@/lib/geocoding"
 import type { PlaceResult } from "@googlemaps/google-maps-services-js"
 
 interface RecommendedLocation {
   name: string
-  country: string
+  type: string
   emoji: string
   openIssues: number
   locationType: string
   locationName: string
 }
-
-// Mock data for recommended locations - in real app, fetch from database
-const RECOMMENDED_LOCATIONS: RecommendedLocation[] = [
-  {
-    name: "Global",
-    country: "GLOBAL",
-    emoji: "🌎",
-    openIssues: 156,
-    locationType: "global",
-    locationName: "Global",
-  },
-  {
-    name: "San Francisco, CA",
-    country: "US",
-    emoji: "🇺🇸",
-    openIssues: 23,
-    locationType: "city",
-    locationName: "San Francisco, CA, USA",
-  },
-  {
-    name: "New York, NY",
-    country: "US",
-    emoji: "🇺🇸",
-    openIssues: 18,
-    locationType: "city",
-    locationName: "New York, NY, USA",
-  },
-  {
-    name: "Toronto, ON",
-    country: "CA",
-    emoji: "🇨🇦",
-    openIssues: 12,
-    locationType: "city",
-    locationName: "Toronto, ON, Canada",
-  },
-]
 
 declare global {
   interface Window {
@@ -67,10 +33,11 @@ export default function DonatePage() {
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null)
   const [customAmount, setCustomAmount] = useState("")
   const [showCustomAmount, setShowCustomAmount] = useState(false)
-  const [selectedLocation, setSelectedLocation] = useState<RecommendedLocation | null>(RECOMMENDED_LOCATIONS[0]) // Default to Global
+  const [recommendedLocations, setRecommendedLocations] = useState<RecommendedLocation[]>([])
+  const [selectedLocation, setSelectedLocation] = useState<RecommendedLocation | null>(null)
   const [customLocation, setCustomLocation] = useState("")
   const [customLocationDetails, setCustomLocationDetails] = useState<PlaceResult | null>(null)
-  const [showCustomLocation, setShowCustomLocation] = useState(false)
+  const [isLoadingLocations, setIsLoadingLocations] = useState(true)
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false)
   const [invoiceData, setInvoiceData] = useState<{ paymentRequest: string; poolId: string } | null>(null)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
@@ -80,6 +47,58 @@ export default function DonatePage() {
     { label: "10K", value: 10000 },
     { label: "100K", value: 100000 },
   ]
+
+  // Load location recommendations on mount
+  useEffect(() => {
+    async function loadLocationRecommendations() {
+      try {
+        setIsLoadingLocations(true)
+
+        // Try to get user's current location
+        let userLocation = null
+        try {
+          const currentLocation = await getCurrentLocationWithName()
+          if (currentLocation) {
+            userLocation = {
+              locality: currentLocation.locality,
+              admin_area_1: currentLocation.admin_area_1,
+              country: currentLocation.country,
+              country_code: currentLocation.country_code,
+            }
+          }
+        } catch (error) {
+          console.log("Could not get user location, using global recommendations")
+        }
+
+        // Get recommendations based on user location
+        const recommendations = await getLocationRecommendations(userLocation)
+        setRecommendedLocations(recommendations)
+
+        // Set Global as default selection
+        const globalLocation = recommendations.find((loc) => loc.type === "global")
+        if (globalLocation) {
+          setSelectedLocation(globalLocation)
+        }
+      } catch (error) {
+        console.error("Error loading location recommendations:", error)
+        // Fallback to just Global
+        const fallback = {
+          name: "Global",
+          type: "global",
+          emoji: "🌎",
+          openIssues: 0,
+          locationType: "global",
+          locationName: "Global",
+        }
+        setRecommendedLocations([fallback])
+        setSelectedLocation(fallback)
+      } finally {
+        setIsLoadingLocations(false)
+      }
+    }
+
+    loadLocationRecommendations()
+  }, [])
 
   const handleAmountSelect = (amount: number) => {
     setSelectedAmount(amount)
@@ -104,7 +123,6 @@ export default function DonatePage() {
 
   const handleLocationSelect = (location: RecommendedLocation) => {
     setSelectedLocation(location)
-    setShowCustomLocation(false)
     setCustomLocation("")
     setCustomLocationDetails(null)
   }
@@ -228,43 +246,62 @@ export default function DonatePage() {
         <div>
           <h3 className="font-semibold mb-3">Choose Location</h3>
 
+          {/* Loading State */}
+          {isLoadingLocations && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              <span className="ml-2 text-gray-500">Loading locations...</span>
+            </div>
+          )}
+
           {/* Recommended Locations */}
-          <div className="space-y-2 mb-4">
-            {RECOMMENDED_LOCATIONS.map((location, index) => (
-              <Card
-                key={index}
-                className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${
-                  selectedLocation === location ? "ring-2 ring-primary" : ""
-                }`}
-                onClick={() => handleLocationSelect(location)}
-              >
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-xl">{location.emoji}</span>
-                      <div>
-                        <div className="font-medium">{location.name}</div>
-                        <div className="text-sm text-gray-500">{location.openIssues} open issues</div>
+          {!isLoadingLocations && (
+            <div className="space-y-2 mb-4">
+              {recommendedLocations.map((location, index) => (
+                <Card
+                  key={index}
+                  className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${
+                    selectedLocation === location ? "ring-2 ring-primary" : ""
+                  }`}
+                  onClick={() => handleLocationSelect(location)}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-xl">{location.emoji}</span>
+                        <div>
+                          <div className="font-medium">{location.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {location.openIssues} open issue{location.openIssues !== 1 ? "s" : ""}
+                          </div>
+                        </div>
                       </div>
+                      <MapPin className="w-4 h-4 text-gray-400" />
                     </div>
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
           {/* Custom Location Toggle */}
-          <LocationInput
-            value={customLocation}
-            onChange={handleCustomLocationChange}
-            placeholder="Search locations..."
-            className="w-full"
-          />
+          {!isLoadingLocations && (
+            <LocationInput
+              value={customLocation}
+              onChange={handleCustomLocationChange}
+              placeholder="Search locations..."
+              className="w-full"
+            />
+          )}
         </div>
 
         {/* Donate Button */}
-        <Button onClick={handleDonate} disabled={!canDonate || isCreatingInvoice} className="w-full h-12" size="lg">
+        <Button
+          onClick={handleDonate}
+          disabled={!canDonate || isCreatingInvoice || isLoadingLocations}
+          className="w-full h-12"
+          size="lg"
+        >
           {isCreatingInvoice ? "Creating Invoice..." : `Donate ${selectedAmount || 0} sats`}
         </Button>
       </div>

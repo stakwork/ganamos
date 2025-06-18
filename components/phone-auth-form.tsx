@@ -10,9 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 import { LoadingSpinner } from "@/components/loading-spinner"
-import PhoneInput from "react-phone-number-input"
-import "react-phone-number-input/style.css"
-import flags from "react-phone-number-input/flags"
+import { PhoneInput } from "@/components/ui/phone-input"
 
 export function PhoneAuthForm() {
   const [phoneNumber, setPhoneNumber] = useState("")
@@ -127,8 +125,8 @@ export function PhoneAuthForm() {
   const phoneInputStyles = {
     "--PhoneInputCountryFlag-height": "1.5em",
     "--PhoneInputCountryFlag-borderWidth": "0",
-    "--PhoneInputCountrySelectArrow-width": "0.8em",
-    "--PhoneInputCountrySelectArrow-marginLeft": "0.8em",
+    "--PhoneInputCountrySelectArrow-width": "0",
+    "--PhoneInputCountrySelectArrow-marginLeft": "0",
   } as React.CSSProperties
 
   return (
@@ -142,22 +140,17 @@ export function PhoneAuthForm() {
       {step === "phone" ? (
         <form onSubmit={handleSendCode} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number</Label>
-            <div className="bg-white/80 dark:bg-gray-800/80 rounded-md border border-input">
-              <PhoneInput
-                international
-                countryCallingCodeEditable={false}
-                defaultCountry="US"
-                value={phoneNumber}
-                onChange={(value) => setPhoneNumber(value || "")}
-                flags={flags}
-                style={phoneInputStyles}
-                className="p-2"
-                disabled={isLoading}
-                id="phone"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">Enter your phone number with country code</p>
+            <PhoneInput
+              placeholder="Enter a phone number"
+              value={phoneNumber}
+              onChange={setPhoneNumber}
+              defaultCountry="US"
+              disabled={isLoading}
+            />
+            <p className="text-xs text-muted-foreground">
+              By entering your number, you consent to receive a one-time text message login code. Message and data rates
+              may apply.
+            </p>
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>

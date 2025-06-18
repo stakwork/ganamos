@@ -3,10 +3,14 @@
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
 import { v4 as uuidv4 } from "@/lib/uuid"
+import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import type { Group } from "@/lib/types"
 import {
@@ -14,6 +18,7 @@ import {
   checkPostFundingStatusAction,
   createFundedAnonymousPostAction,
 } from "@/app/actions/post-actions"
+import QRCode from "@/components/qr-code"
 import { getCurrentLocationWithName } from "@/lib/geocoding" // Import the geocoding utility
 
 // Pre-load the camera component
@@ -496,15 +501,14 @@ export default function NewPostPage() {
 
   return (
     <div className="container px-4 py-6 mx-auto max-w-md">
+      <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50">
+        <div className="bg-black/50 text-white/70 px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
+          Take a clear photo of the issue
+        </div>
+      </div>
+
       {step === "photo" ? (
-        <>
-          <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50">
-            <div className="bg-black/30 text-white/70 px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
-              Take photo of the issue
-            </div>
-          </div>
-          <DynamicCameraCapture onCapture={handleCapture} />
-        </>
+        <DynamicCameraCapture onCapture={handleCapture} />
       ) : (
         <>
           {!showCreateAccountPrompt && (
@@ -516,7 +520,7 @@ export default function NewPostPage() {
                     type="button"
                     size="icon"
                     variant="secondary"
-                    className="absolute top-2 left-2"
+                    className="absolute top-2 right-2"
                     onClick={() => setStep("photo")}
                   >
                     <svg
@@ -530,221 +534,482 @@ export default function NewPostPage() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
-                      <path d="m15 18-6-6 6-6" />
+                      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                      <circle cx="12" cy="13" r="3" />
                     </svg>
-                    <span className="sr-only">Back to camera</span>
+                    <span className="sr-only">Retake photo</span>
                   </Button>
                 </div>
               )}
 
-              <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                  Description
-                </label>
-                <div className="mt-1">
-                  <textarea
-                    id="description"
-                    rows={3}
-                    className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                    placeholder="Describe the issue"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Textarea
+                  placeholder="Describe the issue..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
+                  required
+                  className="resize-none"
+                />
               </div>
 
-              <div>
-                <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-                  Location
-                </label>
-                <div className="mt-1 flex items-center justify-between">
-                  {currentLocation ? (
-                    <div className="flex items-center space-x-2">
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg h-12">
+                    {currentLocation ? (
+                      <div className="flex items-center flex-1">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="mr-1 text-green-600 flex-shrink-0"
+                        >
+                          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-medium text-green-700 dark:text-green-400 block truncate">
+                            {(currentLocation.displayName || currentLocation.name).split(",")[0].trim()}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center flex-1">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="mr-1 text-muted-foreground flex-shrink-0"
+                        >
+                          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                        <span className="text-xs text-muted-foreground">No location</span>
+                      </div>
+                    )}
+
+                    {currentLocation ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRemoveLocation}
+                        className="text-xs h-6 px-2 ml-1 flex-shrink-0"
+                      >
+                        ×
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGetLocation}
+                        className="text-xs h-6 px-2 flex-shrink-0"
+                        disabled={isGettingLocation}
+                      >
+                        {isGettingLocation ? "..." : "Add"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {!isAnonymous && !loadingGroups && (
+                  <div className="flex-1">
+                    {userGroups.length > 0 ? (
+                      <Select
+                        value={selectedGroupId || "public"}
+                        onValueChange={(value) => setSelectedGroupId(value === "public" ? null : value)}
+                      >
+                        <SelectTrigger className="w-full h-12 p-3">
+                          <div className="flex items-center space-x-2 w-full">
+                            <div className="flex-shrink-0">
+                              {selectedGroupId ? (
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="text-orange-600"
+                                >
+                                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                                  <path d="m7 11V7a5 5 0 0 1 10 0v4" />
+                                </svg>
+                              ) : (
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="text-green-600"
+                                >
+                                  <circle cx="12" cy="12" r="10" />
+                                  <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
+                                  <path d="M2 12h20" />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="flex-1 text-left min-w-0">
+                              <div className="font-medium text-xs truncate">
+                                {selectedGroupId
+                                  ? userGroups.find((g) => g.id === selectedGroupId)?.name || "Group"
+                                  : "Public"}
+                              </div>
+                            </div>
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="public">
+                            <div className="flex items-center space-x-3 py-1">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="text-green-600"
+                              >
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
+                                <path d="M2 12h20" />
+                              </svg>
+                              <div>
+                                <div className="font-medium">Public</div>
+                                <div className="text-xs text-muted-foreground">Anyone can see this post</div>
+                              </div>
+                            </div>
+                          </SelectItem>
+                          {userGroups.map((group) => (
+                            <SelectItem key={group.id} value={group.id}>
+                              <div className="flex items-center space-x-3 py-1">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="18"
+                                  height="18"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="text-orange-600"
+                                >
+                                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                                  <path d="m7 11V7a5 5 0 0 1 10 0v4" />
+                                </svg>
+                                <div>
+                                  <div className="font-medium">{group.name}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Only group members can see this post
+                                  </div>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="flex items-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg h-12">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-green-600 mr-2 flex-shrink-0"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
+                          <path d="M2 12h20" />
+                        </svg>
+                        <span className="text-xs font-medium">Public</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-6">
+                <div className="flex flex-col items-center space-y-4 py-6">
+                  <div className="flex items-center justify-between w-full max-w-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isAnonymous && reward <= MIN_ANONYMOUS_REWARD) {
+                          toast({
+                            title: "Minimum Reward Required",
+                            description: "Anonymous posts require a minimum reward of 500 sats.",
+                            variant: "destructive",
+                          })
+                          return
+                        }
+                        setReward(Math.max(isAnonymous ? MIN_ANONYMOUS_REWARD : 0, reward - 500))
+                      }}
+                      disabled={isAnonymous && reward <= MIN_ANONYMOUS_REWARD}
+                      className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-800"
+                      title={
+                        isAnonymous && reward <= MIN_ANONYMOUS_REWARD
+                          ? "Anonymous posts require a minimum reward of 500 sats."
+                          : ""
+                      }
+                    >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
+                        width="20"
+                        height="20"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        strokeWidth="2"
+                        strokeWidth="3"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="text-gray-500"
+                        className="text-gray-600 dark:text-gray-300"
                       >
-                        <path d="M20.42 8.42A8.38 8.38 0 0 0 12 2.16a8.38 8.38 0 0 0-8.42 8.42A8.18 8.18 0 0 0 3 16v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a8.18 8.18 0 0 0-.58-7.58z" />
-                        <circle cx="12" cy="11" r="3" />
+                        <path d="M5 12h14" />
                       </svg>
-                      <span className="text-sm text-gray-900">{currentLocation.displayName}</span>
-                      <Button type="button" variant="ghost" size="sm" onClick={handleRemoveLocation}>
-                        Remove
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button type="button" variant="outline" disabled={isGettingLocation} onClick={handleGetLocation}>
-                      {isGettingLocation ? (
-                        <>
-                          <svg
-                            className="animate-spin h-5 w-5 mr-2"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                          Getting location...
-                        </>
-                      ) : (
-                        "Add Location"
-                      )}
-                    </Button>
-                  )}
-                </div>
-              </div>
+                    </button>
 
-              <div>
-                <label htmlFor="reward" className="block text-sm font-medium text-gray-700">
-                  Reward (Sats)
-                </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
-                    <span className="text-gray-500">⚡</span>
-                  </div>
-                  <input
-                    type="number"
-                    name="reward"
-                    id="reward"
-                    className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
-                    placeholder="0"
-                    value={reward}
-                    onChange={(e) => setReward(Number.parseInt(e.target.value))}
-                    min={0}
-                  />
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500 sm:text-sm">sats</span>
-                  </div>
-                </div>
-              </div>
-
-              {user && userGroups.length > 0 && (
-                <div>
-                  <label htmlFor="group" className="block text-sm font-medium text-gray-700">
-                    Post to Group (Optional)
-                  </label>
-                  <div className="mt-1">
-                    <select
-                      id="group"
-                      name="group"
-                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                      value={selectedGroupId || ""}
-                      onChange={(e) => setSelectedGroupId(e.target.value)}
+                    <button
+                      type="button"
+                      onClick={() => setShowKeypad(!showKeypad)}
+                      className="w-32 text-center hover:opacity-80 transition-opacity"
                     >
-                      <option value="">Post to Public</option>
-                      {userGroups.map((group) => (
-                        <option key={group.id} value={group.id}>
-                          {group.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
+                      <span className="text-5xl font-light text-gray-900 dark:text-white">
+                        {reward === 0 ? "0" : formatSatsValue(reward).replace(" sats", "").replace(".0", "")}
+                      </span>
+                    </button>
 
-              <div className="flex justify-between">
-                <Button variant="secondary" onClick={handleBack}>
-                  Back
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
+                    <button
+                      type="button"
+                      onClick={() => setReward(reward + 500)}
+                      className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    >
                       <svg
-                        className="animate-spin h-5 w-5 mr-2"
                         xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
+                        width="20"
+                        height="20"
                         viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-gray-600 dark:text-gray-300"
                       >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
+                        <path d="M12 5v14m-7-7h14" />
                       </svg>
-                      Posting...
-                    </>
-                  ) : (
-                    "Post Issue"
+                    </button>
+                  </div>
+
+                  <div className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                    <div className="w-4 h-4 relative">
+                      <Image
+                        src="/images/bitcoin-logo.png"
+                        alt="Bitcoin"
+                        width={16}
+                        height={16}
+                        className="object-contain"
+                      />
+                    </div>
+                    <span>sats reward</span>
+                  </div>
+
+                  {showKeypad && (
+                    <div className="w-full max-w-xs">
+                      <input
+                        type="number"
+                        value={reward}
+                        onChange={(e) => {
+                          let newAmount = Number(e.target.value) || 0
+                          if (isAnonymous) {
+                            newAmount = Math.max(newAmount, MIN_ANONYMOUS_REWARD)
+                          }
+                          setReward(newAmount)
+                        }}
+                        placeholder="Enter amount"
+                        className="w-full px-4 py-3 text-center text-lg border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                        min="0"
+                        max="50000"
+                        autoFocus
+                      />
+                    </div>
                   )}
-                </Button>
+                </div>
               </div>
+
+              <Button type="submit" className="w-full" disabled={isSubmitting || isAwaitingPayment}>
+                {isAwaitingPayment ? "Awaiting Payment..." : isSubmitting ? "Processing..." : "Post Issue"}
+              </Button>
             </form>
           )}
-
-          {/* Funding Modal */}
-          {showFundingModal && fundingPaymentRequest && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-              <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-                <h2 className="text-lg font-semibold mb-4">Fund Your Anonymous Post</h2>
-                <p className="text-gray-700 mb-4">
-                  To create an anonymous post, you need to fund it with {reward} sats. Please use the following payment
-                  request:
-                </p>
-                <div className="bg-gray-100 p-3 rounded-md break-all">
-                  {showFullInvoice ? fundingPaymentRequest : `${fundingPaymentRequest.substring(0, 30)}...`}
-                  {!showFullInvoice && (
-                    <button onClick={() => setShowFullInvoice(true)} className="text-blue-500 hover:underline ml-1">
-                      Show Full Invoice
-                    </button>
-                  )}
-                </div>
-                <p className="text-gray-700 mt-4">
-                  Open your Lightning wallet and pay the invoice to finalize your anonymous post.
-                </p>
-                <Button onClick={() => setShowFundingModal(false)} className="mt-4">
-                  Close
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Create Account Prompt */}
-          {showCreateAccountPrompt && lastCreatedPostId && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-              <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-                <h2 className="text-lg font-semibold mb-4">Create an Account?</h2>
-                <p className="text-gray-700 mb-4">
-                  You&apos;ve successfully created an anonymous post. Would you like to create an account to manage your
-                  posts and earn rewards?
-                </p>
-                <div className="flex justify-end space-x-2">
-                  <Button variant="secondary" onClick={() => setShowCreateAccountPrompt(false)}>
-                    No, thanks
-                  </Button>
-                  <Button onClick={() => router.push(`/register?postId=${lastCreatedPostId}`)}>Create Account</Button>
-                </div>
-              </div>
-            </div>
-          )}
         </>
+      )}
+
+      {showFundingModal && fundingPaymentRequest && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full">
+            <h2 className="text-xl font-semibold mb-4">Fund Your Post</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+              To publish your post, fund your {formatSatsValue(reward)} reward by paying the Lightning invoice.
+            </p>
+            <div className="mb-4">
+              <div
+                className="p-3 border rounded-md bg-gray-50 dark:bg-gray-700 text-xs cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-between"
+                onClick={() => setShowFullInvoice(!showFullInvoice)}
+              >
+                <code className="break-all flex-1 mr-2">
+                  {showFullInvoice
+                    ? fundingPaymentRequest
+                    : `${fundingPaymentRequest.slice(0, 20)}...${fundingPaymentRequest.slice(-20)}`}
+                </code>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigator.clipboard.writeText(fundingPaymentRequest)
+                    toast({
+                      title: "Copied!",
+                      description: "Invoice copied to clipboard",
+                      variant: "success",
+                    })
+                  }}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1 rounded transition-colors flex-shrink-0"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex justify-center my-4">
+              {(() => {
+                console.log("QRCode component rendering with:", {
+                  fundingPaymentRequest,
+                  length: fundingPaymentRequest?.length,
+                  size: 200,
+                })
+                return <QRCode value={fundingPaymentRequest} size={200} />
+              })()}
+            </div>
+
+            {isAwaitingPayment && (
+              <div className="text-center my-4">
+                <p className="text-blue-600 dark:text-blue-400 animate-pulse">Waiting for payment confirmation...</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Do not close this window. Your post will be created automatically after payment.
+                </p>
+              </div>
+            )}
+
+            <Button
+              variant="outline"
+              className="w-full mt-4"
+              onClick={() => {
+                if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
+                setShowFundingModal(false)
+                setIsAwaitingPayment(false)
+                setFundingPaymentRequest(null)
+                setFundingRHash(null)
+                setIsSubmitting(false)
+              }}
+              disabled={isSubmitting && isAwaitingPayment}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {showCreateAccountPrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[100]">
+          <div className="bg-white dark:bg-gray-900 p-8 rounded-lg shadow-2xl max-w-md w-full text-center">
+            <div className="mb-6">
+              <svg
+                className="mx-auto h-12 w-12 text-green-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.5"
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.5"
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold mb-3 text-gray-900 dark:text-white">Post Created Successfully!</h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              Your post is live. Create an account to track your posts, earn bitcoin, and join community groups.
+            </p>
+            <div className="space-y-3">
+              <Button
+                onClick={() => {
+                  router.push(`/auth/register?redirect=/post/${lastCreatedPostId}`)
+                }}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                Create Account
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowCreateAccountPrompt(false)
+                  router.push(lastCreatedPostId ? `/map?selectedPost=${lastCreatedPostId}` : "/map")
+                }}
+                className="w-full"
+              >
+                Maybe Later
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

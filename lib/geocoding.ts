@@ -2,6 +2,20 @@ export interface LocationData {
   name: string
   latitude: number
   longitude: number
+  // Add standardized components
+  locality?: string
+  admin_area_1?: string
+  admin_area_2?: string
+  country?: string
+  country_code?: string
+}
+
+export interface StandardizedLocation {
+  locality?: string // City
+  admin_area_1?: string // State/Province/Prefecture
+  admin_area_2?: string // County/District
+  country?: string
+  country_code?: string
 }
 
 export async function reverseGeocode(latitude: number, longitude: number): Promise<string> {
@@ -64,6 +78,54 @@ export async function reverseGeocode(latitude: number, longitude: number): Promi
   }
 }
 
+export async function getStandardizedLocation(
+  latitude: number,
+  longitude: number,
+): Promise<StandardizedLocation | null> {
+  try {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    if (!apiKey) {
+      throw new Error("Google Maps API key not found")
+    }
+
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`,
+    )
+
+    if (!response.ok) {
+      throw new Error("Geocoding request failed")
+    }
+
+    const data = await response.json()
+
+    if (data.status === "OK" && data.results && data.results.length > 0) {
+      const result = data.results[0]
+      const location: StandardizedLocation = {}
+
+      // Extract standardized components
+      for (const component of result.address_components) {
+        if (component.types.includes("locality")) {
+          location.locality = component.long_name
+        } else if (component.types.includes("administrative_area_level_1")) {
+          location.admin_area_1 = component.long_name
+        } else if (component.types.includes("administrative_area_level_2")) {
+          location.admin_area_2 = component.long_name
+        } else if (component.types.includes("country")) {
+          location.country = component.long_name
+          location.country_code = component.short_name
+        }
+      }
+
+      return location
+    }
+
+    return null
+  } catch (error) {
+    console.error("Standardized geocoding failed:", error)
+    return null
+  }
+}
+
 export async function getCurrentLocationWithName(): Promise<LocationData | null> {
   return new Promise((resolve, reject) => {
     // Changed to reject for better error propagation
@@ -85,10 +147,13 @@ export async function getCurrentLocationWithName(): Promise<LocationData | null>
         const { latitude, longitude } = position.coords
         try {
           const name = await reverseGeocode(latitude, longitude)
+          const standardized = await getStandardizedLocation(latitude, longitude)
+
           resolve({
             name,
             latitude,
             longitude,
+            ...standardized,
           })
         } catch (error) {
           console.error("Error getting location name:", error)

@@ -1,7 +1,7 @@
 "use server"
 
 import { createServerSupabaseClient } from "@/lib/supabase"
-import { createInvoice } from "@/lib/lightning"
+import { createInvoice, checkInvoice } from "@/lib/lightning"
 
 interface CreateDonationInvoiceParams {
   amount: number
@@ -75,11 +75,66 @@ export async function createDonationInvoice({
     return {
       success: true,
       paymentRequest: invoiceResult.paymentRequest,
+      paymentHash: invoiceResult.rHash,
       poolId: pool.id,
     }
   } catch (error) {
     console.error("Error creating donation invoice:", error)
     return { success: false, error: "Unexpected error occurred" }
+  }
+}
+
+export async function checkDonationPayment(paymentHash: string) {
+  try {
+    const adminSupabase = createServerSupabaseClient({
+      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    })
+
+    // Check Lightning invoice status
+    const invoiceResult = await checkInvoice(paymentHash)
+
+    if (!invoiceResult.success) {
+      return { success: false, error: invoiceResult.error }
+    }
+
+    // If invoice is settled, update donation status
+    if (invoiceResult.settled) {
+      const { error: updateError } = await adminSupabase
+        .from("donations")
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+        })
+        .eq("payment_hash", paymentHash)
+
+      if (updateError) {
+        console.error("Error updating donation status:", updateError)
+        // Don't fail the whole operation if DB update fails
+      }
+
+      // Update donation pool totals
+      const { data: donation } = await adminSupabase
+        .from("donations")
+        .select("donation_pool_id, amount")
+        .eq("payment_hash", paymentHash)
+        .single()
+
+      if (donation) {
+        await adminSupabase.rpc("increment_donation_pool", {
+          pool_id: donation.donation_pool_id,
+          amount: donation.amount,
+        })
+      }
+    }
+
+    return {
+      success: true,
+      settled: invoiceResult.settled,
+      amountPaid: invoiceResult.amountPaid,
+    }
+  } catch (error) {
+    console.error("Error checking donation payment:", error)
+    return { success: false, error: "Failed to check payment status" }
   }
 }
 
