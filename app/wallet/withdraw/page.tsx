@@ -30,6 +30,7 @@ export default function WithdrawPage() {
         title: "Authentication Required",
         description: "Please sign in to access this feature",
         variant: "destructive",
+        duration: 1000,
       })
       router.push("/auth/login?redirect=/wallet/withdraw")
       return
@@ -51,6 +52,7 @@ export default function WithdrawPage() {
         title: "Authentication Required",
         description: "Please sign in to withdraw funds",
         variant: "destructive",
+        duration: 1000,
       })
       router.push("/auth/login?redirect=/wallet/withdraw")
       return
@@ -61,6 +63,7 @@ export default function WithdrawPage() {
         title: "Invalid amount",
         description: "Minimum withdrawal is 100 sats",
         variant: "destructive",
+        duration: 1000,
       })
       return
     }
@@ -70,6 +73,7 @@ export default function WithdrawPage() {
         title: "Invalid invoice",
         description: "Please enter a valid Lightning invoice",
         variant: "destructive",
+        duration: 1000,
       })
       return
     }
@@ -79,6 +83,7 @@ export default function WithdrawPage() {
         title: "Insufficient balance",
         description: "You don't have enough funds for this withdrawal",
         variant: "destructive",
+        duration: 1000,
       })
       return
     }
@@ -99,6 +104,7 @@ export default function WithdrawPage() {
           title: "Withdrawal successful!",
           description: `${amount} sats have been sent to your wallet`,
           variant: "default",
+          duration: 1000,
         })
         setPaymentRequest("")
         setBalance(result.newBalance)
@@ -109,6 +115,7 @@ export default function WithdrawPage() {
             title: "Session Expired",
             description: "Your session has expired. Please log in again.",
             variant: "destructive",
+            duration: 1000,
           })
           router.push("/auth/login?redirect=/wallet/withdraw")
           return
@@ -118,6 +125,7 @@ export default function WithdrawPage() {
           title: "Withdrawal failed",
           description: result.error || "Failed to process withdrawal",
           variant: "destructive",
+          duration: 1000,
         })
       }
     } catch (error) {
@@ -126,6 +134,7 @@ export default function WithdrawPage() {
         title: "Error",
         description: "An unexpected error occurred",
         variant: "destructive",
+        duration: 1000,
       })
     } finally {
       setLoading(false)

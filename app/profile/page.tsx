@@ -599,6 +599,7 @@ export default function ProfilePage() {
       toast({
         title: "Account disconnected",
         description: `${accountToManage.name} has been disconnected from your account.`,
+        duration: 1000,
       })
 
       setShowDisconnectDialog(false)
@@ -608,6 +609,7 @@ export default function ProfilePage() {
         title: "Error",
         description: error.message || "Failed to disconnect account. Please try again.",
         variant: "destructive",
+        duration: 1000,
       })
     } finally {
       setIsProcessing(false)
@@ -648,6 +650,7 @@ export default function ProfilePage() {
       toast({
         title: "Account deleted",
         description: `${accountToManage.name}'s account has been permanently deleted.`,
+        duration: 1000,
       })
 
       setShowDeleteDialog(false)
@@ -657,6 +660,7 @@ export default function ProfilePage() {
         title: "Error",
         description: error.message || "Failed to delete child account. Please try again.",
         variant: "destructive",
+        duration: 1000,
       })
     } finally {
       setIsProcessing(false)

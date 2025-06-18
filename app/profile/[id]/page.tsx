@@ -50,6 +50,7 @@ export default function UserProfilePage({ params }: { params: { id: string } }) 
             title: "Error",
             description: "Failed to load user profile",
             variant: "destructive",
+            duration: 1000,
           })
           setIsLoading(false)
           return
@@ -70,6 +71,7 @@ export default function UserProfilePage({ params }: { params: { id: string } }) 
             title: "Error",
             description: "Failed to load user posts",
             variant: "destructive",
+            duration: 1000,
           })
           setIsLoading(false)
           return
@@ -82,6 +84,7 @@ export default function UserProfilePage({ params }: { params: { id: string } }) 
           title: "Error",
           description: "An unexpected error occurred",
           variant: "destructive",
+          duration: 1000,
         })
       } finally {
         setIsLoading(false)

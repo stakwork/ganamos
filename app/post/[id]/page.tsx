@@ -249,7 +249,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               title: "Fix Verified (Anonymous)!",
               description: "Your fix has been successfully recorded. Thank you for your contribution!",
               variant: "success",
-              duration: 7000,
+              duration: 1000,
             })
             setAnonymousFixedPostId(post.id)
             setShowAnonymousRewardOptions(true)
@@ -294,7 +294,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             toast({
               title: "Fix Submitted for Review (Anonymous)",
               description: "Your fix has low AI confidence and has been submitted for manual review. Thank you!",
-              duration: 7000,
+              duration: 1000,
             })
             router.push("/") // Redirect to homepage/map for now after submitting for review
           } else {
@@ -396,6 +396,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             title: "🎊 Fix verified!",
             description: `${formatSatsValue(post.reward)} sats have been added to your balance 💰`,
             variant: "success",
+            duration: 1000,
           })
           router.push("/dashboard")
         }

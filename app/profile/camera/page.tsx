@@ -101,6 +101,7 @@ export default function ProfileCameraPage() {
             title: "✨ Profile photo updated!",
             description: "Your new profile photo has been set",
             variant: "success",
+            duration: 1000,
           })
 
           router.push("/profile")
@@ -111,6 +112,7 @@ export default function ProfileCameraPage() {
           title: "Error",
           description: "Could not update your profile photo",
           variant: "destructive",
+          duration: 1000,
         })
       } finally {
         setIsSubmitting(false)

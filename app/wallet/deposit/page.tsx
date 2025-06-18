@@ -164,6 +164,7 @@ export default function DepositPage() {
             title: "Payment received!",
             description: `${result.amount} sats added to your balance`,
             variant: "default",
+            duration: 1000,
           })
 
           // Short delay before redirecting to ensure toast is seen
@@ -244,6 +245,7 @@ export default function DepositPage() {
         title: "Payment received! (Simulated)",
         description: `${amount} sats added to your balance`,
         variant: "default",
+        duration: 1000,
       })
 
       // Short delay before redirecting to ensure toast is seen

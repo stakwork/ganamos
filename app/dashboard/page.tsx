@@ -328,8 +328,8 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="sticky top-0 z-10 bg-gradient-to-b from-background via-background to-transparent pb-4">
-        <div className="container px-1 pt-6 mx-auto max-w-md">
+      <div className="sticky top-0 z-10 bg-gradient-to-b from-background via-background to-transparent pb-4 w-full flex justify-center">
+        <div className="w-full max-w-md pt-6 px-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               {/* Filter Button: just icon */}
@@ -468,8 +468,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="flex justify-center w-full px-4">
-        <div className="relative w-full max-w-md pb-20">
+      <div className="w-full flex justify-center">
+        <div className="relative w-full max-w-md pb-20 px-4">
           {/* Feed content */}
           {posts.length === 0 && isLoading ? (
             <div className="space-y-6">
