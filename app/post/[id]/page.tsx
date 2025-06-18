@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
-import { mockPosts } from "@/lib/mock-data" // Assuming this is still used as a fallback
 import { CameraCapture } from "@/components/camera-capture" // CORRECTED IMPORT
 import { getCurrentLocation } from "@/lib/mock-location"
 import { formatSatsValue } from "@/lib/utils"
@@ -90,10 +89,6 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             setLoading(false)
             return
           }
-        }
-        const foundPost = mockPosts.find((p) => p.id === params.id)
-        if (foundPost) {
-          setPost(foundPost)
         }
       } catch (error) {
         console.error("Error fetching post:", error)

@@ -10,7 +10,7 @@ import { getCurrentLocationWithName } from "@/lib/geocoding"
 
 export default function MapPage() {
   const [isLoading, setIsLoading] = useState(true)
-  const [posts, setPosts] = useState([])
+  const [posts, setPosts] = useState<any[]>([])
   const searchParams = useSearchParams()
   const { user } = useAuth()
   const supabase = createBrowserSupabaseClient()
@@ -18,8 +18,12 @@ export default function MapPage() {
   const [userLocation, setUserLocation] = useState<{
     latitude: number
     longitude: number
+    zoomType: string
     name: string
-    cityBounds?: google.maps.LatLngBounds
+    bounds?: any
+    lat: number
+    lng: number
+    cityBounds?: any
   } | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
 
@@ -34,7 +38,11 @@ export default function MapPage() {
           setUserLocation({
             latitude: location.latitude,
             longitude: location.longitude,
+            zoomType: "city",
             name: location.name,
+            lat: location.latitude,
+            lng: location.longitude,
+            bounds: undefined,
           })
 
           // Get city bounds using Google Places API
@@ -45,7 +53,7 @@ export default function MapPage() {
               fields: ["geometry"],
             }
 
-            service.textSearch(request, (results, status) => {
+            service.textSearch(request, (results: any, status: any) => {
               if (status === window.google.maps.places.PlacesServiceStatus.OK && results?.[0]?.geometry?.viewport) {
                 setUserLocation((prev) =>
                   prev
@@ -95,8 +103,8 @@ export default function MapPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <LoadingSpinner size="lg" />
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] pb-16">
+        <LoadingSpinner />
       </div>
     )
   }

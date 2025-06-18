@@ -4,28 +4,20 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { mockPosts } from "@/lib/mock-data"
 import { formatSatsValue } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { X } from "lucide-react"
 
 export default function SearchPage() {
-  // Group posts by reward range for the bar chart
   const rewardRanges = [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
-  const postsByReward = rewardRanges.map((min, index) => {
-    const max = rewardRanges[index + 1] || Number.POSITIVE_INFINITY
-    const count = mockPosts.filter((post) => post.reward >= min && post.reward < max).length
-    return { min, max, count }
-  })
 
-  const maxCount = Math.max(...postsByReward.map((range) => range.count))
+  const maxCount = Math.max(...rewardRanges)
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>("any")
   const [rewardRange, setRewardRange] = useState<[number, number]>([0, 10000])
   const [searchQuery, setSearchQuery] = useState("")
 
   const router = useRouter()
 
-  // Update selected filters when individual filters change
   useEffect(() => {
     setSelectedFilters({
       dateFilter: selectedDateFilter,
@@ -57,8 +49,9 @@ export default function SearchPage() {
     // Save filters to localStorage
     const filtersToSave = {
       ...selectedFilters,
+      sortBy: JSON.parse(localStorage.getItem('activeFilters') || '{}').sortBy || 'proximity',
       count: filterCount,
-      timestamp: new Date().toISOString(), // Add timestamp for date comparison
+      timestamp: new Date().toISOString(),
     }
 
     localStorage.setItem("activeFilters", JSON.stringify(filtersToSave))
@@ -120,13 +113,13 @@ export default function SearchPage() {
           <label className="text-sm font-medium">Reward Range</label>
           <div className="mt-4">
             <div className="flex h-24 items-end space-x-1 mb-2">
-              {postsByReward.map((range, i) => (
+              {rewardRanges.map((range, i) => (
                 <div
                   key={i}
                   className="flex-1 bg-emerald-200 dark:bg-emerald-900/50 rounded-t"
                   style={{
-                    height: `${range.count ? (range.count / maxCount) * 100 : 0}%`,
-                    opacity: rewardRange[0] <= range.min && range.max <= rewardRange[1] ? 1 : 0.3,
+                    height: `${range ? (range / maxCount) * 100 : 0}%`,
+                    opacity: rewardRange[0] <= range && range <= rewardRange[1] ? 1 : 0.3,
                   }}
                 />
               ))}

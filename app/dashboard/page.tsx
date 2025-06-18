@@ -6,11 +6,10 @@ import Image from "next/image"
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
 import { PostCard } from "@/components/post-card"
-import { mockPosts } from "@/lib/mock-data"
 import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { Plus, X, Filter, User, SlidersHorizontal } from "lucide-react"
+import { Plus, X, Filter, User, SlidersHorizontal, ChevronDown, ArrowUpDown } from "lucide-react"
 import type { Post } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -21,6 +20,7 @@ interface ActiveFilters {
   rewardRange: [number, number]
   location: string
   searchQuery: string
+  sortBy?: 'proximity' | 'recency' | 'reward'
   timestamp?: string
 }
 
@@ -77,8 +77,8 @@ export default function DashboardPage() {
       if (filtersJson) {
         try {
           const filters = JSON.parse(filtersJson)
+          if (!filters.sortBy) filters.sortBy = 'proximity'
           setActiveFilters(filters)
-          // Reset to page 1 when filters change
           setCurrentPage(1)
           fetchPosts(1, filters)
         } catch (e) {
@@ -86,7 +86,15 @@ export default function DashboardPage() {
           fetchPosts(1, null)
         }
       } else {
-        fetchPosts(1, null)
+        fetchPosts(1, {
+          ...activeFilters,
+          sortBy: 'proximity',
+          count: activeFilters?.count ?? 0,
+          dateFilter: activeFilters?.dateFilter ?? 'any',
+          rewardRange: activeFilters?.rewardRange ?? [0, 10000],
+          location: activeFilters?.location ?? '',
+          searchQuery: activeFilters?.searchQuery ?? '',
+        })
       }
     }
 
@@ -108,6 +116,13 @@ export default function DashboardPage() {
       setFilterCleared(false)
     }
   }, [filterCleared])
+
+  // Refetch posts when sortBy changes
+  useEffect(() => {
+    if (activeFilters && typeof activeFilters.sortBy === 'string') {
+      fetchPosts(1, activeFilters)
+    }
+  }, [activeFilters?.sortBy])
 
   const clearFilters = () => {
     localStorage.removeItem("activeFilters")
@@ -140,9 +155,22 @@ export default function DashboardPage() {
         let query = supabase
           .from("posts")
           .select("*", { count: "exact" })
-          .order("created_at", { ascending: false })
           .eq("fixed", false)
           .neq("under_review", true)
+
+        // Apply sorting
+        const sortBy = filters?.sortBy || 'proximity'
+        if (sortBy === 'recency') {
+          query = query.order('created_at', { ascending: false })
+        } else if (sortBy === 'reward') {
+          query = query.order('reward', { ascending: false })
+        } else if (sortBy === 'proximity' && currentLocation?.lat && currentLocation?.lng) {
+          // If using PostGIS or similar, you could use .order('distance', ...) with a computed column
+          // For now, fallback to recency if proximity sort not supported
+          query = query.order('created_at', { ascending: false })
+        } else {
+          query = query.order('created_at', { ascending: false })
+        }
 
         // Apply filters if active
         if (filters) {
@@ -191,70 +219,70 @@ export default function DashboardPage() {
       }
 
       // Fall back to mock data if Supabase fails
-      let filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
+      // let filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
 
       // Apply filters to mock data if active
-      if (filters) {
-        if (filters.searchQuery) {
-          filteredPosts = filteredPosts.filter((post) =>
-            post.title.toLowerCase().includes(filters.searchQuery.toLowerCase()),
-          )
-        }
+      // if (filters) {
+      //   if (filters.searchQuery) {
+      //     filteredPosts = filteredPosts.filter((post) =>
+      //       post.title.toLowerCase().includes(filters.searchQuery.toLowerCase()),
+      //     )
+      //   }
 
-        if (filters.dateFilter === "today") {
-          const today = new Date()
-          today.setHours(0, 0, 0, 0)
-          filteredPosts = filteredPosts.filter((post) => {
-            const postDate = new Date(post.created_at)
-            return postDate >= today
-          })
-        } else if (filters.dateFilter === "week") {
-          const weekAgo = new Date()
-          weekAgo.setDate(weekAgo.getDate() - 7)
-          filteredPosts = filteredPosts.filter((post) => {
-            const postDate = new Date(post.created_at)
-            return postDate >= weekAgo
-          })
-        }
+      //   if (filters.dateFilter === "today") {
+      //     const today = new Date()
+      //     today.setHours(0, 0, 0, 0)
+      //     filteredPosts = filteredPosts.filter((post) => {
+      //       const postDate = new Date(post.created_at)
+      //       return postDate >= today
+      //     })
+      //   } else if (filters.dateFilter === "week") {
+      //     const weekAgo = new Date()
+      //     weekAgo.setDate(weekAgo.getDate() - 7)
+      //     filteredPosts = filteredPosts.filter((post) => {
+      //       const postDate = new Date(post.created_at)
+      //       return postDate >= weekAgo
+      //     })
+      //   }
 
-        filteredPosts = filteredPosts.filter(
-          (post) => post.reward >= filters.rewardRange[0] && post.reward <= filters.rewardRange[1],
-        )
-      }
+      //   filteredPosts = filteredPosts.filter(
+      //     (post) => post.reward >= filters.rewardRange[0] && post.reward <= filters.rewardRange[1],
+      //   )
+      // }
 
-      console.log(`Filtered posts count: ${filteredPosts.length}`)
+      // console.log(`Filtered posts count: ${filteredPosts.length}`)
 
-      const mockPaginatedPosts = filteredPosts.slice((page - 1) * pageSize, page * pageSize)
+      // const mockPaginatedPosts = filteredPosts.slice((page - 1) * pageSize, page * pageSize)
 
-      if (page === 1) {
-        setPosts(mockPaginatedPosts)
-      } else {
-        setPosts((prev) => [...prev, ...mockPaginatedPosts])
-      }
+      // if (page === 1) {
+      //   setPosts(mockPaginatedPosts)
+      // } else {
+      //   setPosts((prev) => [...prev, ...mockPaginatedPosts])
+      // }
 
-      // Check if there are more mock posts to load
-      setHasMore(page * pageSize < filteredPosts.length)
+      // // Check if there are more mock posts to load
+      // setHasMore(page * pageSize < filteredPosts.length)
     } catch (error) {
       console.error("Error fetching posts:", error)
       // Fall back to mock data with simplified filter logic
-      let filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
+      // let filteredPosts = [...mockPosts].filter((post) => !post.fixed && !post.under_review)
 
-      // Apply basic filters even in error case
-      if (filters && filters.dateFilter === "today") {
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        filteredPosts = filteredPosts.filter((post) => new Date(post.created_at) >= today)
-      }
+      // // Apply basic filters even in error case
+      // if (filters && filters.dateFilter === "today") {
+      //   const today = new Date()
+      //   today.setHours(0, 0, 0, 0)
+      //   filteredPosts = filteredPosts.filter((post) => new Date(post.created_at) >= today)
+      // }
 
-      const mockPaginatedPosts = filteredPosts.slice((page - 1) * pageSize, page * pageSize)
+      // const mockPaginatedPosts = filteredPosts.slice((page - 1) * pageSize, page * pageSize)
 
-      if (page === 1) {
-        setPosts(mockPaginatedPosts)
-      } else {
-        setPosts((prev) => [...prev, ...mockPaginatedPosts])
-      }
+      // if (page === 1) {
+      //   setPosts(mockPaginatedPosts)
+      // } else {
+      //   setPosts((prev) => [...prev, ...mockPaginatedPosts])
+      // }
 
-      setHasMore(page * pageSize < filteredPosts.length)
+      // setHasMore(page * pageSize < filteredPosts.length)
     } finally {
       setIsLoading(false)
     }
@@ -262,6 +290,21 @@ export default function DashboardPage() {
 
   const handleSatsClick = () => {
     router.push("/wallet")
+  }
+
+  function handleSortChange(sort: 'proximity' | 'recency' | 'reward') {
+    const prev = (activeFilters || {}) as Partial<ActiveFilters>
+    const newFilters = {
+      count: prev.count ?? 0,
+      dateFilter: prev.dateFilter ?? 'any',
+      rewardRange: prev.rewardRange ?? [0, 10000],
+      location: prev.location ?? '',
+      searchQuery: prev.searchQuery ?? '',
+      sortBy: sort,
+      timestamp: prev.timestamp ?? new Date().toISOString(),
+    }
+    setActiveFilters(newFilters)
+    localStorage.setItem('activeFilters', JSON.stringify(newFilters))
   }
 
   // Session guard with early return
@@ -289,14 +332,61 @@ export default function DashboardPage() {
         <div className="container px-1 pt-6 mx-auto max-w-md">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
+              {/* Filter Button: just icon */}
               <Button
                 variant="ghost"
                 onClick={() => router.push("/search")}
-                className="flex items-center gap-1 h-9 px-3 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+                className="flex items-center h-9 w-9 justify-center rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
                 aria-label="Filter"
               >
-                <SlidersHorizontal className="h-4 w-4" />
+                <SlidersHorizontal className="h-5 w-5" />
               </Button>
+
+              {/* Sort Pill */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-1 h-9 px-3 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-xs font-medium text-gray-700 dark:text-gray-200 shadow-sm focus-visible:ring-0 focus-visible:outline-none border-0"
+                    aria-label="Sort options"
+                  >
+                    {(() => {
+                      const sortBy = activeFilters?.sortBy || 'proximity'
+                      if (sortBy === 'proximity') return 'Nearby'
+                      if (sortBy === 'recency') return 'Recent'
+                      if (sortBy === 'reward') return 'Reward'
+                    })()}
+                    {/* Custom sort icon SVG */}
+                    <svg className="ml-1 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="10" y="5" width="8" height="2" rx="1" />
+                      <rect x="10" y="9" width="6" height="2" rx="1" />
+                      <rect x="10" y="13" width="4" height="2" rx="1" />
+                      <rect x="10" y="17" width="2" height="2" rx="1" />
+                      <path d="M6 5v12M6 17l-2-2M6 17l2-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                    </svg>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem
+                    onClick={() => handleSortChange('recency')}
+                    className={activeFilters?.sortBy === 'recency' ? 'font-semibold text-emerald-600' : ''}
+                  >
+                    Recent
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleSortChange('proximity')}
+                    className={activeFilters?.sortBy === 'proximity' ? 'font-semibold text-emerald-600' : ''}
+                  >
+                    Nearby
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleSortChange('reward')}
+                    className={activeFilters?.sortBy === 'reward' ? 'font-semibold text-emerald-600' : ''}
+                  >
+                    Reward
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {activeFilters && activeFilters.count > 0 && (
                 <button
@@ -313,7 +403,7 @@ export default function DashboardPage() {
               <Button
                 variant="ghost"
                 onClick={handleSatsClick}
-                className="flex items-center px-3 py-1 text-sm font-medium bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+                className="flex items-center h-9 px-3 text-sm font-medium bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
               >
                 <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="mr-1" />
                 {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
@@ -325,8 +415,8 @@ export default function DashboardPage() {
                     <Button variant="ghost" className="h-9 w-9 rounded-full p-0" aria-label="Switch connected account">
                       <Avatar className="h-9 w-9">
                         <AvatarImage
-                          src={profile?.avatar_url || undefined}
-                          alt={profile?.name || "Connected Account"}
+                          src={profile?.avatar_url ?? undefined}
+                          alt={profile?.name ?? "Connected Account"}
                         />
                         <AvatarFallback>
                           <User className="h-4 w-4" />
@@ -341,7 +431,10 @@ export default function DashboardPage() {
                       className={`flex items-center gap-3 py-3 px-3 text-base ${!isConnectedAccount ? "bg-blue-50 dark:bg-blue-950" : ""}`}
                     >
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={user?.user_metadata?.avatar_url || "/placeholder.svg"} alt="Main Account" />
+                        <AvatarImage 
+                          src={user?.user_metadata?.avatar_url ?? "/placeholder.svg"} 
+                          alt={user?.user_metadata?.full_name ?? "User"} 
+                        />
                         <AvatarFallback>
                           <User className="h-4 w-4" />
                         </AvatarFallback>
@@ -358,7 +451,7 @@ export default function DashboardPage() {
                         className={`flex items-center gap-3 py-3 px-3 text-base ${activeUserId === account.id ? "bg-blue-50 dark:bg-blue-950" : ""}`}
                       >
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={account.avatar_url || undefined} alt={account.name} />
+                          <AvatarImage src={account.avatar_url ?? undefined} alt={account.name ?? undefined} />
                           <AvatarFallback>
                             <User className="h-4 w-4" />
                           </AvatarFallback>
@@ -488,21 +581,6 @@ export default function DashboardPage() {
               )}
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Fixed position container that centers the button horizontally */}
-      <div className="fixed bottom-20 left-0 right-0 z-50 flex justify-center pointer-events-none">
-        {/* Container with the same width as the feed */}
-        <div className="w-full max-w-md px-4 relative pointer-events-none">
-          {/* Button positioned at the right side of this container */}
-          <button
-            onClick={() => router.push("/post/new")}
-            className="absolute right-4 bottom-0 flex items-center justify-center rounded-full bg-green-500 text-white shadow-lg hover:bg-green-600 transition-all w-14 h-14 pointer-events-auto"
-            aria-label="New Post"
-          >
-            <Plus className="w-8 h-8" />
-          </button>
         </div>
       </div>
     </>

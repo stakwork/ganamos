@@ -19,8 +19,12 @@ export function formatSatsValue(sats: number): string {
 }
 
 export function formatTimeAgo(date: Date): string {
+  const now = new Date()
+  const diffSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+  if (diffSeconds < 60) {
+    return "1 min ago"
+  }
   const formatted = formatDistanceToNow(date, { addSuffix: true })
-
   return formatted
     .replace(/about /g, "") // Remove "about"
     .replace(/ hours?/g, " hrs") // Replace "hour" or "hours" with "hrs"

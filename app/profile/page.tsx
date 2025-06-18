@@ -1,6 +1,7 @@
 "use client"
 
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Skeleton } from "@/components/ui/skeleton"
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
@@ -23,7 +24,6 @@ import { useNotifications } from "@/components/notifications-provider"
 import { Badge } from "@/components/ui/badge"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
-import { mockPosts } from "@/lib/mock-data"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { AvatarSelector } from "@/components/avatar-selector"
@@ -489,18 +489,6 @@ export default function ProfilePage() {
         if (activeTab === "activity") {
           generateActivities(posts, 1, donations)
         }
-      } else {
-        // Fallback to mock data
-        console.log("🔍 Using mock data")
-        const currentUserId = activeUserId || user.id
-        const mockUserPosts = mockPosts.filter(
-          (post) => post.userId === currentUserId || post.user_id === currentUserId,
-        )
-        processPosts(mockUserPosts)
-
-        if (activeTab === "activity") {
-          generateActivities(mockUserPosts, 1, donations)
-        }
       }
 
       initialDataLoaded.current = true
@@ -953,11 +941,28 @@ export default function ProfilePage() {
 
         <TabsContent value="posts" className="space-y-4">
           {isLoading ? (
-            <div className="p-8 text-center">
-              <div className="animate-pulse flex flex-col space-y-4">
-                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-              </div>
+            <div className="flex flex-col space-y-4">
+              {[1,2,3,4].map(i => (
+                <Card key={i} className="overflow-hidden border dark:border-gray-800 w-full">
+                  <CardContent className="p-4">
+                    <div className="flex items-start">
+                      <div className="p-2 bg-muted rounded-full dark:bg-gray-800">
+                        <Skeleton className="w-6 h-6 rounded-full" />
+                      </div>
+                      <div className="ml-3 flex-1">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <Skeleton className="h-5 w-40 mb-2" />
+                            <Skeleton className="h-4 w-24" />
+                          </div>
+                          <Skeleton className="h-4 w-12" />
+                        </div>
+                        <Skeleton className="h-6 w-28 mt-3" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           ) : [...postedIssues, ...fixedIssues].length > 0 ? (
             <>
@@ -1020,12 +1025,28 @@ export default function ProfilePage() {
 
         <TabsContent value="activity" className="space-y-4">
           {isLoading || isActivityLoading ? (
-            <div className="p-8 text-center">
-              <div className="animate-pulse flex flex-col space-y-4">
-                <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-                <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-                <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-              </div>
+            <div className="flex flex-col space-y-4">
+              {[1,2,3,4].map(i => (
+                <Card key={i} className="overflow-hidden border dark:border-gray-800 w-full">
+                  <CardContent className="p-4">
+                    <div className="flex items-start">
+                      <div className="p-2 bg-muted rounded-full dark:bg-gray-800">
+                        <Skeleton className="w-6 h-6 rounded-full" />
+                      </div>
+                      <div className="ml-3 flex-1">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <Skeleton className="h-5 w-40 mb-2" />
+                            <Skeleton className="h-4 w-24" />
+                          </div>
+                          <Skeleton className="h-4 w-12" />
+                        </div>
+                        <Skeleton className="h-6 w-28 mt-3" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           ) : activities.length > 0 ? (
             <>

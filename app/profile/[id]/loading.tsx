@@ -41,13 +41,13 @@ export default function Loading() {
           </TabsTrigger>
         </TabsList>
 <TabsContent value="all" className="space-y-4">
-  {[1, 2, 3].map((i) => (
-    <Card key={i} className="overflow-hidden border dark:border-gray-800">
-      <CardContent className="flex items-center p-2 space-x-4">
-        <Skeleton className="w-10 h-10 rounded-full" />
+  {[1, 2, 3, 4].map((i) => (
+    <Card key={i} className="overflow-hidden border dark:border-gray-800 w-full">
+      <CardContent className="flex items-center p-2 space-x-4 w-full">
+        <Skeleton className="w-12 h-12 rounded-full" />
         <div className="flex-1 space-y-2">
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-3 w-1/2" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-3 w-2/3" />
         </div>
       </CardContent>
     </Card>

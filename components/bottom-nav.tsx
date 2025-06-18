@@ -13,7 +13,7 @@ export function BottomNav() {
   const { hasPendingRequests } = useNotifications()
 
   // Don't show bottom nav on home page or auth pages
-  if (pathname === "/" || pathname.startsWith("/auth") || pathname === "/map") {
+  if (pathname === "/" || pathname.startsWith("/auth")) {
     return null
   }
 
@@ -46,13 +46,13 @@ export function BottomNav() {
           <Link
             href="/dashboard"
             className={cn(
-              "flex items-center justify-center",
+              "flex items-center justify-center rounded-xl transition-colors",
               isActive("/dashboard") && "text-primary dark:text-primary",
             )}
           >
             <Home
               className={cn(
-                "w-6 h-6 text-gray-500 dark:text-gray-400",
+                "w-6 h-6 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
                 isActive("/dashboard") && "text-primary dark:text-primary",
               )}
             />
@@ -61,11 +61,14 @@ export function BottomNav() {
           {/* Map icon */}
           <button
             onClick={handleMapClick}
-            className={cn("flex items-center justify-center", pathname === "/map" && "text-primary dark:text-primary")}
+            className={cn(
+              "flex items-center justify-center rounded-xl transition-colors",
+              pathname === "/map" && "text-primary dark:text-primary"
+            )}
           >
             <Map
               className={cn(
-                "w-6 h-6 text-gray-500 dark:text-gray-400",
+                "w-6 h-6 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
                 pathname === "/map" && "text-primary dark:text-primary",
               )}
             />
@@ -75,27 +78,37 @@ export function BottomNav() {
           <button
             onClick={() => router.push("/post/new")}
             className={cn(
-              "flex items-center justify-center",
+              "flex items-center justify-center rounded-xl transition-colors",
               pathname === "/post/new" && "text-primary dark:text-primary",
             )}
             aria-label="New Post"
           >
-            <Plus
+            <div
               className={cn(
-                "w-6 h-6 text-gray-500 dark:text-gray-400",
-                pathname === "/post/new" && "text-primary dark:text-primary",
+                "w-10 h-10 flex items-center justify-center rounded-xl border",
+                pathname === "/post/new" ? "border-primary" : "border-white dark:border-gray-400 bg-transparent"
               )}
-            />
+            >
+              <Plus
+                className={cn(
+                  "w-6 h-6 text-white dark:text-gray-200 transition-colors hover:stroke-emerald-500",
+                  pathname === "/post/new" && "text-primary dark:text-primary",
+                )}
+              />
+            </div>
           </button>
 
           {/* Donate icon */}
           <Link
             href="/donate"
-            className={cn("flex items-center justify-center", isActive("/donate") && "text-primary dark:text-primary")}
+            className={cn(
+              "flex items-center justify-center rounded-xl transition-colors",
+              isActive("/donate") && "text-primary dark:text-primary"
+            )}
           >
             <Sprout
               className={cn(
-                "w-6 h-6 text-gray-500 dark:text-gray-400",
+                "w-6 h-6 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
                 isActive("/donate") && "text-primary dark:text-primary",
               )}
             />
@@ -105,13 +118,13 @@ export function BottomNav() {
           <Link
             href="/profile"
             className={cn(
-              "flex items-center justify-center relative",
+              "flex items-center justify-center relative rounded-xl transition-colors",
               isActive("/profile") && "text-primary dark:text-primary",
             )}
           >
             <User
               className={cn(
-                "w-6 h-6 text-gray-500 dark:text-gray-400",
+                "w-6 h-6 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
                 isActive("/profile") && "text-primary dark:text-primary",
               )}
             />

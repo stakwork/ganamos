@@ -29,7 +29,7 @@ interface MapViewProps {
   posts: Post[]
   centerPost?: Post // Optional post to center the map on
   center?: { lat: number; lng: number } // Custom center coordinates
-  bounds?: google.maps.LatLngBounds // Optional bounds to fit the map to
+  bounds?: any // google.maps.LatLngBounds at runtime
   onClose: () => void
   isLoading?: boolean
   isModal?: boolean // Flag to indicate if map is in a modal
@@ -39,7 +39,7 @@ interface MapViewProps {
     longitude: number
     zoomType: string
     name: string
-    bounds?: google.maps.LatLngBounds
+    bounds?: any // google.maps.LatLngBounds at runtime
     lat: number
     lng: number
   } | null
@@ -57,6 +57,12 @@ declare global {
   interface Window {
     google?: any
   }
+}
+
+// Add global declaration for google namespace to fix linter errors
+declare global {
+  // eslint-disable-next-line no-var
+  var google: any;
 }
 
 // Update the function parameters to include userLocation
@@ -106,7 +112,7 @@ export function MapView({
 
       // If we have city bounds, fit the map to those bounds
       if (cityBounds) {
-        const bounds = new google.maps.LatLngBounds(
+        const bounds: any = new (window as any).google.maps.LatLngBounds(
           { lat: cityBounds.south, lng: cityBounds.west },
           { lat: cityBounds.north, lng: cityBounds.east },
         )
@@ -165,7 +171,7 @@ export function MapView({
     if (mapInstance && userLocation) {
       // If we have city bounds, fit the map to those bounds
       if (cityBounds) {
-        const bounds = new google.maps.LatLngBounds(
+        const bounds: any = new (window as any).google.maps.LatLngBounds(
           { lat: cityBounds.south, lng: cityBounds.west },
           { lat: cityBounds.north, lng: cityBounds.east },
         )
@@ -224,7 +230,7 @@ export function MapView({
   const formatPostDate = (post: Post) => {
     try {
       if (!post.createdAt && !post.created_at) return "Recently"
-      const date = new Date(post.createdAt || post.created_at)
+      const date = new Date(post.createdAt || post.created_at || Date.now())
       if (isNaN(date.getTime())) return "Recently"
       return formatTimeAgo(date)
     } catch (error) {
@@ -597,8 +603,8 @@ export function MapView({
       setMapInitialized(true)
 
       // Initialize Places services
-      const autoService = new window.google.maps.places.AutocompleteService()
-      const placeService = new window.google.maps.places.PlacesService(map)
+      const autoService = new (window as any).google.maps.places.AutocompleteService()
+      const placeService = new (window as any).google.maps.places.PlacesService(map)
       setAutocompleteService(autoService)
       setPlacesService(placeService)
 
@@ -637,7 +643,7 @@ export function MapView({
         // If city bounds are provided, use them for smart zooming
         if (cityBounds) {
           console.log("Fitting map to city bounds")
-          const bounds = new google.maps.LatLngBounds(
+          const bounds: any = new (window as any).google.maps.LatLngBounds(
             { lat: cityBounds.south, lng: cityBounds.west },
             { lat: cityBounds.north, lng: cityBounds.east },
           )
@@ -842,7 +848,7 @@ export function MapView({
   const showLoading = isLoading || externalLoading
 
   // Set container classes based on whether it's in a modal or not
-  const containerClasses = isModal ? "h-full w-full relative" : "h-screen w-screen relative"
+  const containerClasses = isModal ? "h-full w-full relative" : "min-h-[calc(100vh-4rem)] pb-16 w-full relative"
 
   // Add this useEffect to handle cityName updates
   useEffect(() => {
@@ -854,8 +860,8 @@ export function MapView({
 
   return (
     <div className={containerClasses}>
-      {/* Close Button - Only show if not in modal */}
-      {!isModal && (
+      {/* Close Button - Only show if not in modal and user is not logged in */}
+      {!isModal && !user && (
         <Button
           variant="outline"
           size="icon"
@@ -913,15 +919,17 @@ export function MapView({
             )}
           </div>
 
-          {/* Donation Heart Button */}
-          <Button
-            onClick={handleDonationClick}
-            size="icon"
-            variant="outline"
-            className="h-12 w-12 rounded-full bg-white hover:bg-gray-50 shadow-lg border-gray-200 text-gray-600 hover:text-gray-800"
-          >
-            <Heart className="h-5 w-5 fill-pink-400 stroke-pink-600 stroke-2" />
-          </Button>
+          {/* Donation Heart Button - Only show if user is not logged in */}
+          {!user && (
+            <Button
+              onClick={handleDonationClick}
+              size="icon"
+              variant="outline"
+              className="h-12 w-12 rounded-full bg-white hover:bg-gray-50 shadow-lg border-gray-200 text-gray-600 hover:text-gray-800"
+            >
+              <Heart className="h-5 w-5 fill-pink-400 stroke-pink-600 stroke-2" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -961,7 +969,7 @@ export function MapView({
         </div>
       )}
 
-      <div ref={mapRef} className="h-full w-full" />
+      <div ref={mapRef} className="h-full w-full" style={{ minHeight: 'calc(100vh - 4rem)', paddingBottom: '4rem' }} />
 
       {/* Airbnb-style Preview Card - Only show if not in modal and post is selected */}
       {selectedPost && !isModal && (
@@ -998,19 +1006,6 @@ export function MapView({
           </div>
         </div>
       )}
-
-      {/* New Issue Button - Always visible at bottom center */}
-      <div
-        className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 z-40 transition-all duration-200 ${selectedPost && !isModal ? "translate-y-[-8rem]" : ""}`}
-      >
-        <Button
-          onClick={handleNewPost}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          New Issue
-        </Button>
-      </div>
 
       {/* Donation Modal */}
       <DonationModal

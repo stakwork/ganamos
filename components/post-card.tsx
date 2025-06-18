@@ -96,12 +96,6 @@ export function PostCard({ post }: { post: Post }) {
 
   useEffect(() => {
     const handleLocation = async () => {
-      // First priority: use stored city if available
-      if (post.city) {
-        setLocationName(post.city)
-        return
-      }
-
       // Second priority: use location field
       if (post.location) {
         // Check if location is already a readable name (not coordinates)
@@ -134,7 +128,7 @@ export function PostCard({ post }: { post: Post }) {
     }
 
     handleLocation()
-  }, [post.city, post.location, post.latitude, post.longitude])
+  }, [post.location, post.latitude, post.longitude])
 
   const handleClick = () => {
     router.push(`/post/${post.id}`)
@@ -163,13 +157,10 @@ export function PostCard({ post }: { post: Post }) {
   const formatDate = () => {
     try {
       // Check if createdAt exists and is valid
-      if (!post.createdAt && !post.created_at) return "Recently"
-
-      const date = new Date(post.createdAt || post.created_at)
-
-      // Check if the date is valid
+      const dateString = post.created_at || (post.createdAt ? post.createdAt.toString() : undefined)
+      if (!dateString) return "Recently"
+      const date = new Date(dateString)
       if (isNaN(date.getTime())) return "Recently"
-
       return formatTimeAgo(date)
     } catch (error) {
       console.error("Error formatting date:", error)
@@ -225,7 +216,7 @@ export function PostCard({ post }: { post: Post }) {
         </div>
 
         <CardFooter className="p-4 pt-4">
-          <div className="flex items-start justify-between w-full">
+          <div className="flex items-start justify-between w-full relative">
             {/* Left side: Location/Timestamp row above Poster info */}
             <div className="flex flex-col space-y-2">
               {/* Description */}
@@ -313,48 +304,51 @@ export function PostCard({ post }: { post: Post }) {
             </div>
 
             {/* Bitcoin Map Marker with Sats Reward on the right */}
-            <div
-              className="relative cursor-pointer"
-              onClick={handleClick}
-              style={{
-                width: "40px",
-                height: "40px",
-                borderRadius: "50%",
-                background: "#FED56B",
-                border: "1px solid #C5792D",
-                boxShadow: "0 0 0 1px #F4C14F",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <img
-                src="/images/bitcoin-logo.png"
-                alt="Bitcoin"
+            <div style={{ position: "relative", width: "48px", height: "48px" }}>
+              <div
+                className="marker-container cursor-pointer"
+                onClick={handleClick}
                 style={{
-                  width: "36px",
-                  height: "36px",
-                  filter: "drop-shadow(0px -1px 1px rgba(255, 255, 255, 0.4))",
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "50%",
+                  background: "#FED56B",
+                  border: "1px solid #C5792D",
+                  boxShadow: "0 0 0 1px #F4C14F",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
-              />
+              >
+                <img
+                  src="/images/bitcoin-logo.png"
+                  alt="Bitcoin"
+                  width={43}
+                  height={43}
+                  style={{ zIndex: 1 }}
+                />
+              </div>
+              {/* Badge absolutely positioned over the coin */}
               <div
                 style={{
                   position: "absolute",
-                  bottom: "-10px",
+                  bottom: "-20px",
                   left: "50%",
                   transform: "translateX(-50%)",
-                  background: "white",
+                  background: "#fff",
                   color: "black",
-                  padding: "2px 8px",
-                  fontSize: "12px",
+                  padding: "2px 10px",
+                  fontSize: "14.4px",
                   fontWeight: "bold",
-                  borderRadius: "12px",
-                  border: "1px solid #C5792D",
+                  borderRadius: "14.4px",
+                  border: "1px solid #F7931A",
                   boxShadow: "0 2px 3px rgba(0, 0, 0, 0.1)",
                   fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-                  minWidth: "20px",
+                  minWidth: "24px",
                   textAlign: "center",
-                  zIndex: 2,
+                  zIndex: 3,
+                  pointerEvents: "auto",
+                  width: "max-content",
                 }}
               >
                 {(() => {
@@ -381,6 +375,39 @@ export function PostCard({ post }: { post: Post }) {
         centerPost={post} 
       />
       */}
+
+      <style jsx>{`
+        .marker-container {
+          position: relative;
+          overflow: hidden;
+        }
+        .marker-container::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background: linear-gradient(
+            120deg,
+            rgba(255, 255, 255, 0) 30%,
+            rgba(255, 255, 255, 0.5) 50%,
+            rgba(255, 255, 255, 0) 70%
+          );
+          transform: rotate(0deg);
+          animation: shine 2.5s infinite ease-in-out;
+          z-index: 2;
+          pointer-events: none;
+        }
+        @keyframes shine {
+          0% {
+            transform: translate(-100%, -100%) rotate(25deg);
+          }
+          100% {
+            transform: translate(100%, 100%) rotate(25deg);
+          }
+        }
+      `}</style>
     </>
   )
 }
