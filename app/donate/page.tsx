@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { Copy } from "lucide-react"
 import { formatSatsValue } from "@/lib/utils"
+import { Separator } from "@/components/ui/separator"
 
 interface RecommendedLocation {
   name: string
@@ -27,43 +28,23 @@ interface RecommendedLocation {
   locationName: string
 }
 
-const steps = [
-  { label: "1. Choose Amount" },
-  { label: "2. Pick Location" },
-  { label: "3. Pay Invoice" },
-]
+function Stepper({ currentStep }: { currentStep: number }) {
+  const stepLabels = [
+    "Choose Amount",
+    "Pick Location",
+    "Pay Invoice"
+  ];
 
-function Stepper({ currentStep, setCurrentStep, resetDonationFlow }: { currentStep: number, setCurrentStep: (step: number) => void, resetDonationFlow: () => void }) {
+  // Use Tailwind's 'bg-primary' for the active dot to match the button
   return (
-    <div className="relative flex items-center justify-center my-1">
-      <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-gray-700 z-0" style={{ transform: 'translateY(12px)' }} />
-      {steps.map((step, idx) => (
-        <div
-          key={step.label}
-          className="flex-1 flex flex-col items-center z-10 cursor-pointer"
-          onClick={() => {
-            if (idx + 1 < currentStep) {
-              resetDonationFlow();
-              setCurrentStep(idx + 1);
-            }
-          }}
-        >
-          <div
-            className={`pb-2 text-xs transition-colors
-              ${currentStep === idx + 1
-                ? "text-emerald-600"
-                : "text-gray-400"}
-            `}
-          >
-            {step.label}
-          </div>
-          <div
-            className={`h-0.5 w-24 rounded-full transition-all duration-200 ${currentStep === idx + 1 ? "bg-emerald-600" : "bg-transparent"}`}
-          />
-        </div>
-      ))}
+    <div className="flex flex-col items-center my-4">
+      <div className={`font-light pb-2 ${currentStep === 1 ? "text-white text-lg" : "text-xs text-emerald-600"}`}
+        style={currentStep === 1 ? { fontSize: '1rem' } : {}}>
+        {stepLabels[currentStep - 1]}
+      </div>
+      {/* Dots will be rendered below the button, not here */}
     </div>
-  )
+  );
 }
 
 export default function DonatePage() {
@@ -377,6 +358,9 @@ export default function DonatePage() {
   const renderStep1 = () => (
     <div className="container px-4 py-6 mx-auto max-w-md">
       <div className="space-y-6">
+        <div className="text-center mb-6">
+          <h2 className="text-white text-lg font-light">Choose Amount</h2>
+        </div>
         <div>
           <div className="grid grid-cols-4 gap-3 mb-3">
             {amountOptions.map((option) => (
@@ -384,19 +368,19 @@ export default function DonatePage() {
                 key={option.value}
                 variant="outline"
                 onClick={() => handleAmountSelect(option.value)}
-                className={`h-16 flex flex-col justify-center hover:bg-accent hover:text-accent-foreground ${selectedAmount === option.value ? "ring-2 ring-primary" : ""}`}
+                className={`h-20 flex flex-col justify-center hover:bg-accent hover:text-accent-foreground ${selectedAmount === option.value ? "ring-2 ring-primary" : ""}`}
               >
-                <div className="font-bold text-lg">{option.label}</div>
-                <div className="text-xs text-muted-foreground">sats</div>
+                <div className="font-bold text-xl">{option.label}</div>
+                <div className="text-s text-muted-foreground">sats</div>
               </Button>
             ))}
             <Button
               variant="outline"
               onClick={handleWhaleClick}
-              className={`h-16 flex flex-col justify-center hover:bg-accent hover:text-accent-foreground ${showCustomAmount ? "ring-2 ring-primary" : ""}`}
+              className={`h-20 flex flex-col justify-center hover:bg-accent hover:text-accent-foreground ${showCustomAmount ? "ring-2 ring-primary" : ""}`}
             >
               <div className="text-2xl">🐋</div>
-              <div className="text-xs text-muted-foreground">custom</div>
+              <div className="text-s text-muted-foreground">custom</div>
             </Button>
           </div>
           {showCustomAmount && (
@@ -419,6 +403,17 @@ export default function DonatePage() {
         >
           Next: Choose Location
         </Button>
+        {/* Dots below the button */}
+        <div className="flex justify-center mt-6">
+          {[0, 1, 2].map((idx) => (
+            <span
+              key={idx}
+              className={`h-2 w-2 rounded-full mx-1 transition-colors duration-200 ${
+                step - 1 === idx ? "bg-primary" : "bg-gray-400"
+              }`}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -427,264 +422,308 @@ export default function DonatePage() {
   const [showCustomPicker, setShowCustomPicker] = useState(false)
   const renderStep2 = () => (
     <div className="container px-4 py-6 mx-auto max-w-md">
-      {/* 3x3 Grid */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        {/* Global */}
-        <Card
-          className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "global" && selectedLocation?.name === "Global" ? "ring-2 ring-primary" : ""}`}
-          onClick={() => {
-            setSelectedLocation({
-              name: "Global",
-              type: "global",
-              emoji: "🌎",
-              openIssues: recommendedLocations.find((loc) => loc.type === "global")?.openIssues || 0,
-              locationType: "global",
-              locationName: "Global",
-            })
-            setShowCustomPicker(false)
-            setCustomLocation("")
-            setCustomLocationDetails(null)
-          }}
-        >
-          <CardContent className="p-3 flex flex-col items-center">
-            <span className="text-2xl mb-1">🌎</span>
-            <div className="font-medium text-base text-center">Global</div>
-            <div className="text-xs text-gray-500 text-center mt-0.5">{recommendedLocations.find((loc) => loc.type === "global")?.openIssues || 0} open issues</div>
-          </CardContent>
-        </Card>
-        {/* Country */}
-        <Card
-          className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "country" && selectedLocation?.name === (recommendedLocations.find((loc) => loc.type === "country")?.name) ? "ring-2 ring-primary" : ""}`}
-          onClick={() => {
-            const country = recommendedLocations.find((loc) => loc.type === "country")
-            if (country) {
-              setSelectedLocation(country)
-              setShowCustomPicker(false)
-              setCustomLocation("")
-              setCustomLocationDetails(null)
-            }
-          }}
-        >
-          <CardContent className="p-3 flex flex-col items-center">
-            <span className="text-2xl mb-1">{recommendedLocations.find((loc) => loc.type === "country")?.emoji || "🏳️"}</span>
-            <div className="font-medium text-base text-center">{recommendedLocations.find((loc) => loc.type === "country")?.name || "Country"}</div>
-            <div className="text-xs text-gray-500 text-center mt-0.5">{recommendedLocations.find((loc) => loc.type === "country")?.openIssues || 0} open issues</div>
-          </CardContent>
-        </Card>
-        {/* State */}
-        <Card
-          className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "admin_1" ? "ring-2 ring-primary" : ""}`}
-          onClick={() => {
-            const state = recommendedLocations.find((loc) => loc.type === "admin_1")
-            if (state) {
-              setSelectedLocation(state)
-              setShowCustomPicker(false)
-              setCustomLocation("")
-              setCustomLocationDetails(null)
-            }
-          }}
-        >
-          <CardContent className="p-3 flex flex-col items-center">
-            <span className="text-2xl mb-1">🏛️</span>
-            <div className="font-medium text-base text-center">{recommendedLocations.find((loc) => loc.type === "admin_1")?.name || "State"}</div>
-            <div className="text-xs text-gray-500 text-center mt-0.5">{recommendedLocations.find((loc) => loc.type === "admin_1")?.openIssues || 0} open issues</div>
-          </CardContent>
-        </Card>
-        {/* City */}
-        <Card
-          className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "locality" ? "ring-2 ring-primary" : ""}`}
-          onClick={() => {
-            const city = recommendedLocations.find((loc) => loc.type === "locality")
-            if (city) {
-              setSelectedLocation(city)
-              setShowCustomPicker(false)
-              setCustomLocation("")
-              setCustomLocationDetails(null)
-            }
-          }}
-        >
-          <CardContent className="p-3 flex flex-col items-center">
-            <span className="text-2xl mb-1">🏙️</span>
-            <div className="font-medium text-base text-center">{recommendedLocations.find((loc) => loc.type === "locality")?.name || "City"}</div>
-            <div className="text-xs text-gray-500 text-center mt-0.5">{recommendedLocations.find((loc) => loc.type === "locality")?.openIssues || 0} open issues</div>
-          </CardContent>
-        </Card>
-        {/* El Salvador */}
-        <Card
-          className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "country" && selectedLocation?.name === "El Salvador" ? "ring-2 ring-primary" : ""}`}
-          onClick={() => {
-            setSelectedLocation({
-              name: "El Salvador",
-              type: "country",
-              emoji: "🇸🇻",
-              openIssues: 0,
-              locationType: "country",
-              locationName: "El Salvador",
-            })
-            setShowCustomPicker(false)
-            setCustomLocation("")
-            setCustomLocationDetails(null)
-          }}
-        >
-          <CardContent className="p-3 flex flex-col items-center">
-            <span className="text-2xl mb-1">🇸🇻</span>
-            <div className="font-medium text-base text-center">El Salvador</div>
-            <div className="text-xs text-gray-500 text-center mt-0.5">0 open issues</div>
-          </CardContent>
-        </Card>
-        {/* Custom */}
-        <Card
-          className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${showCustomPicker ? "ring-2 ring-primary" : ""}`}
-          onClick={() => {
-            setShowCustomPicker(true)
-            setSelectedLocation(null)
-          }}
-        >
-          <CardContent className="p-3 flex flex-col items-center">
-            <DropPin className="w-6 h-6 mb-1" />
-            <div className="font-medium text-base text-center">Custom</div>
-          </CardContent>
-        </Card>
-        {/* Fillers for 3x3 grid */}
-        <div />
-        <div />
-        <div />
-      </div>
-      {/* Custom location picker (typeahead search) */}
-      {showCustomPicker && (
-        <div className="mb-6">
-          <LocationInput
-            value={customLocation}
-            onChange={handleCustomLocationChange}
-            placeholder="Search locations..."
-            className="w-full mb-2"
-          />
+      <div className="space-y-6">
+        <div className="text-center mb-6 relative">
+          <button
+            onClick={() => setStep(1)}
+            className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h2 className="text-white text-lg font-light">Pick Location</h2>
         </div>
-      )}
-      <Button
-        className="w-full h-12"
-        onClick={handleDonate}
-        disabled={!(selectedLocation || (showCustomPicker && customLocationDetails)) || isCreatingInvoice}
-        size="lg"
-      >
-        {isCreatingInvoice ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Creating Invoice...
-          </>
-        ) : (
-          "Next: Create Invoice"
+        {/* 2-column Grid */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          {/* Global */}
+          <Card
+            className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "global" && selectedLocation?.name === "Global" ? "ring-2 ring-primary" : ""}`}
+            onClick={() => {
+              setSelectedLocation({
+                name: "Global",
+                type: "global",
+                emoji: "🌎",
+                openIssues: recommendedLocations.find((loc) => loc.type === "global")?.openIssues || 0,
+                locationType: "global",
+                locationName: "Global",
+              })
+              setShowCustomPicker(false)
+              setCustomLocation("")
+              setCustomLocationDetails(null)
+            }}
+          >
+            <CardContent className="p-3 flex flex-col items-center justify-center h-full">
+              <span className="text-2xl mb-1">🌎</span>
+              <div className="font-medium text-base text-center truncate w-full">Global</div>
+              <div className="text-xs text-gray-500 text-center mt-1">{recommendedLocations.find((loc) => loc.type === "global")?.openIssues || 0} open issues</div>
+            </CardContent>
+          </Card>
+          {/* Country */}
+          <Card
+            className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "country" && selectedLocation?.name === (recommendedLocations.find((loc) => loc.type === "country")?.name) ? "ring-2 ring-primary" : ""}`}
+            onClick={() => {
+              const country = recommendedLocations.find((loc) => loc.type === "country")
+              if (country) {
+                setSelectedLocation(country)
+                setShowCustomPicker(false)
+                setCustomLocation("")
+                setCustomLocationDetails(null)
+              }
+            }}
+          >
+            <CardContent className="p-3 flex flex-col items-center justify-center h-full">
+              <span className="text-2xl mb-1">{recommendedLocations.find((loc) => loc.type === "country")?.emoji || "🏳️"}</span>
+              <div className="font-medium text-base text-center truncate w-full">{recommendedLocations.find((loc) => loc.type === "country")?.name || "Country"}</div>
+              <div className="text-xs text-gray-500 text-center mt-1">{recommendedLocations.find((loc) => loc.type === "country")?.openIssues || 0} open issues</div>
+            </CardContent>
+          </Card>
+          {/* State */}
+          <Card
+            className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "admin_1" ? "ring-2 ring-primary" : ""}`}
+            onClick={() => {
+              const state = recommendedLocations.find((loc) => loc.type === "admin_1")
+              if (state) {
+                setSelectedLocation(state)
+                setShowCustomPicker(false)
+                setCustomLocation("")
+                setCustomLocationDetails(null)
+              }
+            }}
+          >
+            <CardContent className="p-3 flex flex-col items-center justify-center h-full">
+              <span className="text-2xl mb-1">🏛️</span>
+              <div className="font-medium text-base text-center truncate w-full">{recommendedLocations.find((loc) => loc.type === "admin_1")?.name || "State"}</div>
+              <div className="text-xs text-gray-500 text-center mt-1">{recommendedLocations.find((loc) => loc.type === "admin_1")?.openIssues || 0} open issues</div>
+            </CardContent>
+          </Card>
+          {/* City */}
+          <Card
+            className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "locality" ? "ring-2 ring-primary" : ""}`}
+            onClick={() => {
+              const city = recommendedLocations.find((loc) => loc.type === "locality")
+              if (city) {
+                setSelectedLocation(city)
+                setShowCustomPicker(false)
+                setCustomLocation("")
+                setCustomLocationDetails(null)
+              }
+            }}
+          >
+            <CardContent className="p-3 flex flex-col items-center justify-center h-full">
+              <span className="text-2xl mb-1">🏙️</span>
+              <div className="font-medium text-base text-center truncate w-full">{recommendedLocations.find((loc) => loc.type === "locality")?.name || "City"}</div>
+              <div className="text-xs text-gray-500 text-center mt-1">{recommendedLocations.find((loc) => loc.type === "locality")?.openIssues || 0} open issues</div>
+            </CardContent>
+          </Card>
+          {/* El Salvador */}
+          <Card
+            className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "country" && selectedLocation?.name === "El Salvador" ? "ring-2 ring-primary" : ""}`}
+            onClick={() => {
+              setSelectedLocation({
+                name: "El Salvador",
+                type: "country",
+                emoji: "🇸🇻",
+                openIssues: 0,
+                locationType: "country",
+                locationName: "El Salvador",
+              })
+              setShowCustomPicker(false)
+              setCustomLocation("")
+              setCustomLocationDetails(null)
+            }}
+          >
+            <CardContent className="p-3 flex flex-col items-center justify-center h-full">
+              <span className="text-2xl mb-1">🇸🇻</span>
+              <div className="font-medium text-base text-center truncate w-full">El Salvador</div>
+              <div className="text-xs text-gray-500 text-center mt-1">0 open issues</div>
+            </CardContent>
+          </Card>
+          {/* Custom */}
+          <Card
+            className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${showCustomPicker ? "ring-2 ring-primary" : ""}`}
+            onClick={() => {
+              setShowCustomPicker(true)
+              setSelectedLocation(null)
+            }}
+          >
+            <CardContent className="p-3 flex flex-col items-center justify-center h-full">
+              <DropPin className="w-6 h-6 mb-1" />
+              <div className="font-medium text-base text-center truncate w-full">Custom</div>
+            </CardContent>
+          </Card>
+        </div>
+        {/* Custom location picker (typeahead search) */}
+        {showCustomPicker && (
+          <div className="mb-6">
+            <LocationInput
+              value={customLocation}
+              onChange={handleCustomLocationChange}
+              placeholder="Search locations..."
+              className="w-full mb-2"
+            />
+          </div>
         )}
-      </Button>
+        <Button
+          className="w-full h-12"
+          onClick={handleDonate}
+          disabled={!(selectedLocation || (showCustomPicker && customLocationDetails)) || isCreatingInvoice}
+          size="lg"
+        >
+          {isCreatingInvoice ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Creating Invoice...
+            </>
+          ) : (
+            "Next: Create Invoice"
+          )}
+        </Button>
+        {/* Dots below the button */}
+        <div className="flex justify-center mt-6">
+          {[0, 1, 2].map((idx) => (
+            <span
+              key={idx}
+              className={`h-2 w-2 rounded-full mx-1 transition-colors duration-200 ${
+                step - 1 === idx ? "bg-primary" : "bg-gray-400"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   )
 
   // Step 3: Lightning Invoice (reuse existing logic)
   const renderStep3 = () => (
     <div className="container px-4 py-6 mx-auto max-w-md flex flex-col items-center justify-center">
-      {invoiceData ? (
-        <>
-          {paymentDetected ? (
-            // Payment Success State
-            <div className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg text-center">
-              <div className="flex justify-center mb-4">
-                <span className="text-6xl">
-                  {selectedLocation?.emoji || "🌍"}
-                </span>
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Payment Confirmed ✅</h3>
-              <p className="text-xs text-gray-500 mb-4">
-                Your {formatSatsValue(selectedAmount || 0)} donation to {selectedLocation?.name || customLocation} has been received.
-              </p>
-              <Button
-                className="w-full h-12 mt-2"
-                size="lg"
-                onClick={() => {
-                  // Route to map page, passing location if possible
-                  if (selectedLocation) {
-                    window.location.href = `/map?locationType=${encodeURIComponent(selectedLocation.locationType)}&locationName=${encodeURIComponent(selectedLocation.locationName)}`
-                  } else if (customLocation) {
-                    window.location.href = `/map?locationType=place&locationName=${encodeURIComponent(customLocation)}`
-                  } else {
-                    window.location.href = "/map"
-                  }
-                }}
-              >
-                See Map
-              </Button>
-            </div>
-          ) : (
-            // Payment Pending State
-            <div className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
-              <div className="text-center mb-4">
-                <div className="flex items-center justify-center mb-2">
-                  <BitcoinLogo size={24} className="mr-2" />
-                  <span className="text-2xl font-bold">{formatSatsValue(selectedAmount || 0)}</span>
-                </div>
-                <p className="text-sm text-gray-600">Donation to {selectedLocation?.name || customLocation}</p>
-              </div>
-              
-              {/* QR Code */}
-              <div className="flex justify-center mb-4">
-                <QRCode data={invoiceData.paymentRequest} size={200} />
-              </div>
-              
-              {/* Payment Request */}
-              <div className="mb-4">
-                <div className="relative">
-                  <div 
-                    className="flex items-center justify-between p-2 border rounded-md bg-blue-50 dark:bg-blue-900/20 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30"
-                    onClick={() => setShowFullPaymentRequest(!showFullPaymentRequest)}
-                  >
-                    <div className="flex-1 font-mono text-xs truncate">
-                      {showFullPaymentRequest 
-                        ? invoiceData.paymentRequest
-                        : `${invoiceData.paymentRequest.slice(0, 20)}...${invoiceData.paymentRequest.slice(-20)}`
-                      }
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="ml-2 h-6 w-6 p-0 flex-shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        navigator.clipboard.writeText(invoiceData.paymentRequest)
-                        toast({
-                          title: "Invoice copied",
-                          description: "Lightning invoice copied to clipboard",
-                        })
-                      }}
-                    >
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                  </div>
-                  {showFullPaymentRequest && (
-                    <Textarea
-                      value={invoiceData.paymentRequest}
-                      readOnly
-                      className="font-mono text-xs h-20 resize-none mt-2"
-                    />
-                  )}
-                </div>
-              </div>
-              
-              {/* Payment Status */}
-              <div className="text-center">
-                <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                  {isCheckingPayment && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2 animate-pulse"></div>
-                  {isCheckingPayment ? "Checking payment..." : "Waiting for payment"}
-                </div>
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="flex flex-col items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-gray-400 mb-4" />
-          <p className="text-gray-500">Generating your Lightning invoice...</p>
+      <div className="space-y-6 w-full">
+        <div className="text-center mb-6 relative">
+          <button
+            onClick={() => setStep(2)}
+            className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h2 className="text-white text-lg font-light">Pay Invoice</h2>
         </div>
-      )}
+        {invoiceData ? (
+          <>
+            {paymentDetected ? (
+              // Payment Success State
+              <div className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg text-center">
+                <div className="flex justify-center mb-4">
+                  <span className="text-6xl">
+                    {selectedLocation?.emoji || "🌍"}
+                  </span>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Payment Confirmed ✅</h3>
+                <p className="text-xs text-gray-500 mb-4">
+                  Your {formatSatsValue(selectedAmount || 0)} donation to {selectedLocation?.name || customLocation} has been received.
+                </p>
+                <Button
+                  className="w-full h-12 mt-2"
+                  size="lg"
+                  onClick={() => {
+                    // Route to map page, passing location if possible
+                    if (selectedLocation) {
+                      window.location.href = `/map?locationType=${encodeURIComponent(selectedLocation.locationType)}&locationName=${encodeURIComponent(selectedLocation.locationName)}`
+                    } else if (customLocation) {
+                      window.location.href = `/map?locationType=place&locationName=${encodeURIComponent(customLocation)}`
+                    } else {
+                      window.location.href = "/map"
+                    }
+                  }}
+                >
+                  See Map
+                </Button>
+              </div>
+            ) : (
+              // Payment Pending State
+              <div className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
+                <div className="text-center mb-4">
+                  <div className="flex items-center justify-center mb-2">
+                    <BitcoinLogo className="w-6 h-6 mr-2" />
+                    <span className="text-2xl font-bold">{formatSatsValue(selectedAmount || 0)}</span>
+                  </div>
+                  <p className="text-sm text-gray-600">Donation to {selectedLocation?.name || customLocation}</p>
+                </div>
+                
+                {/* QR Code */}
+                <div className="flex justify-center mb-4">
+                  <QRCode data={invoiceData.paymentRequest} size={200} />
+                </div>
+
+                {/* Payment Request */}
+                <div className="mb-4">
+                  <div className="relative">
+                    <div 
+                      className="flex items-center justify-between p-2 border rounded-md bg-blue-50 dark:bg-blue-900/20 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                      onClick={() => setShowFullPaymentRequest(!showFullPaymentRequest)}
+                    >
+                      <div className="flex-1 font-mono text-xs truncate">
+                        {showFullPaymentRequest 
+                          ? invoiceData.paymentRequest
+                          : `${invoiceData.paymentRequest.slice(0, 20)}...${invoiceData.paymentRequest.slice(-20)}`
+                        }
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="ml-2 h-6 w-6 p-0 flex-shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigator.clipboard.writeText(invoiceData.paymentRequest)
+                          toast({
+                            title: "Invoice copied",
+                            description: "Lightning invoice copied to clipboard",
+                          })
+                        }}
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    {showFullPaymentRequest && (
+                      <Textarea
+                        value={invoiceData.paymentRequest}
+                        readOnly
+                        className="font-mono text-xs h-20 resize-none mt-2"
+                      />
+                    )}
+                  </div>
+                </div>
+                
+                {/* Payment Status */}
+                <div className="text-center">
+                  <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                    {isCheckingPayment && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2 animate-pulse"></div>
+                    {isCheckingPayment ? "Checking payment..." : "Waiting for payment"}
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-gray-400 mb-4" />
+            <p className="text-gray-500">Generating your Lightning invoice...</p>
+          </div>
+        )}
+        {/* Dots below the content */}
+        <div className="flex justify-center mt-6">
+          {[0, 1, 2].map((idx) => (
+            <span
+              key={idx}
+              className={`h-2 w-2 rounded-full mx-1 transition-colors duration-200 ${
+                step - 1 === idx ? "bg-primary" : "bg-gray-400"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   )
 
@@ -698,13 +737,11 @@ export default function DonatePage() {
       </div>
       {/* Header and subhead always visible */}
       <div className="w-full max-w-md px-4 pb-2 pt-4">
-        <h1 className="text-2xl font-bold text-center mb-2">Turn Bitcoin Into Impact</h1>
-        <p className="text-center text-muted-foreground text-sm mb-12">
-          Choose how much to donate and where to send it. Your Bitcoin fuels real improvements in real communities.
+        <h1 className="text-2xl font-bold text-center mb-2">Give Bitcoin, Fix Problems</h1>
+        <p className="text-center text-muted-foreground text-sm">
+           Donate Bitcoin to fund community improvements. Your sats fund rewards for fixing issues. 
         </p>
-        <div className="mt-2">
-          <Stepper currentStep={step} setCurrentStep={(s: number) => setStep(s as 1 | 2 | 3)} resetDonationFlow={resetDonationFlow} />
-        </div>
+        <Separator className="mt-4" />
       </div>
       {/* Step content */}
       <div className="w-full max-w-md flex-1 flex flex-col">

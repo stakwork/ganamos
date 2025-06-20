@@ -1,9 +1,14 @@
 import { BitcoinLogoClient } from "./bitcoin-logo-client"
 
-export function BitcoinLogo() {
+interface BitcoinLogoProps {
+  className?: string
+  size?: number
+}
+
+export function BitcoinLogo({ className, size }: BitcoinLogoProps) {
   return (
-    <div className="scale-75">
-      <BitcoinLogoClient />
+    <div className={className} style={size ? { width: size, height: size } : undefined}>
+      <BitcoinLogoClient className={className} size={size} />
     </div>
   )
 }

@@ -12,7 +12,13 @@ import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { Plus, X, Filter, User, SlidersHorizontal, ChevronDown, ArrowUpDown } from "lucide-react"
 import type { Post } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface ActiveFilters {
   count: number
@@ -332,16 +338,6 @@ export default function DashboardPage() {
         <div className="w-full max-w-md pt-6 px-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              {/* Filter Button: just icon */}
-              <Button
-                variant="ghost"
-                onClick={() => router.push("/search")}
-                className="flex items-center h-9 w-9 justify-center rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
-                aria-label="Filter"
-              >
-                <SlidersHorizontal className="h-5 w-5" />
-              </Button>
-
               {/* Sort Pill */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -384,6 +380,10 @@ export default function DashboardPage() {
                     className={activeFilters?.sortBy === 'reward' ? 'font-semibold text-emerald-600' : ''}
                   >
                     Reward
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push('/search')}>
+                    Filters
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

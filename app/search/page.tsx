@@ -63,7 +63,7 @@ export default function SearchPage() {
   return (
     <div className="container px-4 py-6 mx-auto max-w-md">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Filter Issues</h1>
+        <h1 className="text-2xl font-bold">Filters</h1>
         <Button
           variant="ghost"
           onClick={() => router.push("/dashboard")}
