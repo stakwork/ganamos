@@ -61,12 +61,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Fetch user profile
   const fetchProfile = async (userId: string) => {
     try {
-      console.log("Fetching profile for user:", userId)
       const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
 
       if (error || !data) {
-        console.log("Profile not found, creating new profile")
-        // Create a new profile if one doesn't exist
         const { data: userData } = await supabase.auth.getUser()
         const newProfile = {
           id: userId,
@@ -85,23 +82,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .single()
 
         if (createError) {
-          console.error("Error creating profile:", createError)
           return null
         }
 
-        console.log("New profile created:", createdProfile || newProfile)
         return createdProfile || newProfile
       }
 
       // Ensure balance is never undefined
       if (data) {
         data.balance = data.balance || 0
-        console.log("Profile fetched successfully. Balance:", data.balance)
       }
 
       return data
     } catch (error) {
-      console.error("Error fetching profile:", error)
       return null
     }
   }
@@ -109,20 +102,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Refresh the user's profile
   const refreshProfile = async () => {
     if (!user) {
-      console.log("Cannot refresh profile: No user")
       return
     }
 
     // If we're using a connected account, fetch that profile instead
     const profileId = activeUserId || user.id
 
-    console.log("Refreshing profile for user:", profileId)
     const profileData = await fetchProfile(profileId)
     if (profileData) {
-      console.log("Profile refreshed. New balance:", profileData.balance)
       setProfile(profileData)
-    } else {
-      console.log("Failed to refresh profile")
     }
   }
 
@@ -138,7 +126,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq("primary_user_id", user.id)
 
       if (error) {
-        console.error("Error fetching connected accounts:", error)
         return
       }
 
@@ -146,12 +133,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Extract the profile data from the joined query
         const accounts = data.map((item) => item.profiles as Profile)
         setConnectedAccounts(accounts)
-        console.log("Connected accounts:", accounts)
       } else {
         setConnectedAccounts([])
       }
     } catch (error) {
-      console.error("Error in fetchConnectedAccounts:", error)
     }
   }
 
@@ -201,7 +186,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: `Now using ${profileData.name}'s account`,
       })
     } catch (error) {
-      console.error("Error switching accounts:", error)
       toast({
         title: "Error",
         description: "Failed to switch accounts",
@@ -231,7 +215,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "Returned to your main account",
       })
     } catch (error) {
-      console.error("Error resetting to main account:", error)
     }
   }
 
@@ -245,16 +228,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const {
           data: { session: initialSession },
         } = await supabase.auth.getSession()
-
-        // Enhanced logging
-        console.log("Auth initialization - Session found:", !!initialSession)
-        if (initialSession) {
-          console.log("Auth initialization - User email:", initialSession.user?.email)
-          console.log(
-            "Auth initialization - Session expiry:",
-            new Date(initialSession.expires_at! * 1000).toISOString(),
-          )
-        }
 
         setSession(initialSession)
         setUser(initialSession?.user || null)
@@ -297,7 +270,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (error) {
-        console.error("Error during auth initialization:", error)
       } finally {
         setLoading(false)
         setSessionLoaded(true) // Mark session as loaded regardless of outcome
@@ -307,26 +279,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-        console.log("Auth state changed:", event, newSession?.user?.email)
-
-        // Enhanced logging for auth state changes
-        if (event === "SIGNED_IN") {
-          console.log("User signed in - Session:", !!newSession)
-          console.log("User signed in - User:", newSession?.user?.email)
-        } else if (event === "SIGNED_OUT") {
-          console.log("User signed out")
-          // Clear active user on sign out
-          localStorage.removeItem(ACTIVE_USER_KEY)
-          setActiveUserId(null)
-          setIsConnectedAccount(false)
-          setConnectedAccounts([])
-        } else if (event === "TOKEN_REFRESHED") {
-          console.log(
-            "Token refreshed - New expiry:",
-            newSession ? new Date(newSession.expires_at! * 1000).toISOString() : "No session",
-          )
-        }
-
         setSession(newSession)
         setUser(newSession?.user || null)
 
@@ -358,8 +310,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return
 
-    console.log("Setting up real-time subscription to profile updates")
-
     const profileSubscription = supabase
       .channel("profile-updates")
       .on(
@@ -371,8 +321,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           filter: `id=eq.${activeUserId || user.id}`,
         },
         async (payload) => {
-          console.log("Profile updated:", payload.new)
-          // Refresh the profile when it's updated
           await refreshProfile()
         },
       )
@@ -388,9 +336,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Log the redirect URL for debugging
       const redirectUrl = `${window.location.origin}/auth/callback`
-      console.log("Google OAuth - Redirect URL:", redirectUrl)
-      console.log("Google OAuth - Starting authentication flow")
-
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -398,14 +343,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       })
 
-      console.log("Google OAuth - Response:", data ? "Data received" : "No data", error ? "Error occurred" : "No error")
-
       if (error) {
-        console.error("Google OAuth - Error details:", error)
         throw error
       }
     } catch (error) {
-      console.error("Google sign in failed:", error)
       throw error
     }
   }
@@ -417,28 +358,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: "Email and password are required" }
       }
 
-      console.log("Attempting email sign in for:", email)
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (error) {
-        console.error("Email sign in failed:", error.message)
         return {
           success: false,
           message: error.message || "Authentication failed",
         }
       }
 
-      // Enhanced logging after successful login
-      console.log("Email sign in successful - Session:", !!data.session)
-      console.log("Email sign in successful - User:", data.user?.email)
-
       return { success: true }
     } catch (error: any) {
-      console.error("Unexpected error during sign in:", error)
       return {
         success: false,
         message: error?.message || "An unexpected error occurred",
@@ -462,7 +395,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true }
     } catch (error: any) {
-      console.error("Phone sign in failed:", error)
       return {
         success: false,
         message: error?.message || "An unexpected error occurred",
@@ -499,7 +431,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       router.push("/auth/login")
     } catch (error: any) {
-      console.error("Error signing up:", error)
     }
   }
 
@@ -515,7 +446,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await supabase.auth.signOut()
       router.push("/")
     } catch (error) {
-      console.error("Sign out failed:", error)
     }
   }
 
@@ -524,8 +454,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return
 
     try {
-      console.log("Updating profile:", updates)
-      // Update the profile of the active user (connected or main)
       const profileId = activeUserId || user.id
       const { error } = await supabase.from("profiles").update(updates).eq("id", profileId)
 
@@ -533,7 +461,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       await refreshProfile()
     } catch (error) {
-      console.error("Profile update failed:", error)
       throw error
     }
   }
@@ -541,13 +468,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Update balance
   const updateBalance = async (newBalance: number) => {
     if (!user || !profile) {
-      console.error("Cannot update balance: No user or profile")
       return
     }
 
     try {
-      console.log("Updating balance from", profile.balance, "to", newBalance)
-      // Update the balance of the active user (connected or main)
       const profileId = activeUserId || user.id
       const { error } = await supabase
         .from("profiles")
@@ -558,7 +482,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq("id", profileId)
 
       if (error) {
-        console.error("Balance update error:", error)
         throw error
       }
 
@@ -568,12 +491,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         balance: newBalance,
       })
 
-      console.log("Balance updated successfully to", newBalance)
-
-      // Refresh profile to ensure consistency
       await refreshProfile()
     } catch (error) {
-      console.error("Balance update failed:", error)
       throw error
     }
   }

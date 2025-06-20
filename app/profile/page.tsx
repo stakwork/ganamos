@@ -36,6 +36,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { AddConnectedAccountDialog } from "@/components/add-connected-account-dialog"
+import { Check, X, MapPin } from "lucide-react"
 
 type ActivityItem = {
   id: string
@@ -96,6 +97,7 @@ export default function ProfilePage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isRemoveMode, setIsRemoveMode] = useState(false)
 
   // Cache for posts data to avoid redundant processing
   const postsCache = useRef<Post[]>([])
@@ -109,7 +111,6 @@ export default function ProfilePage() {
   // Add session guard with useEffect
   useEffect(() => {
     if (sessionLoaded && !session) {
-      console.log("Profile - No session after loading, redirecting to login")
       router.push("/auth/login")
     }
   }, [session, sessionLoaded, router])
@@ -119,9 +120,6 @@ export default function ProfilePage() {
     const newActiveUser = activeUserId || user?.id || null
 
     if (currentActiveUser.current !== newActiveUser && newActiveUser) {
-      console.log("Active user changed, resetting data:", currentActiveUser.current, "->", newActiveUser)
-
-      // Reset all data
       setActivities([])
       setPostedIssues([])
       setFixedIssues([])
@@ -143,20 +141,16 @@ export default function ProfilePage() {
 
     try {
       setIsPriceLoading(true)
-      console.log("🔍 Fetching Bitcoin price from CoinMarketCap")
 
       const response = await fetch("/api/bitcoin-price")
       const data = await response.json()
 
       if (data.price) {
-        console.log(`🔍 Current Bitcoin price: $${data.price}`)
         setBitcoinPrice(data.price)
         bitcoinPriceFetched.current = true
       } else {
-        console.warn("No price data returned, using fallback price")
       }
     } catch (error) {
-      console.error("Error fetching Bitcoin price:", error)
     } finally {
       setIsPriceLoading(false)
     }
@@ -175,15 +169,7 @@ export default function ProfilePage() {
       if (!user || !supabase) return { posts: [], hasMore: false }
 
       try {
-        console.log("🔍 Fetching user-related posts")
-        console.log("Session before fetchUserPosts:", !!session)
-        if (session) {
-          console.log("Session expiry:", new Date(session.expires_at! * 1000).toISOString())
-        }
-
-        // Use the active user ID (connected account or main account)
         const currentUserId = activeUserId || user.id
-        console.log("Fetching posts for user:", currentUserId)
 
         const limit = 5
         const offset = (page - 1) * limit
@@ -197,7 +183,6 @@ export default function ProfilePage() {
           .range(offset, offset + limit - 1)
 
         if (error) {
-          console.error("Error fetching user posts:", error)
           return { posts: [], hasMore: false }
         }
 
@@ -212,13 +197,11 @@ export default function ProfilePage() {
           .select("*", { count: "exact", head: true })
           .or(`user_id.eq.${currentUserId},fixed_by.eq.${currentUserId}`)
 
-        console.log(`🔍 Found ${uniquePosts.length} unique user-related posts`)
         return {
           posts: uniquePosts,
           hasMore: (count || 0) > page * limit,
         }
       } catch (error) {
-        console.error("Error in fetchUserPosts:", error)
         return { posts: [], hasMore: false }
       }
     },
@@ -230,24 +213,19 @@ export default function ProfilePage() {
     if (!supabase) return { donations: [] }
 
     try {
-      console.log("🔍 Fetching recent donations")
-
       const { data, error } = await supabase
         .from("donations")
         .select("*, donation_pools(location_name)")
-        .in("status", ["pending", "completed"])
+        .eq("status", "completed")
         .order("created_at", { ascending: false })
         .limit(20)
 
       if (error) {
-        console.error("Error fetching donations:", error)
         return { donations: [] }
       }
 
-      console.log(`🔍 Found ${data.length} donations`)
       return { donations: data }
     } catch (error) {
-      console.error("Error in fetchDonations:", error)
       return { donations: [] }
     }
   }, [supabase])
@@ -257,9 +235,6 @@ export default function ProfilePage() {
     (posts: Post[], append = false) => {
       if (!user || !posts) return
 
-      console.log("🔍 Processing posts into categories")
-
-      // Use the active user ID (connected account or main account)
       const currentUserId = activeUserId || user.id
 
       // Filter posted issues
@@ -294,9 +269,7 @@ export default function ProfilePage() {
       if (!user) return
 
       setIsActivityLoading(true)
-      console.log("🔍 Generating activities from posts and donations")
 
-      // Use the active user ID (connected account or main account)
       const currentUserId = activeUserId || user.id
 
       const userActivities: ActivityItem[] = []
@@ -305,12 +278,14 @@ export default function ProfilePage() {
       posts
         .filter((post) => post.userId === currentUserId || post.user_id === currentUserId)
         .forEach((post) => {
+          const createdAt = post.createdAt || post.created_at
+          if (!createdAt) return
           userActivities.push({
             id: `post-${post.id}`,
             type: "post",
             postId: post.id,
             postTitle: post.title,
-            timestamp: new Date(post.createdAt || post.created_at),
+            timestamp: new Date(createdAt),
           })
         })
 
@@ -318,13 +293,13 @@ export default function ProfilePage() {
       posts
         .filter((post) => post.fixed_by === currentUserId && post.fixed === true)
         .forEach((post) => {
-          if (post.fixed_at || post.fixedAt) {
+          if (post.fixed_at) {
             userActivities.push({
               id: `fix-${post.id}`,
               type: "fix",
               postId: post.id,
               postTitle: post.title,
-              timestamp: new Date(post.fixed_at || post.fixedAt),
+              timestamp: new Date(post.fixed_at),
             })
 
             userActivities.push({
@@ -332,7 +307,7 @@ export default function ProfilePage() {
               type: "reward",
               postId: post.id,
               postTitle: post.title,
-              timestamp: new Date(post.fixed_at || post.fixedAt),
+              timestamp: new Date(post.fixed_at),
               amount: post.reward,
             })
           }
@@ -363,20 +338,25 @@ export default function ProfilePage() {
             post.submitted_fix_at,
         )
         .forEach((post) => {
-          userActivities.push({
-            id: `fix_review_needed-${post.id}`,
-            type: "fix_review_needed",
-            postId: post.id,
-            postTitle: post.title,
-            timestamp: new Date(post.submitted_fix_at),
-            submitterName: post.submitted_fix_by_name || "Someone",
-            submitterAvatar: post.submitted_fix_by_avatar,
-          })
+          if (post.submitted_fix_at) {
+            userActivities.push({
+              id: `fix_review_needed-${post.id}`,
+              type: "fix_review_needed",
+              postId: post.id,
+              postTitle: post.title,
+              timestamp: new Date(post.submitted_fix_at),
+              submitterName: post.submitted_fix_by_name || "Someone",
+              submitterAvatar: post.submitted_fix_by_avatar,
+            })
+          }
         })
 
       // Add donation activities
       donations.forEach((donation) => {
         const locationName = donation.donation_pools?.location_name || "a location"
+        const donationTimestamp = donation.created_at || donation.completed_at
+        if (!donationTimestamp) return
+
         userActivities.push({
           id: `donation-${donation.id}`,
           type: "donation",
@@ -385,7 +365,7 @@ export default function ProfilePage() {
           donorName: donation.donor_name || "Someone",
           message: donation.message,
           amount: donation.amount,
-          timestamp: new Date(donation.created_at || donation.completed_at),
+          timestamp: new Date(donationTimestamp),
         })
       })
 
@@ -393,7 +373,6 @@ export default function ProfilePage() {
       userActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
 
       const totalActivities = userActivities.length
-      console.log(`🔍 Generated ${totalActivities} total activity items`)
 
       // Calculate pagination
       const itemsPerPage = ACTIVITIES_PER_PAGE
@@ -458,7 +437,6 @@ export default function ProfilePage() {
         setPostsPage(nextPage)
       }
     } catch (error) {
-      console.error("Error loading more posts:", error)
     } finally {
       setIsLoadingMorePosts(false)
     }
@@ -517,7 +495,6 @@ export default function ProfilePage() {
     const handleVisibilityChange = () => {
       if (!document.hidden && activities.length === 0 && !isLoading && user && initialDataLoaded.current) {
         // Tab became visible and we have no activities, reload them
-        console.log("🔍 Tab became visible, reloading activities")
         const loadData = async () => {
           const { posts } = await fetchUserPosts(1)
           if (posts.length > 0) {
@@ -604,7 +581,6 @@ export default function ProfilePage() {
 
       setShowDisconnectDialog(false)
     } catch (error: any) {
-      console.error("Error disconnecting account:", error)
       toast({
         title: "Error",
         description: error.message || "Failed to disconnect account. Please try again.",
@@ -655,7 +631,6 @@ export default function ProfilePage() {
 
       setShowDeleteDialog(false)
     } catch (error: any) {
-      console.error("Error deleting child account:", error)
       toast({
         title: "Error",
         description: error.message || "Failed to delete child account. Please try again.",
@@ -733,8 +708,14 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <ThemeToggle className="h-11 w-11" />
-              <DropdownMenu>
+              <ThemeToggle />
+              <DropdownMenu
+                onOpenChange={(open) => {
+                  if (!open) {
+                    setIsRemoveMode(false)
+                  }
+                }}
+              >
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="default" className="h-11 w-11 rounded-md">
                     <svg
@@ -770,7 +751,7 @@ export default function ProfilePage() {
                             className="object-cover"
                           />
                         </div>
-                        <span>{profile?.name || "Main Account"} (You)</span>
+                        <span>{user?.user_metadata?.full_name || "Main Account"} (You)</span>
                       </div>
                       {!isConnectedAccount && (
                         <svg
@@ -804,7 +785,7 @@ export default function ProfilePage() {
                           <div className="w-6 h-6 mr-2 overflow-hidden rounded-full">
                             <Image
                               src={account.avatar_url || "/placeholder.svg?height=24&width=24"}
-                              alt={account.name}
+                              alt={account.name || "Account"}
                               width={24}
                               height={24}
                               className="object-cover"
@@ -829,17 +810,19 @@ export default function ProfilePage() {
                               <path d="M20 6 9 17l-5-5" />
                             </svg>
                           )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleAccountAction(account)
-                            }}
-                          >
-                            ×
-                          </Button>
+                          {isRemoveMode && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleAccountAction(account)
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </DropdownMenuItem>
@@ -862,11 +845,41 @@ export default function ProfilePage() {
                     >
                       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                       <circle cx="9" cy="7" r="4" />
-                      <line x1="19" y1="8" x2="24" y2="13" />
-                      <line x1="24" y1="8" x2="19" y2="13" />
+                      <line x1="19" y1="8" x2="19" y2="14" />
+                      <line x1="22" y1="11" x2="16" y2="11" />
                     </svg>
-                    Add Connected Account
+                    Add Account
                   </DropdownMenuItem>
+
+                  {connectedAccounts.length > 0 && (
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault()
+                        setIsRemoveMode(!isRemoveMode)
+                      }}
+                      className="p-4 cursor-pointer"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mr-2 text-muted-foreground"
+                      >
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <line x1="22" y1="11" x2="16" y2="11" />
+                      </svg>
+                      <span className={`text-muted-foreground ${isRemoveMode ? "font-bold" : ""}`}>
+                        Remove Account
+                      </span>
+                    </DropdownMenuItem>
+                  )}
 
                   <DropdownMenuSeparator />
 
@@ -952,7 +965,7 @@ export default function ProfilePage() {
                     <div className="flex items-start">
                       <div className="p-2 bg-muted rounded-full dark:bg-gray-800">
                         <Skeleton className="w-6 h-6 rounded-full" />
-                      </div>
+              </div>
                       <div className="ml-3 flex-1">
                         <div className="flex items-start justify-between">
                           <div>
@@ -972,7 +985,7 @@ export default function ProfilePage() {
             <>
               <div className="space-y-4">
                 {[...postedIssues, ...fixedIssues]
-                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
                   .map((post) => (
                     <PostCard key={post.id} post={post} />
                   ))}
@@ -1036,7 +1049,7 @@ export default function ProfilePage() {
                     <div className="flex items-start">
                       <div className="p-2 bg-muted rounded-full dark:bg-gray-800">
                         <Skeleton className="w-6 h-6 rounded-full" />
-                      </div>
+              </div>
                       <div className="ml-3 flex-1">
                         <div className="flex items-start justify-between">
                           <div>
@@ -1256,7 +1269,7 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
 
   const handleClick = () => {
     if (activity.type === "donation") {
-      // Donations don't have a detail page to navigate to
+      router.push("/donate")
       return
     }
     router.push(`/post/${activity.postId}`)
@@ -1272,14 +1285,13 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
 
       return formatTimeAgo(activity.timestamp)
     } catch (error) {
-      console.error("Error formatting date:", error)
       return "Recently"
     }
   }
 
   return (
     <Card
-      className={`hover:bg-muted/50 border dark:border-gray-800 ${activity.type !== "donation" ? "cursor-pointer" : ""}`}
+      className="hover:bg-muted/50 border dark:border-gray-800 cursor-pointer"
       onClick={handleClick}
     >
       <CardContent className="p-4">
@@ -1291,14 +1303,35 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
                 <ActivityTitle activity={activity} />
                 {activity.type !== "donation" ? (
                   <p className="text-sm text-muted-foreground">{activity.postTitle}</p>
-                ) : activity.message ? (
-                  <p className="text-sm text-muted-foreground">"{activity.message}"</p>
-                ) : null}
+                ) : (
+                  <div className="flex items-center mt-1 text-sm text-muted-foreground">
+                    {activity.amount && (
+                      <Badge
+                        variant="outline"
+                        className="mr-1.5 flex items-center gap-1 bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-800/30"
+                      >
+                        <div className="w-3 h-3 relative">
+                          <Image
+                            src="/images/bitcoin-logo.png"
+                            alt="Bitcoin"
+                            width={12}
+                            height={12}
+                            className="object-contain"
+                          />
+                        </div>
+                        {formatSatsValue(activity.amount)}
+                      </Badge>
+                    )}
+                    <span className="mr-1.5">to</span>
+                    <MapPin className="w-3 h-3 mr-1" />
+                    <span>{activity.locationName}</span>
+                  </div>
+                )}
               </div>
               <div className="text-xs text-muted-foreground">{formatDate()}</div>
             </div>
 
-            {(activity.type === "reward" || activity.type === "donation") && activity.amount && (
+            {activity.type === "reward" && activity.amount && (
               <Badge
                 variant="outline"
                 className="mt-2 flex items-center gap-1 bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-800/30"
@@ -1312,7 +1345,6 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
                     className="object-contain"
                   />
                 </div>
-                {activity.type === "reward" ? "+" : ""}
                 {formatSatsValue(activity.amount)}
               </Badge>
             )}
@@ -1346,12 +1378,10 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
       return <p className="font-medium">You submitted a fix for review</p>
     case "fix_review_needed":
       return <p className="font-medium">{activity.submitterName || "Someone"} submitted a fix</p>
-    case "donation":
-      return (
-        <p className="font-medium">
-          {activity.donorName} donated to {activity.locationName}
-        </p>
-      )
+    case "donation": {
+      const donorFirstName = activity.donorName ? activity.donorName.split(" ")[0] : "Someone"
+      return <p className="font-medium">{donorFirstName} donated Bitcoin</p>
+    }
     default:
       return <p className="font-medium">Activity</p>
   }
@@ -1449,7 +1479,7 @@ function ActivityIcon({ type }: { type: string }) {
       )
     case "donation":
       return (
-        <div className="p-2 bg-green-100 rounded-full dark:bg-green-950/50">
+        <div className="p-2 bg-orange-100 rounded-full dark:bg-orange-950/50">
           <div className="w-4 h-4 relative">
             <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="object-contain" />
           </div>

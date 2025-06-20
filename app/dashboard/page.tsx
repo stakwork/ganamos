@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { useAuth } from "@/components/auth-provider"
@@ -56,6 +56,8 @@ export default function DashboardPage() {
   const [activeFilters, setActiveFilters] = useState<ActiveFilters | null>(null)
   const [filterCleared, setFilterCleared] = useState(false)
 
+  const prevDeps = useRef({ user, loading, router })
+
   // Add session guard with useEffect
   useEffect(() => {
     if (sessionLoaded && !session) {
@@ -65,6 +67,11 @@ export default function DashboardPage() {
   }, [session, sessionLoaded, router])
 
   useEffect(() => {
+    if (prevDeps.current.router !== router) {
+      console.log("Router object changed.")
+    }
+    prevDeps.current = { user, loading, router }
+
     if (!loading && !user) {
       router.push("/auth/login")
       return
@@ -80,26 +87,33 @@ export default function DashboardPage() {
     // Load active filters from localStorage
     const loadFilters = () => {
       const filtersJson = localStorage.getItem("activeFilters")
+      setCurrentPage(1) // Reset to first page
       if (filtersJson) {
         try {
           const filters = JSON.parse(filtersJson)
-          if (!filters.sortBy) filters.sortBy = 'proximity'
+          if (!filters.sortBy) filters.sortBy = "proximity"
           setActiveFilters(filters)
-          setCurrentPage(1)
-          fetchPosts(1, filters)
         } catch (e) {
           console.error("Error parsing filters:", e)
-          fetchPosts(1, null)
+          // Set default filters if parsing fails
+          setActiveFilters({
+            sortBy: "proximity",
+            count: 0,
+            dateFilter: "any",
+            rewardRange: [0, 10000],
+            location: "",
+            searchQuery: "",
+          })
         }
       } else {
-        fetchPosts(1, {
-          ...activeFilters,
-          sortBy: 'proximity',
-          count: activeFilters?.count ?? 0,
-          dateFilter: activeFilters?.dateFilter ?? 'any',
-          rewardRange: activeFilters?.rewardRange ?? [0, 10000],
-          location: activeFilters?.location ?? '',
-          searchQuery: activeFilters?.searchQuery ?? '',
+        // Set default filters if none are in storage
+        setActiveFilters({
+          sortBy: "proximity",
+          count: 0,
+          dateFilter: "any",
+          rewardRange: [0, 10000],
+          location: "",
+          searchQuery: "",
         })
       }
     }
@@ -439,7 +453,7 @@ export default function DashboardPage() {
                           <User className="h-4 w-4" />
                         </AvatarFallback>
                       </Avatar>
-                      <span className="flex-1 font-medium">Main Account</span>
+                      <span className="flex-1 font-medium">{user?.user_metadata?.full_name || "Main Account"}</span>
                       {!isConnectedAccount && <span className="text-blue-600">✓</span>}
                     </DropdownMenuItem>
 

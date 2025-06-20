@@ -22,6 +22,12 @@ export interface Post {
   original_reward?: number
   total_boost_amount?: number
   boost_applied?: boolean
+  under_review?: boolean
+  submitted_at?: string
+  submitted_fix_by_id?: string
+  submitted_fix_at?: string
+  submitted_fix_by_name?: string
+  submitted_fix_by_avatar?: string
 }
 
 export interface User {

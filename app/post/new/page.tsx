@@ -20,6 +20,7 @@ import {
 } from "@/app/actions/post-actions"
 import QRCode from "@/components/qr-code"
 import { getCurrentLocationWithName } from "@/lib/geocoding" // Import the geocoding utility
+import { ChevronLeft } from "lucide-react"
 
 // Pre-load the camera component
 import dynamic from "next/dynamic"
@@ -515,11 +516,13 @@ export default function NewPostPage() {
 
   return (
     <div className="container px-4 py-6 mx-auto max-w-md">
-      <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50">
-        <div className="bg-black/50 text-white/70 px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
-          Take a clear photo of the issue
+      {step === "photo" && (
+        <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-black/50 text-white/70 px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
+            Take photo of the issue
+          </div>
         </div>
-      </div>
+      )}
 
       {step === "photo" ? (
         <DynamicCameraCapture onCapture={handleCapture} />
@@ -533,25 +536,11 @@ export default function NewPostPage() {
                   <Button
                     type="button"
                     size="icon"
-                    variant="secondary"
-                    className="absolute top-2 right-2"
-                    onClick={() => setStep("photo")}
+                    className="absolute top-2 left-2 rounded-md bg-black/20 text-white hover:bg-black/40"
+                    onClick={handleBack}
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-                      <circle cx="12" cy="13" r="3" />
-                    </svg>
-                    <span className="sr-only">Retake photo</span>
+                    <ChevronLeft className="h-6 w-6" />
+                    <span className="sr-only">Back</span>
                   </Button>
                 </div>
               )}

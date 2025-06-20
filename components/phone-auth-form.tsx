@@ -140,6 +140,9 @@ export function PhoneAuthForm() {
       {step === "phone" ? (
         <form onSubmit={handleSendCode} className="space-y-4">
           <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              By entering your phone number and tapping 'Send Verification Code', you consent to receive a one-time SMS for login purposes. Message & data rates may apply.
+            </p>
             <PhoneInput
               placeholder="Enter a phone number"
               value={phoneNumber}
@@ -147,16 +150,12 @@ export function PhoneAuthForm() {
               defaultCountry="US"
               disabled={isLoading}
             />
-            <p className="text-xs text-muted-foreground">
-              By entering your number, you consent to receive a one-time text message login code. Message and data rates
-              may apply.
-            </p>
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? (
               <>
-                <LoadingSpinner size="sm" className="mr-2" />
+                <LoadingSpinner message="" />
                 Sending Code...
               </>
             ) : (
@@ -186,7 +185,7 @@ export function PhoneAuthForm() {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
-                  <LoadingSpinner size="sm" className="mr-2" />
+                  <LoadingSpinner message="" />
                   Verifying...
                 </>
               ) : (

@@ -34,6 +34,17 @@ export default function PhoneAuthPage() {
               </Link>
             </p>
           </div>
+          <div className="text-center pt-4">
+            <p className="text-xs text-muted-foreground">
+              <a href="https://ganamos.earth/privacy" className="hover:underline" target="_blank" rel="noopener noreferrer">
+                Privacy Policy
+              </a>
+              {" • "}
+              <a href="https://ganamos.earth/terms" className="hover:underline" target="_blank" rel="noopener noreferrer">
+                Terms
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </div>
