@@ -305,28 +305,28 @@ export function PostCard({ post }: { post: Post }) {
 
             {/* Bitcoin Map Marker with Sats Reward on the right */}
             <div style={{ position: "relative", width: "48px", height: "48px" }}>
-              <div
+            <div
                 className="marker-container cursor-pointer"
-                onClick={handleClick}
-                style={{
+              onClick={handleClick}
+              style={{
                   width: "48px",
                   height: "48px",
-                  borderRadius: "50%",
-                  background: "#FED56B",
-                  border: "1px solid #C5792D",
-                  boxShadow: "0 0 0 1px #F4C14F",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <img
-                  src="/images/bitcoin-logo.png"
-                  alt="Bitcoin"
+                borderRadius: "50%",
+                background: "#FED56B",
+                border: "1px solid #C5792D",
+                boxShadow: "0 0 0 1px #F4C14F",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <img
+                src="/images/bitcoin-logo.png"
+                alt="Bitcoin"
                   width={43}
                   height={43}
                   style={{ zIndex: 1 }}
-                />
+              />
               </div>
               {/* Badge absolutely positioned over the coin */}
               <div

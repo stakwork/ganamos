@@ -85,8 +85,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (!user || !adminGroupIds.length) return
 
-    console.log("Setting up realtime subscription for group join requests")
-
     const channel = supabase
       .channel("group-join-requests")
       .on(

@@ -86,12 +86,14 @@ export function BottomNav() {
             <div
               className={cn(
                 "w-10 h-10 flex items-center justify-center rounded-xl border",
-                pathname === "/post/new" ? "border-primary" : "border-white dark:border-gray-400 bg-transparent"
+                pathname === "/post/new"
+                  ? "border-primary"
+                  : "border-gray-500 dark:border-gray-400 bg-transparent",
               )}
             >
               <Plus
                 className={cn(
-                  "w-6 h-6 text-white dark:text-gray-200 transition-colors hover:stroke-emerald-500",
+                  "w-6 h-6 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
                   pathname === "/post/new" && "text-primary dark:text-primary",
                 )}
               />

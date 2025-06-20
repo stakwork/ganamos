@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { X, RefreshCw, AlertCircle, Heart, Plus } from "lucide-react"
+import { X, RefreshCw, AlertCircle, Heart, Plus, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Post } from "@/lib/types"
 import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
@@ -57,12 +57,6 @@ declare global {
   interface Window {
     google?: any
   }
-}
-
-// Add global declaration for google namespace to fix linter errors
-declare global {
-  // eslint-disable-next-line no-var
-  var google: any;
 }
 
 // Update the function parameters to include userLocation
@@ -595,6 +589,7 @@ export function MapView({
         streetViewControl: false,
         rotateControl: false,
         fullscreenControl: false,
+        gestureHandling: "greedy",
       })
 
       console.log("Map instance created")
@@ -783,9 +778,6 @@ export function MapView({
         if (place.geometry.viewport) {
           // If the place has viewport bounds, use them to show the entire area
           mapInstance.fitBounds(place.geometry.viewport)
-        } else if (place.geometry.bounds) {
-          // If no viewport but has bounds, use those
-          mapInstance.fitBounds(place.geometry.bounds)
         } else {
           // Fall back to center and zoom for specific points
           mapInstance.setCenter(place.geometry.location)
@@ -973,9 +965,9 @@ export function MapView({
 
       {/* Airbnb-style Preview Card - Only show if not in modal and post is selected */}
       {selectedPost && !isModal && (
-        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-[36rem] max-w-[calc(100%-1rem)]">
+        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 w-[36rem] max-w-[calc(100%-1rem)]">
           <div
-            className="bg-white rounded-xl shadow-lg p-3 cursor-pointer hover:shadow-xl transition-shadow relative"
+            className="bg-white rounded-xl shadow-xl p-3 cursor-pointer hover:shadow-2xl transition-shadow relative"
             onClick={handlePreviewCardClick}
           >
             {/* Close button */}
@@ -993,14 +985,19 @@ export function MapView({
                 className="w-16 h-16 rounded-lg object-cover bg-gray-100 flex-shrink-0"
               />
               <div className="flex-1 min-w-0 pr-6">
-                <p className="font-medium text-sm text-gray-900 line-clamp-2 mb-2">
+                <p className="font-medium text-lg text-gray-900 line-clamp-2 mb-2">
                   {selectedPost.description || "No description available"}
                 </p>
-                <div className="flex items-center gap-1 mb-1">
-                  <img src="/images/bitcoin-logo.png" alt="Bitcoin" className="w-4 h-4 object-contain" />
-                  <span className="font-medium text-xs text-gray-700">{formatSatsValue(selectedPost.reward)}</span>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1">
+                    <img src="/images/bitcoin-logo.png" alt="Bitcoin" className="w-4 h-4 object-contain" />
+                    <span className="font-medium text-xs text-gray-700">{formatSatsValue(selectedPost.reward)}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <Clock className="w-3 h-3" />
+                    {formatPostDate(selectedPost)}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500">{formatPostDate(selectedPost)}</div>
               </div>
             </div>
           </div>
