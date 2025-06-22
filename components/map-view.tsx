@@ -271,6 +271,7 @@ export function MapView({
       private markerId: string
       private isClickable: boolean
       private animationDelay: number
+      private hasAnimated: boolean // Track if marker has been animated
 
       constructor(
         post: Post,
@@ -285,6 +286,7 @@ export function MapView({
         this.markerId = post.id
         this.isClickable = isClickable
         this.animationDelay = animationDelay * 100 // 100ms stagger between markers
+        this.hasAnimated = false // Initialize animation flag
         console.log(`Creating marker for post ${post.id} at ${post.latitude},${post.longitude}`)
 
         this.position = new window.google.maps.LatLng(Number(post.latitude), Number(post.longitude))
@@ -375,7 +377,21 @@ export function MapView({
       setSelected(isSelected: boolean) {
         console.log(`Setting marker ${this.markerId} selected state to ${isSelected}`)
         this.isSelected = isSelected
-        this.updateContent()
+        this.updateSelection()
+      }
+
+      // Update only the selection state without recreating HTML
+      private updateSelection() {
+        const markerElement = this.containerDiv.querySelector('.btc-marker') as HTMLElement
+        const badgeElement = this.containerDiv.querySelector('.btc-badge') as HTMLElement
+        
+        if (markerElement && badgeElement) {
+          const markerScale = this.isSelected ? "1.1" : "1"
+          const badgeOpacity = this.isSelected ? "1" : "0.95"
+          
+          markerElement.style.transform = `scale(${markerScale})`
+          badgeElement.style.opacity = badgeOpacity
+        }
       }
 
       // Format sats for display
@@ -395,6 +411,9 @@ export function MapView({
         const rewardText = this.formatSatsForPin(this.post.reward)
         const markerScale = this.isSelected ? "1.1" : "1"
         const badgeOpacity = this.isSelected ? "1" : "0.95"
+        
+        // Only apply animation if this is the first time creating the marker
+        const animationStyle = this.hasAnimated ? "" : `animation: markerDropIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) ${this.animationDelay}ms both;`
 
         this.containerDiv.innerHTML = `
   <style>
@@ -416,6 +435,14 @@ export function MapView({
     opacity: 1;
   }
 }
+@keyframes shine {
+  0% {
+    transform: translate(-100%, -100%) rotate(25deg);
+  }
+  100% {
+    transform: translate(100%, 100%) rotate(25deg);
+  }
+}
 </style>
 <div class="btc-marker" style="
   position: relative;
@@ -428,14 +455,34 @@ export function MapView({
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: markerDropIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) ${this.animationDelay}ms both;
+  ${animationStyle}
   transition: transform 0.2s ease;
+  transform: scale(${markerScale});
 ">
   <img src="/images/bitcoin-logo.png" alt="Bitcoin" style="
     width: 38px;
     height: 38px;
     filter: drop-shadow(0px -1px 1px rgba(255, 255, 255, 0.4));
+    position: relative;
+    overflow: hidden;
   ">
+  <div class="shine-effect" style="
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0) 30%,
+      rgba(255, 255, 255, 0.5) 50%,
+      rgba(255, 255, 255, 0) 70%
+    );
+    transform: rotate(0deg);
+    animation: shine 2.5s infinite ease-in-out;
+    z-index: 2;
+    pointer-events: none;
+  "></div>
   <div class="btc-badge" style="
     position: absolute;
     bottom: -12px;
@@ -458,6 +505,8 @@ export function MapView({
   ">${rewardText}</div>
 </div>
 `
+        // Mark that this marker has been animated
+        this.hasAnimated = true
         console.log(`Marker ${this.markerId} content updated with drop-in animation`)
       }
     }

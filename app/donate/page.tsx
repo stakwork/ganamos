@@ -31,7 +31,7 @@ interface RecommendedLocation {
 
 function Stepper({ currentStep }: { currentStep: number }) {
   const stepLabels = [
-    "Choose Amount",
+    "Donation Amount",
     "Pick Location",
     "Pay Invoice"
   ];
@@ -54,6 +54,8 @@ export default function DonatePage() {
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [selectedAmount, setSelectedAmount] = useState<number>(10000)
   const [showKeypad, setShowKeypad] = useState(false)
+  const [bitcoinPrice, setBitcoinPrice] = useState<number | null>(null)
+  const [isPriceLoading, setIsPriceLoading] = useState(true)
   const [recommendedLocations, setRecommendedLocations] = useState<RecommendedLocation[]>([])
   const [selectedLocation, setSelectedLocation] = useState<RecommendedLocation | null>(null)
   const [customLocation, setCustomLocation] = useState("")
@@ -70,6 +72,25 @@ export default function DonatePage() {
   const googleMapRef = useRef<any>(null)
   const polygonRef = useRef<any>(null)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    async function fetchBitcoinPrice() {
+      try {
+        const response = await fetch("/api/bitcoin-price")
+        const data = await response.json()
+        if (data.price) {
+          setBitcoinPrice(data.price)
+        }
+      } catch (error) {
+        console.error("Failed to fetch bitcoin price", error)
+        // Use a fallback price
+        setBitcoinPrice(65000)
+      } finally {
+        setIsPriceLoading(false)
+      }
+    }
+    fetchBitcoinPrice()
+  }, [])
 
   // Reset donation flow state
   const resetDonationFlow = () => {
@@ -336,12 +357,19 @@ export default function DonatePage() {
 
   const canDonate = selectedAmount && selectedAmount > 0 && (selectedLocation || customLocation)
 
+  const calculateUsdValue = (sats: number) => {
+    if (!bitcoinPrice) return "0.00"
+    const btcAmount = sats / 100000000
+    const usdValue = btcAmount * bitcoinPrice
+    return usdValue.toFixed(2)
+  }
+
   // Step 1: Choose Amount
   const renderStep1 = () => (
     <div className="container px-4 py-6 mx-auto max-w-md">
       <div className="space-y-6">
         <div className="text-center mb-6">
-          <h2 className="text-white text-lg font-light">Choose Amount</h2>
+          <h2 className="text-white text-lg font-light">Donation Amount</h2>
         </div>
         
         <div className="flex flex-col items-center space-y-4 py-6">
@@ -413,6 +441,12 @@ export default function DonatePage() {
             </div>
             <span>sats to donate</span>
           </div>
+
+          {bitcoinPrice && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              ${calculateUsdValue(selectedAmount)} USD
+            </p>
+          )}
 
           {showKeypad && (
             <div className="w-full max-w-xs pt-4">
@@ -765,7 +799,7 @@ export default function DonatePage() {
       </div>
       {/* Header and subhead always visible */}
       <div className="w-full max-w-md px-4 pb-2 pt-4">
-        <h1 className="text-2xl font-bold text-center mb-2">Give Bitcoin, Fix Problems</h1>
+        <h1 className="text-2xl font-bold text-center mb-2">Give Bitcoin to Clean</h1>
         <p className="text-center text-muted-foreground text-sm">
            Donate Bitcoin to fund community improvements. Your sats fund rewards for fixing issues. 
         </p>

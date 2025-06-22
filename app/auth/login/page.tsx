@@ -214,11 +214,16 @@ export default function LoginPage() {
           )}
 
           {!showEmailForm && (
-            <div className="text-center">
+            <div className="text-center space-y-2">
               <p className="text-sm text-muted-foreground">
                 Don't have an account?{" "}
                 <Link href="/auth/register" className="text-emerald-600 hover:underline">
                   Sign up
+                </Link>
+              </p>
+              <p className="text-sm">
+                <Link href="/map" className="text-gray-500 hover:text-gray-700 hover:underline">
+                  View map
                 </Link>
               </p>
             </div>
