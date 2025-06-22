@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Copy } from "lucide-react"
 import { formatSatsValue } from "@/lib/utils"
 import { Separator } from "@/components/ui/separator"
+import Image from "next/image"
 
 interface RecommendedLocation {
   name: string
@@ -51,16 +52,15 @@ export default function DonatePage() {
   const router = useRouter()
   const { toast } = useToast()
   const [step, setStep] = useState<1 | 2 | 3>(1)
-  const [selectedAmount, setSelectedAmount] = useState<number | null>(null)
-  const [customAmount, setCustomAmount] = useState("")
-  const [showCustomAmount, setShowCustomAmount] = useState(false)
+  const [selectedAmount, setSelectedAmount] = useState<number>(10000)
+  const [showKeypad, setShowKeypad] = useState(false)
   const [recommendedLocations, setRecommendedLocations] = useState<RecommendedLocation[]>([])
   const [selectedLocation, setSelectedLocation] = useState<RecommendedLocation | null>(null)
   const [customLocation, setCustomLocation] = useState("")
   const [customLocationDetails, setCustomLocationDetails] = useState<any | null>(null)
   const [isLoadingLocations, setIsLoadingLocations] = useState(true)
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false)
-  const [invoiceData, setInvoiceData] = useState<{ paymentRequest: string; poolId: string } | null>(null)
+  const [invoiceData, setInvoiceData] = useState<{ paymentRequest: string; poolId: string; amount: number } | null>(null)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [paymentHash, setPaymentHash] = useState<string>("")
   const [isCheckingPayment, setIsCheckingPayment] = useState(false)
@@ -71,17 +71,10 @@ export default function DonatePage() {
   const polygonRef = useRef<any>(null)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  const amountOptions = [
-    { label: "1K", value: 1000 },
-    { label: "10K", value: 10000 },
-    { label: "100K", value: 100000 },
-  ]
-
   // Reset donation flow state
   const resetDonationFlow = () => {
-    setSelectedAmount(null)
-    setCustomAmount("")
-    setShowCustomAmount(false)
+    setSelectedAmount(10000)
+    setShowKeypad(false)
     setSelectedLocation(null)
     setCustomLocation("")
     setCustomLocationDetails(null)
@@ -250,48 +243,36 @@ export default function DonatePage() {
 
             // Show success toast
             toast({
-              title: "Payment confirmed!",
-              description: "Your donation has been received. Thank you!",
+              title: "✅ Payment Received!",
+              description: `Thank you for your ${formatSatsValue(invoiceData?.amount || 0)} donation!`,
+              variant: "success",
             })
+          } else if (result.error) {
+            console.error("Payment check error:", result.error)
           }
         } catch (error) {
-          console.error("Error polling payment:", error)
+          console.error("Error polling for payment:", error)
         }
       }
 
-      // Poll immediately, then every 3 seconds
-      pollPayment()
-      pollingIntervalRef.current = setInterval(pollPayment, 3000)
-    }
+      pollingIntervalRef.current = setInterval(pollPayment, 3000) // Poll every 3 seconds
 
-    // Cleanup polling when step changes or component unmounts
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current)
-        pollingIntervalRef.current = null
+      return () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current)
+        }
       }
     }
-  }, [step, paymentHash, paymentDetected, toast])
+  }, [step, paymentHash, paymentDetected, invoiceData])
 
   const handleAmountSelect = (amount: number) => {
     setSelectedAmount(amount)
-    setCustomAmount("")
-    setShowCustomAmount(false)
-  }
-
-  const handleWhaleClick = () => {
-    setShowCustomAmount(true)
-    setSelectedAmount(null)
+    setShowKeypad(false)
   }
 
   const handleCustomAmountChange = (value: string) => {
-    setCustomAmount(value)
-    const numValue = Number.parseInt(value)
-    if (!isNaN(numValue) && numValue > 0) {
-      setSelectedAmount(numValue)
-    } else {
-      setSelectedAmount(null)
-    }
+    const amount = parseInt(value, 10)
+    setSelectedAmount(isNaN(amount) ? 0 : amount)
   }
 
   const handleLocationSelect = (location: RecommendedLocation) => {
@@ -338,6 +319,7 @@ export default function DonatePage() {
         setInvoiceData({
           paymentRequest: result.paymentRequest!,
           poolId: result.poolId!,
+          amount: selectedAmount,
         })
         setPaymentHash(result.paymentHash!)
         setStep(3)
@@ -361,62 +343,112 @@ export default function DonatePage() {
         <div className="text-center mb-6">
           <h2 className="text-white text-lg font-light">Choose Amount</h2>
         </div>
-        <div>
-          <div className="grid grid-cols-4 gap-3 mb-3">
-            {amountOptions.map((option) => (
-              <Button
-                key={option.value}
-                variant="outline"
-                onClick={() => handleAmountSelect(option.value)}
-                className={`h-20 flex flex-col justify-center hover:bg-accent hover:text-accent-foreground ${selectedAmount === option.value ? "ring-2 ring-primary" : ""}`}
-              >
-                <div className="font-bold text-xl">{option.label}</div>
-                <div className="text-s text-muted-foreground">sats</div>
-              </Button>
-            ))}
-            <Button
-              variant="outline"
-              onClick={handleWhaleClick}
-              className={`h-20 flex flex-col justify-center hover:bg-accent hover:text-accent-foreground ${showCustomAmount ? "ring-2 ring-primary" : ""}`}
+        
+        <div className="flex flex-col items-center space-y-4 py-6">
+          <div className="flex items-center justify-between w-full max-w-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedAmount(Math.max(0, selectedAmount - 500))
+              }}
+              className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-800"
             >
-              <div className="text-2xl">🐋</div>
-              <div className="text-s text-muted-foreground">custom</div>
-            </Button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-gray-600 dark:text-gray-300"
+              >
+                <path d="M5 12h14" />
+              </svg>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowKeypad(!showKeypad)}
+              className="w-32 text-center hover:opacity-80 transition-opacity"
+            >
+              <span className="text-5xl font-light text-gray-900 dark:text-white">
+                {selectedAmount === 0 ? "0" : formatSatsValue(selectedAmount).replace(" sats", "").replace(".0", "")}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedAmount(selectedAmount + 500)}
+              className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-gray-600 dark:text-gray-300"
+              >
+                <path d="M12 5v14m-7-7h14" />
+              </svg>
+            </button>
           </div>
-          {showCustomAmount && (
-            <div className="mt-3">
+
+          <div className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+            <div className="w-4 h-4 relative">
+              <Image
+                src="/images/bitcoin-logo.png"
+                alt="Bitcoin"
+                width={16}
+                height={16}
+                className="object-contain"
+              />
+            </div>
+            <span>sats to donate</span>
+          </div>
+
+          {showKeypad && (
+            <div className="w-full max-w-xs pt-4">
               <Input
                 type="number"
-                placeholder="Enter custom amount in sats"
-                value={customAmount}
+                value={selectedAmount}
                 onChange={(e) => handleCustomAmountChange(e.target.value)}
-                className="w-full"
+                placeholder="Enter amount"
+                className="w-full px-4 py-3 text-center text-lg border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                min="0"
+                autoFocus
               />
             </div>
           )}
         </div>
+
         <Button
           onClick={() => setStep(2)}
-          disabled={!selectedAmount}
+          disabled={!selectedAmount || selectedAmount === 0}
           className="w-full h-12"
           size="lg"
         >
           Next: Choose Location
         </Button>
         {/* Dots below the button */}
-        <div className="flex justify-center mt-6">
-          {[0, 1, 2].map((idx) => (
-            <span
-              key={idx}
-              className={`h-2 w-2 rounded-full mx-1 transition-colors duration-200 ${
-                step - 1 === idx ? "bg-primary" : "bg-gray-400"
-              }`}
-            />
+        <div className="flex justify-center space-x-2">
+          {[1, 2, 3].map((s) => (
+            <div
+              key={s}
+              className={`w-2 h-2 rounded-full ${step === s ? "bg-primary" : "bg-gray-300 dark:bg-gray-600"}`}
+            ></div>
           ))}
         </div>
       </div>
     </div>
-  )
+  );
 
   // Step 2: Choose Location
   const [showCustomPicker, setShowCustomPicker] = useState(false)
@@ -580,14 +612,12 @@ export default function DonatePage() {
           )}
         </Button>
         {/* Dots below the button */}
-        <div className="flex justify-center mt-6">
-          {[0, 1, 2].map((idx) => (
-            <span
-              key={idx}
-              className={`h-2 w-2 rounded-full mx-1 transition-colors duration-200 ${
-                step - 1 === idx ? "bg-primary" : "bg-gray-400"
-              }`}
-            />
+        <div className="flex justify-center space-x-2">
+          {[1, 2, 3].map((s) => (
+            <div
+              key={s}
+              className={`w-2 h-2 rounded-full ${step === s ? "bg-primary" : "bg-gray-300 dark:bg-gray-600"}`}
+            ></div>
           ))}
         </div>
       </div>
@@ -713,14 +743,12 @@ export default function DonatePage() {
           </div>
         )}
         {/* Dots below the content */}
-        <div className="flex justify-center mt-6">
-          {[0, 1, 2].map((idx) => (
-            <span
-              key={idx}
-              className={`h-2 w-2 rounded-full mx-1 transition-colors duration-200 ${
-                step - 1 === idx ? "bg-primary" : "bg-gray-400"
-              }`}
-            />
+        <div className="flex justify-center space-x-2">
+          {[1, 2, 3].map((s) => (
+            <div
+              key={s}
+              className={`w-2 h-2 rounded-full ${step === s ? "bg-primary" : "bg-gray-300 dark:bg-gray-600"}`}
+            ></div>
           ))}
         </div>
       </div>

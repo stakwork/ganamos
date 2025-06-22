@@ -852,18 +852,6 @@ export function MapView({
 
   return (
     <div className={containerClasses}>
-      {/* Close Button - Only show if not in modal and user is not logged in */}
-      {!isModal && !user && (
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onClose}
-          className="absolute top-4 right-4 z-50 h-12 w-12 rounded-full bg-white hover:bg-gray-50 shadow-lg border-gray-200 text-gray-600 hover:text-gray-800"
-        >
-          <X className="h-5 w-5" />
-        </Button>
-      )}
-
       {/* Search Bar with Donation Button - Adjust position if in modal */}
       <div
         className={`absolute ${isModal ? "top-2" : "top-4"} left-1/2 transform -translate-x-1/2 z-50 w-80 max-w-[calc(100%-1rem)]`}
@@ -910,18 +898,6 @@ export function MapView({
               </div>
             )}
           </div>
-
-          {/* Donation Heart Button - Only show if user is not logged in */}
-          {!user && (
-            <Button
-              onClick={handleDonationClick}
-              size="icon"
-              variant="outline"
-              className="h-12 w-12 rounded-full bg-white hover:bg-gray-50 shadow-lg border-gray-200 text-gray-600 hover:text-gray-800"
-            >
-              <Heart className="h-5 w-5 fill-pink-400 stroke-pink-600 stroke-2" />
-            </Button>
-          )}
         </div>
       </div>
 

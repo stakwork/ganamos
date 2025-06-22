@@ -144,7 +144,7 @@ export default function NewPostPage() {
           title: "Error",
           description: "Failed to load your groups. You can still post without selecting a group.",
           variant: "destructive",
-          duration: 1000,
+          duration: 2000,
         })
       } finally {
         setLoadingGroups(false)
@@ -187,7 +187,7 @@ export default function NewPostPage() {
               title: "Payment Confirmed!",
               description: "Your payment has been received. Creating your post...",
               variant: "success",
-              duration: 1000,
+              duration: 2000,
             })
 
             // Now create the funded anonymous post
@@ -210,7 +210,7 @@ export default function NewPostPage() {
                 title: "🎉 Anonymous Post Created!",
                 description: "Your issue has been posted successfully.",
                 variant: "success",
-                duration: 1000,
+                duration: 2000,
               })
               setShowCreateAccountPrompt(true)
             } else {
@@ -218,7 +218,7 @@ export default function NewPostPage() {
                 title: "Error Creating Post",
                 description: creationResult.error || "Failed to create post after payment.",
                 variant: "destructive",
-                duration: 1000,
+                duration: 2000,
               })
             }
             setIsSubmitting(false)
@@ -277,7 +277,7 @@ export default function NewPostPage() {
           title: "Location Unavailable",
           description: "Could not retrieve location. Geolocation might not be supported or enabled.",
           variant: "destructive", // Changed to destructive for error
-          duration: 1000,
+          duration: 2000,
         })
       }
     } catch (error: any) {
@@ -320,7 +320,7 @@ export default function NewPostPage() {
         title: errorMessage,
         description: errorDescription,
         variant: "destructive", // Changed to destructive
-        duration: 1000,
+        duration: 2000,
       })
     } finally {
       setIsGettingLocation(false)
@@ -333,7 +333,7 @@ export default function NewPostPage() {
       title: "Location removed",
       description: "Location has been removed from the post",
       variant: "default",
-      duration: 1000,
+      duration: 2000,
     })
   }
 
@@ -348,7 +348,7 @@ export default function NewPostPage() {
         title: "Minimum Reward Required",
         description: `Anonymous posts require a minimum reward of ${MIN_ANONYMOUS_REWARD} sats.`,
         variant: "destructive",
-        duration: 1000,
+        duration: 2000,
       })
       setIsSubmitting(false)
       return
@@ -359,7 +359,7 @@ export default function NewPostPage() {
         title: "Image required",
         description: "Please take a photo of the issue",
         variant: "destructive",
-        duration: 1000,
+        duration: 2000,
       })
       setIsSubmitting(false)
       return
@@ -370,7 +370,7 @@ export default function NewPostPage() {
         title: "Missing information",
         description: "Please describe the issue",
         variant: "destructive",
-        duration: 1000,
+        duration: 2000,
       })
       setIsSubmitting(false)
       return
@@ -381,7 +381,7 @@ export default function NewPostPage() {
         title: "Location Required",
         description: "Anonymous posts require a location. Please add your location before posting.",
         variant: "destructive",
-        duration: 1000,
+        duration: 2000,
       })
       setIsSubmitting(false)
       return
@@ -392,7 +392,7 @@ export default function NewPostPage() {
         title: "Insufficient balance",
         description: "You don't have enough sats to offer this reward",
         variant: "destructive",
-        duration: 1000,
+        duration: 2000,
       })
       router.push("/wallet")
       setIsSubmitting(false)
@@ -421,7 +421,7 @@ export default function NewPostPage() {
             title: "Error",
             description: fundingInvoiceResult.error || "Could not create funding invoice. Please try again.",
             variant: "destructive",
-            duration: 1000,
+            duration: 2000,
           })
           setIsSubmitting(false)
           return
@@ -432,7 +432,7 @@ export default function NewPostPage() {
           title: "Error",
           description: "An unexpected error occurred while preparing your post.",
           variant: "destructive",
-          duration: 1000,
+          duration: 2000,
         })
         setIsSubmitting(false)
         return
@@ -480,9 +480,9 @@ export default function NewPostPage() {
         title: "🎉 Post created!",
         description: "Your issue has been posted successfully ✅",
         variant: "success",
-        duration: 1000,
+        duration: 2000,
       })
-      setTimeout(() => successToast.dismiss(), 1000)
+      setTimeout(() => successToast.dismiss(), 2000)
 
       if (selectedGroupId) {
         router.push(`/groups/${selectedGroupId}?newPost=${postId}`)
@@ -495,7 +495,7 @@ export default function NewPostPage() {
         title: "Error",
         description: "There was an error creating your post.",
         variant: "destructive",
-        duration: 1000,
+        duration: 2000,
       })
     } finally {
       setIsSubmitting(false)
@@ -772,7 +772,7 @@ export default function NewPostPage() {
                             title: "Minimum Reward Required",
                             description: "Anonymous posts require a minimum reward of 500 sats.",
                             variant: "destructive",
-                            duration: 1000,
+                            duration: 2000,
                           })
                           return
                         }
@@ -903,7 +903,7 @@ export default function NewPostPage() {
                       title: "Copied!",
                       description: "Invoice copied to clipboard",
                       variant: "success",
-                      duration: 1000,
+                      duration: 2000,
                     })
                   }}
                   className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1 rounded transition-colors flex-shrink-0"

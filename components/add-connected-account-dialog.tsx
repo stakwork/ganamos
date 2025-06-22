@@ -63,7 +63,7 @@ export function AddConnectedAccountDialog({ open, onOpenChange, onAccountAdded }
       toast({
         title: "Coming Soon",
         description: "Google account connection will be available soon. Please use email/password for now.",
-        duration: 1000,
+        duration: 2000,
       })
     } catch (error) {
       console.error("Error connecting Google account:", error)

@@ -17,7 +17,11 @@ export const metadata: Metadata = {
     icon: "/favicon.png",
     apple: "/favicon.png",
   },
-    generator: 'v0.dev'
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#FFFFFF" },
+    { media: "(prefers-color-scheme: dark)", color: "#0A0A0A" },
+  ],
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -28,18 +32,32 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-        <link rel="icon" href="/favicon.png" />
-        <meta name="theme-color" content="#10b981" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap"
+          rel="stylesheet"
+        />
       </head>
       <body className={inter.className}>
         <AuthProvider>
           <NotificationsProvider>
-            <ConditionalThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-              <main className="min-h-[calc(100vh-4rem)] pb-16 mx-auto">{children}</main>
+            <ConditionalThemeProvider
+              attribute="class"
+              defaultTheme="dark"
+              enableSystem
+            >
+              <main className="min-h-[calc(100vh-4rem)] pb-16 mx-auto">
+                {children}
+              </main>
               <BottomNav />
               <Toaster />
             </ConditionalThemeProvider>
