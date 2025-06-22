@@ -158,8 +158,8 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
               </div>
             </div>
           ) : (
-            <div className="relative">
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-[95vh] object-cover" />
+            <div className="relative h-full w-full">
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
 
               {/* Overlay controls on the camera view - using inline styles for safe area */}
               <div style={safeAreaStyles}>

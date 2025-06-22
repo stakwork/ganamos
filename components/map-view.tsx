@@ -444,45 +444,52 @@ export function MapView({
   }
 }
 </style>
-<div class="btc-marker" style="
+<div class="marker-wrapper" style="
   position: relative;
   width: 44px;
   height: 44px;
-  border-radius: 50%;
-  background: #FED56B;
-  border: 1px solid #C5792D;
-  box-shadow: 0 0 0 1px #F4C14F;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  ${animationStyle}
   transition: transform 0.2s ease;
   transform: scale(${markerScale});
+  ${animationStyle}
 ">
-  <img src="/images/bitcoin-logo.png" alt="Bitcoin" style="
-    width: 38px;
-    height: 38px;
-    filter: drop-shadow(0px -1px 1px rgba(255, 255, 255, 0.4));
+  <div class="btc-marker" style="
     position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #FED56B;
+    border: 1px solid #C5792D;
+    box-shadow: 0 0 0 1px #F4C14F;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
   ">
-  <div class="shine-effect" style="
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: linear-gradient(
-      120deg,
-      rgba(255, 255, 255, 0) 30%,
-      rgba(255, 255, 255, 0.5) 50%,
-      rgba(255, 255, 255, 0) 70%
-    );
-    transform: rotate(0deg);
-    animation: shine 2.5s infinite ease-in-out;
-    z-index: 2;
-    pointer-events: none;
-  "></div>
+    <img src="/images/bitcoin-logo.png" alt="Bitcoin" style="
+      width: 38px;
+      height: 38px;
+      filter: drop-shadow(0px -1px 1px rgba(255, 255, 255, 0.4));
+      position: relative;
+      overflow: hidden;
+    ">
+    <div class="shine-effect" style="
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(
+        120deg,
+        rgba(255, 255, 255, 0) 30%,
+        rgba(255, 255, 255, 0.5) 50%,
+        rgba(255, 255, 255, 0) 70%
+      );
+      transform: rotate(0deg);
+      animation: shine 2.5s infinite ease-in-out;
+      z-index: 2;
+      pointer-events: none;
+    "></div>
+  </div>
   <div class="btc-badge" style="
     position: absolute;
     bottom: -12px;
@@ -501,7 +508,7 @@ export function MapView({
     font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     min-width: 28px;
     text-align: center;
-    z-index: 2;
+    z-index: 3;
   ">${rewardText}</div>
 </div>
 `
