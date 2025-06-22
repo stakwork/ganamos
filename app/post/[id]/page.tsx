@@ -249,7 +249,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               title: "Fix Verified (Anonymous)!",
               description: "Your fix has been successfully recorded. Thank you for your contribution!",
               variant: "success",
-              duration: 1000,
+              duration: 2000,
             })
             setAnonymousFixedPostId(post.id)
             setShowAnonymousRewardOptions(true)
@@ -294,7 +294,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             toast({
               title: "Fix Submitted for Review (Anonymous)",
               description: "Your fix has low AI confidence and has been submitted for manual review. Thank you!",
-              duration: 1000,
+              duration: 2000,
             })
             router.push("/") // Redirect to homepage/map for now after submitting for review
           } else {
@@ -396,7 +396,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             title: "🎊 Fix verified!",
             description: `${formatSatsValue(post.reward)} sats have been added to your balance 💰`,
             variant: "success",
-            duration: 1000,
+            duration: 2000,
           })
           router.push("/dashboard")
         }
@@ -605,26 +605,11 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   // THIS IS THE CORRECT WAY TO HANDLE CAMERA DISPLAY
   if (showCamera) {
     return (
-      <div className="container px-4 py-6 mx-auto camera-page" data-camera-active="true">
-        <div className="flex items-center mb-6">
-          <Button variant="ghost" size="icon" onClick={() => setShowCamera(false)} className="mr-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              {" "}
-              <path d="m15 18-6-6 6-6" />{" "}
-            </svg>
-            <span className="sr-only">Back</span>
-          </Button>
-          <h1 className="text-2xl font-bold">Take "After" Photo</h1>
+      <div className="relative w-screen h-screen bg-black">
+        <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-black/50 text-white/70 px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
+            Take photo of fix
+          </div>
         </div>
         <CameraCapture onCapture={handleCaptureFixImage} />
       </div>
@@ -810,36 +795,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
 
   // Main content of the page when not in camera or before/after view
   return (
-    <div className="container px-4 pb-20 mx-auto max-w-md">
+    <div className="container px-4 pt-4 pb-20 mx-auto max-w-md">
       {" "}
       {/* Added pb-20 for bottom nav space */}
-      <div className="flex items-center mb-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            {" "}
-            <path d="m15 18-6-6 6-6" />{" "}
-          </svg>
-          <span className="sr-only">Back</span>
-        </Button>
-        <h1 className="text-2xl font-bold">
-          {post.under_review &&
-          post.submitted_fix_image_url &&
-          user &&
-          (post.userId === user.id || post.user_id === user.id)
-            ? "Review Submitted Fix"
-            : "Issue Details"}
-        </h1>
-      </div>
       {/* Updated image display logic to handle anonymous reviews */}
       {(post.under_review &&
         post.submitted_fix_image_url &&
@@ -871,6 +829,29 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               <div className="absolute top-2 left-2">
                 <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">After</span>
               </div>
+              {/* Close button overlaid on top-right */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => router.back()} 
+                className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white border-0 p-2"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+                <span className="sr-only">Close</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -882,6 +863,29 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             fill
             className="object-cover"
           />
+          {/* Close button overlaid on top-right */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => router.back()} 
+            className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white border-0 p-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+            <span className="sr-only">Close</span>
+          </Button>
         </div>
       )}
       <div className="mb-6">

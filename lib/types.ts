@@ -18,16 +18,20 @@ export interface Post {
   createdAt?: Date
   created_at?: string
   group_id?: string
-  fixer_note?: string
+  fixer_note?: string | null
   original_reward?: number
   total_boost_amount?: number
   boost_applied?: boolean
   under_review?: boolean
   submitted_at?: string
-  submitted_fix_by_id?: string
+  submitted_fix_by_id?: string | null
   submitted_fix_at?: string
-  submitted_fix_by_name?: string
-  submitted_fix_by_avatar?: string
+  submitted_fix_by_name?: string | null
+  submitted_fix_by_avatar?: string | null
+  submitted_fix_image_url?: string
+  fixed_image_url?: string
+  submitted_fix_note?: string | null
+  city?: string | null
 }
 
 export interface User {

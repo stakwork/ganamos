@@ -42,9 +42,9 @@ export function AvatarSelector({ isOpen, onOpenChange }: AvatarSelectorProps) {
       toast({
         title: "Profile updated",
         description: "Your avatar has been updated successfully",
-        duration: 1000,
+        duration: 2000,
       })
-      console.log("Profile Updated toast will appear for 1000ms (1 second)")
+      console.log("Profile Updated toast will appear for 2000ms (2 seconds)")
 
       onOpenChange(false)
     } catch (error) {
@@ -75,9 +75,9 @@ export function AvatarSelector({ isOpen, onOpenChange }: AvatarSelectorProps) {
       toast({
         title: "Profile updated",
         description: "Your avatar has been updated successfully",
-        duration: 1000,
+        duration: 2000,
       })
-      console.log("Profile Updated toast will appear for 1000ms (1 second)")
+      console.log("Profile Updated toast will appear for 2000ms (2 seconds)")
 
       onOpenChange(false)
     } catch (error) {

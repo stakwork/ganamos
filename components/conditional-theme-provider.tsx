@@ -1,10 +1,13 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import { ThemeProvider as NextThemesProvider } from "next-themes"
-import type { ThemeProviderProps } from "next-themes"
+import { ThemeProvider as NextThemesProvider, type ThemeProviderProps } from "next-themes"
+import * as React from "react"
 
-export function ConditionalThemeProvider({ children, ...props }: ThemeProviderProps) {
+export function ConditionalThemeProvider({
+  children,
+  ...props
+}: { children: React.ReactNode } & ThemeProviderProps) {
   const pathname = usePathname()
 
   // Force light mode on home and login pages
