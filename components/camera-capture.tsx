@@ -76,9 +76,14 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
     startCamera()
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop())
-      }
+      // Access the current stream from the state
+      setStream((currentStream) => {
+        if (currentStream) {
+          currentStream.getTracks().forEach((track) => track.stop())
+        }
+        // Return null to update the state after stopping the tracks
+        return null
+      })
 
       // Remove the camera flag when component unmounts
       if (typeof window !== "undefined") {

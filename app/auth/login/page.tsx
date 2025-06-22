@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { MapPin } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -214,7 +215,7 @@ export default function LoginPage() {
           )}
 
           {!showEmailForm && (
-            <div className="text-center space-y-2">
+            <div className="text-center space-y-2 pt-4">
               <p className="text-sm text-muted-foreground">
                 Don't have an account?{" "}
                 <Link href="/auth/register" className="text-emerald-600 hover:underline">
@@ -222,8 +223,12 @@ export default function LoginPage() {
                 </Link>
               </p>
               <p className="text-sm">
-                <Link href="/map" className="text-gray-500 hover:text-gray-700 hover:underline">
-                  View map
+                <Link
+                  href="/map"
+                  className="inline-flex items-center gap-1.5 text-gray-400 hover:text-gray-500 hover:underline"
+                >
+                  <MapPin size={14} />
+                  Or view map
                 </Link>
               </p>
             </div>
