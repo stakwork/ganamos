@@ -18,6 +18,11 @@ export interface Post {
   createdAt?: Date
   created_at?: string
   group_id?: string
+  group?: {
+    id: string
+    name: string
+    description?: string
+  }
   fixer_note?: string | null
   original_reward?: number
   total_boost_amount?: number

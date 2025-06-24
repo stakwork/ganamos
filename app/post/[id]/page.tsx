@@ -83,7 +83,18 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     const fetchPost = async () => {
       try {
         if (supabase) {
-          const { data, error } = await supabase.from("posts").select("*").eq("id", params.id).single()
+          const { data, error } = await supabase
+            .from("posts")
+            .select(`
+              *,
+              group:group_id(
+                id,
+                name,
+                description
+              )
+            `)
+            .eq("id", params.id)
+            .single()
           if (data && !error) {
             setPost(data)
             setLoading(false)

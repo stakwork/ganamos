@@ -37,11 +37,20 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
         window.history.replaceState({}, "", url.toString())
       }
 
-      // Hide the navigation bar when camera is active
-      const bottomNav = document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16") as HTMLElement
-      if (bottomNav) {
-        bottomNav.style.display = "none"
+      // Robustly hide the navigation bar when camera is active
+      function hideNav() {
+        // Try id first, fallback to class selector
+        const bottomNav = document.getElementById("bottom-nav") || document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16")
+        if (bottomNav) {
+          bottomNav.style.display = "none"
+        }
       }
+      hideNav()
+      // Use MutationObserver in case nav appears after mount
+      const observer = new MutationObserver(hideNav)
+      observer.observe(document.body, { childList: true, subtree: true })
+      // Store observer for cleanup
+      ;(window as any)._cameraNavObserver = observer
     }
 
     const startCamera = async () => {
@@ -92,11 +101,15 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
           url.searchParams.delete("camera")
           window.history.replaceState({}, "", url.toString())
         }
-
-        // Show the navigation bar again when camera is inactive
-        const bottomNav = document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16") as HTMLElement
+        // Restore the navigation bar
+        const bottomNav = document.getElementById("bottom-nav") || document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16")
         if (bottomNav) {
           bottomNav.style.display = "grid"
+        }
+        // Disconnect MutationObserver
+        if ((window as any)._cameraNavObserver) {
+          (window as any)._cameraNavObserver.disconnect()
+          delete (window as any)._cameraNavObserver
         }
       }
     }
@@ -136,6 +149,43 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
 
   return (
     <div className="space-y-4">
+      <style jsx>{`
+        .camera-preview-container {
+          min-height: 40vh;
+          height: 100dvh;
+          max-height: 90vh;
+          width: 100%;
+          max-width: 600px;
+          margin: 0 auto;
+          position: relative;
+          background: #111;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
+        }
+        @media (max-width: 600px) {
+          .camera-preview-container {
+            max-width: 100vw;
+            max-height: 100dvh;
+            min-height: 40vh;
+          }
+        }
+        .camera-preview-video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 16px;
+          background: #111;
+        }
+        .camera-capture-btn {
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+          bottom: calc(env(safe-area-inset-bottom, 0px) + 104px);
+          z-index: 50;
+        }
+      `}</style>
       <Card className="overflow-hidden border dark:border-gray-800">
         <CardContent className="p-0 relative">
           {error ? (
@@ -163,11 +213,19 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
               </div>
             </div>
           ) : (
-            <div className="relative h-full w-full">
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-
+            <div
+              className="camera-preview-container"
+              id="camera-preview-container"
+            >
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="camera-preview-video"
+              />
               {/* Overlay controls on the camera view - using inline styles for safe area */}
-              <div style={safeAreaStyles}>
+              <div className="camera-capture-btn">
                 <Button
                   type="button"
                   size="lg"
@@ -178,7 +236,6 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
                   <span className="sr-only">Take Photo</span>
                 </Button>
               </div>
-
               {/* Switch camera button positioned at the top-right */}
               <Button
                 type="button"
@@ -231,7 +288,22 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
           )}
         </CardContent>
       </Card>
-
+      {/* Safari mobile fix: set container height dynamically if on iOS Safari */}
+      <script dangerouslySetInnerHTML={{
+        __html: `
+          (function() {
+            function isiOSSafari() {
+              return /iP(ad|hone|od)/.test(navigator.userAgent) && /WebKit/.test(navigator.userAgent) && !/CriOS/.test(navigator.userAgent);
+            }
+            if (isiOSSafari()) {
+              var el = document.getElementById('camera-preview-container');
+              if (el) {
+                el.style.height = window.innerHeight + 'px';
+              }
+            }
+          })();
+        `
+      }} />
       <canvas ref={canvasRef} className="hidden" />
     </div>
   )

@@ -3,28 +3,23 @@
 import { useState, useEffect } from "react"
 import { redirect } from "next/navigation"
 import { LandingHero } from "@/components/landing-hero"
-import { getCurrentUser } from "@/lib/auth"
+import { useAuth } from "@/components/auth-provider"
 import { BackgroundImage } from "@/components/background-image"
 import { DonationModal } from "@/components/donation-modal"
 
 export default function Home() {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const { user, sessionLoaded, loading } = useAuth()
   const [showDonationModal, setShowDonationModal] = useState(false)
 
   useEffect(() => {
-    async function checkUser() {
-      const currentUser = await getCurrentUser()
-      if (currentUser) {
-        redirect("/dashboard")
-      }
-      setUser(currentUser)
-      setLoading(false)
+    // Only redirect after session is loaded and user is authenticated
+    if (sessionLoaded && !loading && user) {
+      redirect("/dashboard")
     }
-    checkUser()
-  }, [])
+  }, [user, sessionLoaded, loading])
 
-  if (loading) {
+  // Show loading while auth state is being determined
+  if (loading || !sessionLoaded) {
     return <div>Loading...</div>
   }
 

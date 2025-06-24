@@ -108,6 +108,9 @@ export default function ProfilePage() {
   // Track the current active user to detect changes
   const currentActiveUser = useRef<string | null>(null)
 
+  // Add a ref to track the current post page for activities
+  const activitiesPostPage = useRef(1)
+
   // Add session guard with useEffect
   useEffect(() => {
     if (sessionLoaded && !session) {
@@ -176,7 +179,14 @@ export default function ProfilePage() {
 
         const { data, error } = await supabase
           .from("posts")
-          .select("*")
+          .select(`
+            *,
+            group:group_id(
+              id,
+              name,
+              description
+            )
+          `)
           .or(`user_id.eq.${currentUserId},fixed_by.eq.${currentUserId}`)
           .order("created_at", { ascending: false })
           .limit(limit)
@@ -194,7 +204,14 @@ export default function ProfilePage() {
         // Check if there are more posts
         const { count } = await supabase
           .from("posts")
-          .select("*", { count: "exact", head: true })
+          .select(`
+            *,
+            group:group_id(
+              id,
+              name,
+              description
+            )
+          `, { count: "exact", head: true })
           .or(`user_id.eq.${currentUserId},fixed_by.eq.${currentUserId}`)
 
         return {
@@ -263,163 +280,53 @@ export default function ProfilePage() {
     [user, activeUserId],
   )
 
-  // Generate activities from posts with pagination
-  const generateActivities = useCallback(
-    (posts: Post[], page: number, donations: any[] = []) => {
-      if (!user) return
+  // Add a function to fetch activities from the activities table
+  const fetchActivities = useCallback(async (page = 1) => {
+    if (!user || !supabase) return { activities: [], hasMore: false };
+    const pageSize = ACTIVITIES_PER_PAGE;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    const { data, error, count } = await supabase
+      .from('activities')
+      .select('*', { count: 'exact' })
+      .eq('user_id', user.id)
+      .order('timestamp', { ascending: false })
+      .range(from, to);
+    if (error) {
+      console.error('Error fetching activities:', error);
+      return { activities: [], hasMore: false };
+    }
+    return {
+      activities: data || [],
+      hasMore: count ? to + 1 < count : false,
+    };
+  }, [user, supabase]);
 
-      setIsActivityLoading(true)
+  // Initial load and tab change for activity tab
+  useEffect(() => {
+    if (activeTab === 'activity' && user) {
+      setIsActivityLoading(true);
+      fetchActivities(1).then(({ activities: acts, hasMore }) => {
+        setActivities(acts);
+        setHasMoreActivities(hasMore);
+        setActivitiesPage(1);
+        setIsActivityLoading(false);
+      });
+    }
+  }, [activeTab, user, fetchActivities]);
 
-      const currentUserId = activeUserId || user.id
-
-      const userActivities: ActivityItem[] = []
-
-      // Posts created by the user
-      posts
-        .filter((post) => post.userId === currentUserId || post.user_id === currentUserId)
-        .forEach((post) => {
-          const createdAt = post.createdAt || post.created_at
-          if (!createdAt) return
-          userActivities.push({
-            id: `post-${post.id}`,
-            type: "post",
-            postId: post.id,
-            postTitle: post.title,
-            timestamp: new Date(createdAt),
-          })
-        })
-
-      // Posts fixed by the user
-      posts
-        .filter((post) => post.fixed_by === currentUserId && post.fixed === true)
-        .forEach((post) => {
-          if (post.fixed_at) {
-            userActivities.push({
-              id: `fix-${post.id}`,
-              type: "fix",
-              postId: post.id,
-              postTitle: post.title,
-              timestamp: new Date(post.fixed_at),
-            })
-
-            userActivities.push({
-              id: `reward-${post.id}`,
-              type: "reward",
-              postId: post.id,
-              postTitle: post.title,
-              timestamp: new Date(post.fixed_at),
-              amount: post.reward,
-            })
-          }
-        })
-
-      // Posts submitted for review by the user
-      posts
-        .filter((post) => post.fixed_by === currentUserId && post.under_review === true)
-        .forEach((post) => {
-          if (post.submitted_at) {
-            userActivities.push({
-              id: `fix_submitted-${post.id}`,
-              type: "fix_submitted",
-              postId: post.id,
-              postTitle: post.title,
-              timestamp: new Date(post.submitted_at),
-            })
-          }
-        })
-
-      // Posts that need review by the original poster
-      posts
-        .filter(
-          (post) =>
-            (post.userId === currentUserId || post.user_id === currentUserId) &&
-            post.under_review === true &&
-            post.submitted_fix_by_id &&
-            post.submitted_fix_at,
-        )
-        .forEach((post) => {
-          if (post.submitted_fix_at) {
-            userActivities.push({
-              id: `fix_review_needed-${post.id}`,
-              type: "fix_review_needed",
-              postId: post.id,
-              postTitle: post.title,
-              timestamp: new Date(post.submitted_fix_at),
-              submitterName: post.submitted_fix_by_name || "Someone",
-              submitterAvatar: post.submitted_fix_by_avatar,
-            })
-          }
-        })
-
-      // Add donation activities
-      donations.forEach((donation) => {
-        const locationName = donation.donation_pools?.location_name || "a location"
-        const donationTimestamp = donation.created_at || donation.completed_at
-        if (!donationTimestamp) return
-
-        userActivities.push({
-          id: `donation-${donation.id}`,
-          type: "donation",
-          donationId: donation.id,
-          locationName: locationName,
-          donorName: donation.donor_name || "Someone",
-          message: donation.message,
-          amount: donation.amount,
-          timestamp: new Date(donationTimestamp),
-        })
-      })
-
-      // Sort by timestamp (newest first)
-      userActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-
-      const totalActivities = userActivities.length
-
-      // Calculate pagination
-      const itemsPerPage = ACTIVITIES_PER_PAGE
-      const start = (page - 1) * itemsPerPage
-      const end = start + itemsPerPage
-      const pageActivities = userActivities.slice(start, end)
-
-      // Check if there are more activities to load
-      setHasMoreActivities(end < totalActivities)
-
-      // Update the activities state based on the page
-      if (page === 1) {
-        setActivities(pageActivities)
-      } else {
-        setActivities((prev) => [...prev, ...pageActivities])
-      }
-
-      setActivitiesPage(page)
-      setIsActivityLoading(false)
-    },
-    [user, activeUserId],
-  )
-
-  // Load more activities
-  const handleLoadMore = useCallback(() => {
-    if (isLoadingMore) return
-
-    setIsLoadingMore(true)
-    const nextPage = activitiesPage + 1
-
-    // Fetch donations to include in the next page
-    fetchDonations().then(({ donations }) => {
-      // Use cached posts to generate more activities
-      if (postsCache.current.length > 0) {
-        generateActivities(postsCache.current, nextPage, donations)
-        setIsLoadingMore(false)
-      } else {
-        // Fallback to fetching if cache is empty
-        fetchUserPosts().then(({ posts }) => {
-          if (posts) {
-            generateActivities(posts, nextPage, donations)
-          }
-          setIsLoadingMore(false)
-        })
-      }
-    })
-  }, [activitiesPage, fetchUserPosts, generateActivities, isLoadingMore, fetchDonations])
+  // Load more activities (pagination)
+  const handleLoadMoreActivities = useCallback(() => {
+    if (isLoadingMore) return;
+    setIsLoadingMore(true);
+    const nextPage = activitiesPage + 1;
+    fetchActivities(nextPage).then(({ activities: acts, hasMore }) => {
+      setActivities((prev) => [...prev, ...acts]);
+      setHasMoreActivities(hasMore);
+      setActivitiesPage(nextPage);
+      setIsLoadingMore(false);
+    });
+  }, [isLoadingMore, activitiesPage, fetchActivities]);
 
   // Add Load More Posts Function
   const handleLoadMorePosts = useCallback(async () => {
@@ -465,7 +372,12 @@ export default function ProfilePage() {
 
         // Generate initial activities if on activity tab
         if (activeTab === "activity") {
-          generateActivities(posts, 1, donations)
+          fetchActivities(1).then(({ activities: acts, hasMore }) => {
+            setActivities(acts);
+            setHasMoreActivities(hasMore);
+            setActivitiesPage(1);
+            setIsActivityLoading(false);
+          });
         }
       }
 
@@ -481,7 +393,7 @@ export default function ProfilePage() {
     fetchBitcoinPrice,
     fetchUserPosts,
     processPosts,
-    generateActivities,
+    fetchActivities,
     activeUserId,
     fetchDonations,
   ])
@@ -500,7 +412,12 @@ export default function ProfilePage() {
           if (posts.length > 0) {
             processPosts(posts)
             if (activeTab === "activity") {
-              generateActivities(posts, 1)
+              fetchActivities(1).then(({ activities: acts, hasMore }) => {
+                setActivities(acts);
+                setHasMoreActivities(hasMore);
+                setActivitiesPage(1);
+                setIsActivityLoading(false);
+              });
             }
           }
         }
@@ -510,23 +427,58 @@ export default function ProfilePage() {
 
     document.addEventListener("visibilitychange", handleVisibilityChange)
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
-  }, [activities.length, isLoading, user, activeTab, fetchUserPosts, processPosts, generateActivities])
+  }, [activities.length, isLoading, user, activeTab, fetchUserPosts, processPosts, fetchActivities])
 
-  // Handle tab changes
+  // Add a function to fetch all posts for the user (no limit)
+  const fetchAllUserPosts = useCallback(async () => {
+    if (!user || !supabase) return [];
+    try {
+      const currentUserId = activeUserId || user.id;
+      const { data, error } = await supabase
+        .from("posts")
+        .select(`*, group:group_id(id, name, description)`)
+        .or(`user_id.eq.${currentUserId},fixed_by.eq.${currentUserId}`)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("Supabase error fetching all posts for activity feed:", error);
+        return [];
+      }
+      const deduped = data ? data.filter((post, index, self) => index === self.findIndex((p) => p.id === post.id)) : [];
+      console.log("Fetched all posts for activity feed:", deduped.length);
+      return deduped;
+    } catch (error) {
+      console.error("Exception fetching all posts for activity feed:", error);
+      return [];
+    }
+  }, [user, supabase, session, activeUserId]);
+
+  // Update handleTabChange to fetch all posts for activity tab
   const handleTabChange = useCallback(
     (value: string) => {
-      setActiveTab(value)
-
-      // If we're switching to activity tab and don't have activities yet
-      if (value === "activity" && activities.length === 0 && postsCache.current.length > 0) {
-        // Fetch donations when switching to activity tab
-        fetchDonations().then(({ donations }) => {
-          generateActivities(postsCache.current, 1, donations)
-        })
+      setActiveTab(value);
+      if (value === "activity") {
+        fetchAllUserPosts().then((allPosts) => {
+          console.log('Posts passed to generateActivities:', allPosts.length);
+          postsCache.current = allPosts;
+          fetchActivities(1).then(({ activities: acts, hasMore }) => {
+            setActivities(acts);
+            setHasMoreActivities(hasMore);
+            setActivitiesPage(1);
+            setIsActivityLoading(false);
+          });
+        });
+      } else if (value === "activity" && activities.length === 0 && postsCache.current.length > 0) {
+        // Fallback for legacy logic
+        fetchActivities(1).then(({ activities: acts, hasMore }) => {
+          setActivities(acts);
+          setHasMoreActivities(hasMore);
+          setActivitiesPage(1);
+          setIsActivityLoading(false);
+        });
       }
     },
-    [activities.length, generateActivities, fetchDonations],
-  )
+    [activities.length, fetchActivities, fetchAllUserPosts],
+  );
 
   // Handle account management
   const handleAccountAction = (account: any) => {
@@ -1075,7 +1027,7 @@ export default function ProfilePage() {
 
               {hasMoreActivities && (
                 <div className="mt-6 text-center">
-                  <Button variant="outline" onClick={handleLoadMore} disabled={isLoadingMore} className="w-full">
+                  <Button variant="outline" onClick={handleLoadMoreActivities} disabled={isLoadingMore} className="w-full">
                     {isLoadingMore ? (
                       <div className="flex items-center justify-center">
                         <svg
@@ -1268,30 +1220,35 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
   const router = useRouter()
 
   const handleClick = () => {
-    if (activity.type === "donation") {
-      router.push("/donate")
+    // Only link if we have a related_id and a known type
+    if (["post", "fix", "reward"].includes(activity.type) && activity.postId) {
+      router.push(`/post/${activity.postId}`)
       return
     }
-    router.push(`/post/${activity.postId}`)
+    // Optionally, donations could link to a donation details page if you have one
+    // For now, do nothing for donations
   }
 
   // Format the date safely
   const formatDate = () => {
     try {
       if (!activity.timestamp) return "Recently"
-
-      // Check if the date is valid
-      if (isNaN(activity.timestamp.getTime())) return "Recently"
-
-      return formatTimeAgo(activity.timestamp)
+      const dateObj = typeof activity.timestamp === "string" ? new Date(activity.timestamp) : activity.timestamp
+      if (isNaN(dateObj.getTime())) return "Recently"
+      return formatTimeAgo(dateObj)
     } catch (error) {
       return "Recently"
     }
   }
 
+  // Extract metadata fields
+  const description = activity.message || activity.postTitle || ""
+  const sats = activity.amount
+  const location = activity.locationName
+
   return (
     <Card
-      className="hover:bg-muted/50 border dark:border-gray-800 cursor-pointer"
+      className={`hover:bg-muted/50 border dark:border-gray-800 ${["post", "fix", "reward"].includes(activity.type) && activity.postId ? "cursor-pointer" : ""}`}
       onClick={handleClick}
     >
       <CardContent className="p-4">
@@ -1301,64 +1258,48 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
             <div className="flex items-start justify-between">
               <div>
                 <ActivityTitle activity={activity} />
-                {activity.type !== "donation" ? (
-                  <p className="text-sm text-muted-foreground">{activity.postTitle}</p>
-                ) : (
+                {/* Second line: description, sats, location, etc. */}
+                {activity.type === "reward" && (
                   <div className="flex items-center mt-1 text-sm text-muted-foreground">
-                    {activity.amount && (
+                    {sats && (
                       <Badge
                         variant="outline"
                         className="mr-1.5 flex items-center gap-1 bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-800/30"
                       >
                         <div className="w-3 h-3 relative">
-                          <Image
-                            src="/images/bitcoin-logo.png"
-                            alt="Bitcoin"
-                            width={12}
-                            height={12}
-                            className="object-contain"
-                          />
+                          <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={12} height={12} className="object-contain" />
                         </div>
-                        {formatSatsValue(activity.amount)}
+                        {formatSatsValue(sats)}
                       </Badge>
                     )}
+                    <span>{description}</span>
+                  </div>
+                )}
+                {activity.type === "donation" && (
+                  <div className="flex items-center mt-1 text-sm text-muted-foreground">
+                    {sats && (
+              <Badge
+                variant="outline"
+                        className="mr-1.5 flex items-center gap-1 bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-800/30"
+              >
+                <div className="w-3 h-3 relative">
+                          <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={12} height={12} className="object-contain" />
+                </div>
+                        {formatSatsValue(sats)}
+              </Badge>
+            )}
                     <span className="mr-1.5">to</span>
                     <MapPin className="w-3 h-3 mr-1" />
-                    <span>{activity.locationName}</span>
-                  </div>
+                    <span>{location}</span>
+              </div>
+            )}
+                {/* For post/fix, show description */}
+                {(activity.type === "post" || activity.type === "fix") && description && (
+                  <p className="text-sm text-muted-foreground">{description}</p>
                 )}
               </div>
               <div className="text-xs text-muted-foreground">{formatDate()}</div>
             </div>
-
-            {activity.type === "reward" && activity.amount && (
-              <Badge
-                variant="outline"
-                className="mt-2 flex items-center gap-1 bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-800/30"
-              >
-                <div className="w-3 h-3 relative">
-                  <Image
-                    src="/images/bitcoin-logo.png"
-                    alt="Bitcoin"
-                    width={12}
-                    height={12}
-                    className="object-contain"
-                  />
-                </div>
-                {formatSatsValue(activity.amount)}
-              </Badge>
-            )}
-            {activity.type === "fix_review_needed" && (
-              <div className="mt-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100 dark:bg-orange-950/30 dark:text-orange-200 dark:border-orange-800/30 dark:hover:bg-orange-950/50"
-                >
-                  Review needed
-                </Button>
-              </div>
-            )}
           </div>
         </div>
       </CardContent>
@@ -1383,7 +1324,7 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
       return <p className="font-medium">{donorFirstName} donated Bitcoin</p>
     }
     default:
-      return <p className="font-medium">Activity</p>
+      return null
   }
 }
 

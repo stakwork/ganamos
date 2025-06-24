@@ -137,9 +137,16 @@ export function MapView({
         if (supabase) {
           const { data, error } = await supabase
             .from("posts")
-            .select("*")
+            .select(`
+              *,
+              group:group_id(
+                id,
+                name,
+                description
+              )
+            `)
             .eq("fixed", false)
-            .neq("under_review", true) // Add this line
+            .neq("under_review", true)
             .order("created_at", { ascending: false })
           if (error) {
             console.error("Error fetching posts:", error)

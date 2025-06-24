@@ -61,7 +61,14 @@ export default function UserProfilePage({ params }: { params: { id: string } }) 
         // Fetch posts
         const { data: postsData, error: postsError } = await supabase
           .from("posts")
-          .select("*")
+          .select(`
+            *,
+            group:group_id(
+              id,
+              name,
+              description
+            )
+          `)
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
 

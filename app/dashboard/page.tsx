@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { useAuth } from "@/components/auth-provider"
@@ -57,6 +57,7 @@ export default function DashboardPage() {
   const [filterCleared, setFilterCleared] = useState(false)
 
   const prevDeps = useRef({ user, loading, router })
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
 
   // Add session guard with useEffect
   useEffect(() => {
@@ -174,7 +175,14 @@ export default function DashboardPage() {
 
         let query = supabase
           .from("posts")
-          .select("*", { count: "exact" })
+          .select(`
+            *,
+            group:group_id(
+              id,
+              name,
+              description
+            )
+          `, { count: "exact" })
           .eq("fixed", false)
           .neq("under_review", true)
 
@@ -307,6 +315,26 @@ export default function DashboardPage() {
       setIsLoading(false)
     }
   }
+
+  // Infinite scroll effect
+  useEffect(() => {
+    if (!hasMore || isLoading) return
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    const observer = new window.IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading) {
+          const nextPage = currentPage + 1
+          setCurrentPage(nextPage)
+          fetchPosts(nextPage)
+        }
+      },
+      { root: null, rootMargin: "0px", threshold: 1.0 }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMore, isLoading, currentPage, fetchPosts])
 
   const handleSatsClick = () => {
     router.push("/wallet")
@@ -505,47 +533,21 @@ export default function DashboardPage() {
                   {posts.map((post) => (
                     <PostCard key={post.id} post={post} />
                   ))}
-
+                  {/* Infinite scroll sentinel */}
                   {hasMore && (
-                    <div className="flex justify-center mt-6">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          const nextPage = currentPage + 1
-                          setCurrentPage(nextPage)
-                          fetchPosts(nextPage)
-                        }}
-                        disabled={isLoading}
-                        className="w-full"
-                      >
-                        {isLoading ? (
-                          <div className="flex items-center">
-                            <svg
-                              className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              ></circle>
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                              ></path>
-                            </svg>
-                            Loading...
+                    <div ref={sentinelRef} className="flex justify-center mt-6" style={{ minHeight: 40 }}>
+                      {isLoading ? (
+                        <div className="space-y-6 w-full">
+                          <div className="border rounded-lg dark:border-gray-800 overflow-hidden">
+                            <div className="w-full h-48 bg-gray-200 dark:bg-gray-800 animate-pulse"></div>
+                            <div className="p-4">
+                              <div className="h-5 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mb-2 animate-pulse"></div>
+                              <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full mb-1 animate-pulse"></div>
+                              <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-2/3 animate-pulse"></div>
+                            </div>
                           </div>
-                        ) : (
-                          "Load More"
-                        )}
-                      </Button>
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </>

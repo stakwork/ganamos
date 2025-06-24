@@ -799,7 +799,7 @@ export default function DonatePage() {
       </div>
       {/* Header and subhead always visible */}
       <div className="w-full max-w-md px-4 pb-2 pt-4">
-        <h1 className="text-2xl font-bold text-center mb-2">Give Bitcoin to Clean</h1>
+        <h1 className="text-2xl font-bold text-center mb-2">Donate Bitcoin, Fund Cleanups</h1>
         <p className="text-center text-muted-foreground text-sm">
            Donate Bitcoin to fund community improvements. Your sats fund rewards for fixing issues. 
         </p>

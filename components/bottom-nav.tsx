@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Home, User, Map, Sprout, Plus } from "lucide-react"
+import { Home, User, Map, Sprout, Plus, SquarePlus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useNotifications } from "@/components/notifications-provider"
 import { getCurrentLocationWithName } from "@/lib/geocoding"
@@ -39,7 +39,7 @@ export function BottomNav() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 z-50 w-full h-16 bg-white/80 backdrop-blur-md dark:bg-gray-900/80">
+    <div id="bottom-nav" className="fixed bottom-0 left-0 z-50 w-full h-[72px] bg-white/80 backdrop-blur-md dark:bg-gray-900/80 pb-4">
       <div className="relative w-full max-w-md mx-auto h-full">
         <div className="grid grid-cols-5 items-center h-full w-full px-6">
           {/* Home icon */}
@@ -52,7 +52,7 @@ export function BottomNav() {
           >
             <Home
               className={cn(
-                "w-6 h-6 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
+                "w-7 h-7 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
                 isActive("/dashboard") && "text-primary dark:text-primary",
               )}
             />
@@ -68,7 +68,7 @@ export function BottomNav() {
           >
             <Map
               className={cn(
-                "w-6 h-6 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
+                "w-7 h-7 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
                 pathname === "/map" && "text-primary dark:text-primary",
               )}
             />
@@ -83,21 +83,12 @@ export function BottomNav() {
             )}
             aria-label="New Post"
           >
-            <div
+            <SquarePlus
               className={cn(
-                "w-10 h-10 flex items-center justify-center rounded-xl border",
-                pathname === "/post/new"
-                  ? "border-primary"
-                  : "border-gray-500 dark:border-gray-400 bg-transparent",
+                "w-11 h-11 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
+                pathname === "/post/new" && "text-primary dark:text-primary",
               )}
-            >
-              <Plus
-                className={cn(
-                  "w-6 h-6 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
-                  pathname === "/post/new" && "text-primary dark:text-primary",
-                )}
-              />
-            </div>
+            />
           </button>
 
           {/* Donate icon */}
@@ -110,7 +101,7 @@ export function BottomNav() {
           >
             <Sprout
               className={cn(
-                "w-6 h-6 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
+                "w-7 h-7 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
                 isActive("/donate") && "text-primary dark:text-primary",
               )}
             />
@@ -126,7 +117,7 @@ export function BottomNav() {
           >
             <User
               className={cn(
-                "w-6 h-6 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
+                "w-7 h-7 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
                 isActive("/profile") && "text-primary dark:text-primary",
               )}
             />

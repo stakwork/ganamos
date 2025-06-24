@@ -46,6 +46,8 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap"
           rel="stylesheet"
         />
+        <link rel="icon" href="/favicon.png" type="image/png" sizes="48x48" />
+        <link rel="apple-touch-icon" href="/icon-512x512.png" />
       </head>
       <body className={inter.className}>
         <AuthProvider>

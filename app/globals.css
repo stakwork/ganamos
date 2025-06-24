@@ -109,12 +109,10 @@ body.camera-active .fixed.bottom-0 {
 
 /* Add this to the end of the file */
 .min-h-screen {
-  min-height: 100vh;
   min-height: 100dvh; /* For mobile browsers with dynamic viewport height */
 }
 
 body {
-  min-height: 100vh;
   min-height: 100dvh;
   overflow-x: hidden;
   position: relative;
@@ -143,11 +141,6 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-}
-
-/* Prevent content from being too short */
-.min-h-screen {
-  min-height: 100vh;
 }
 
 /* Add these styles at the end of the file */

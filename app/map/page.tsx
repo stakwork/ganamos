@@ -77,7 +77,14 @@ export default function MapPage() {
         if (supabase) {
           const { data, error } = await supabase
             .from("posts")
-            .select("*")
+            .select(`
+              *,
+              group:group_id(
+                id,
+                name,
+                description
+              )
+            `)
             .eq("fixed", false)
             .neq("under_review", true)
             .order("created_at", { ascending: false })

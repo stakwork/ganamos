@@ -52,7 +52,14 @@ export function DonationModal({ open, onOpenChange, preSelectedLocation }: Donat
       const supabase = createBrowserSupabaseClient()
       const { data, error } = await supabase
         .from("posts")
-        .select("*")
+        .select(`
+          *,
+          group:group_id(
+            id,
+            name,
+            description
+          )
+        `)
         .order("created_at", { ascending: false })
         .eq("fixed", false)
         .neq("under_review", true)

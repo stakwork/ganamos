@@ -32,7 +32,18 @@ export async function payAnonymousRewardAction(
 
   try {
     // 1. Fetch the post and validate it has an unclaimed anonymous reward
-    const { data: post, error: fetchError } = await supabase.from("posts").select("*").eq("id", postId).single()
+    const { data: post, error: fetchError } = await supabase
+      .from("posts")
+      .select(`
+        *,
+        group:group_id(
+          id,
+          name,
+          description
+        )
+      `)
+      .eq("id", postId)
+      .single()
 
     if (fetchError || !post) {
       console.error("Error fetching post for anonymous payout:", fetchError)

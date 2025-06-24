@@ -97,11 +97,11 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-md px-4 z-10">
-        <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm p-8 rounded-lg shadow-lg space-y-6">
-          <div className="space-y-4 text-center">
-            <h1 className="app-title pb-2.5">Ganamos!</h1>
-          </div>
+        <div className="space-y-4 text-center mb-6">
+          <h1 className="app-title pb-2.5">Ganamos!</h1>
+        </div>
 
+        <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm p-8 rounded-lg shadow-lg space-y-6">
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{decodeURIComponent(error)}</AlertDescription>
@@ -143,7 +143,7 @@ export default function LoginPage() {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full h-14 px-10" disabled={isLoading || !email.trim() || !password.trim()}>
                 {isLoading ? "Signing in..." : "Log in"}
               </Button>
 
@@ -162,7 +162,7 @@ export default function LoginPage() {
             <>
               <div className="space-y-4">
                 <Button
-                  className="w-full flex items-center justify-center gap-2"
+                  className="w-full flex items-center justify-center gap-2 h-14 px-10"
                   variant="outline"
                   onClick={handleGoogleSignIn}
                   disabled={isLoading}
@@ -195,7 +195,7 @@ export default function LoginPage() {
                 </Button>
 
                 <Button
-                  className="w-full"
+                  className="w-full h-14 px-10"
                   variant="outline"
                   onClick={() => setShowEmailForm(true)}
                   disabled={isLoading}
@@ -203,7 +203,7 @@ export default function LoginPage() {
                   Sign in with Email
                 </Button>
                 <Button
-                  className="w-full"
+                  className="w-full h-14 px-10"
                   variant="outline"
                   onClick={() => router.push("/auth/phone")}
                   disabled={isLoading}
