@@ -21,6 +21,8 @@ import {
 import QRCode from "@/components/qr-code"
 import { getCurrentLocationWithName } from "@/lib/geocoding" // Import the geocoding utility
 import { ChevronLeft } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
 // Pre-load the camera component
 import dynamic from "next/dynamic"
@@ -28,26 +30,7 @@ const DynamicCameraCapture = dynamic(
   () => import("@/components/camera-capture").then((mod) => ({ default: mod.CameraCapture })),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex flex-col items-center justify-center p-8 border rounded-lg border-dashed">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="48"
-          height="48"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-muted-foreground mb-4 animate-pulse"
-        >
-          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-          <circle cx="12" cy="13" r="3" />
-        </svg>
-        <p className="text-sm text-muted-foreground">Loading camera...</p>
-      </div>
-    ),
+    loading: () => <LoadingSpinner message="Loading camera..." />,
   },
 )
 
@@ -83,6 +66,9 @@ export default function NewPostPage() {
   const [lastCreatedPostId, setLastCreatedPostId] = useState<string | null>(null)
   const [locationErrorCount, setLocationErrorCount] = useState(0)
   const [showFullInvoice, setShowFullInvoice] = useState(false)
+  const [bitcoinPrice, setBitcoinPrice] = useState<number | null>(null)
+  const [isPriceLoading, setIsPriceLoading] = useState(true)
+  const [cameraActive, setCameraActive] = useState(true)
 
   useEffect(() => {
     if (isAnonymous) {
@@ -102,11 +88,19 @@ export default function NewPostPage() {
     }
   }, [])
 
-  // Fetch user's groups
+  // Diagnostic logs for mount/unmount and user state
   useEffect(() => {
-    async function fetchUserGroups() {
-      if (!user) return
+    console.log("[NewPostPage] MOUNT, user:", user)
+    return () => {
+      console.log("[NewPostPage] UNMOUNT, user:", user)
+    }
+  }, [])
 
+  // Fetch user's groups only when userId is available
+  useEffect(() => {
+    const userId = activeUserId || user?.id
+    if (!userId) return
+    async function fetchUserGroups() {
       setLoadingGroups(true)
       try {
         // Fetch groups where the user is an approved member
@@ -124,7 +118,7 @@ export default function NewPostPage() {
               invite_code
             )
           `)
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .eq("status", "approved")
 
         if (memberError) {
@@ -150,9 +144,8 @@ export default function NewPostPage() {
         setLoadingGroups(false)
       }
     }
-
     fetchUserGroups()
-  }, [user, supabase, toast])
+  }, [user, activeUserId, supabase, toast])
 
   // Hide navigation bar
   useEffect(() => {
@@ -250,8 +243,33 @@ export default function NewPostPage() {
     fundingPaymentRequest,
   ])
 
+  useEffect(() => {
+    async function fetchBitcoinPrice() {
+      try {
+        const response = await fetch("/api/bitcoin-price")
+        const data = await response.json()
+        if (data.price) {
+          setBitcoinPrice(data.price)
+        }
+      } catch (error) {
+        setBitcoinPrice(65000)
+      } finally {
+        setIsPriceLoading(false)
+      }
+    }
+    fetchBitcoinPrice()
+  }, [])
+
+  const calculateUsdValue = (sats: number) => {
+    if (!bitcoinPrice) return "0.00"
+    const btcAmount = sats / 100000000
+    const usdValue = btcAmount * bitcoinPrice
+    return usdValue.toFixed(2)
+  }
+
   const handleCapture = (imageSrc: string) => {
     setImage(imageSrc)
+    setCameraActive(false)
     setStep("details")
   }
 
@@ -505,6 +523,7 @@ export default function NewPostPage() {
   const handleBack = () => {
     if (step === "details") {
       setStep("photo")
+      setCameraActive(true)
     } else {
       router.push("/dashboard")
     }
@@ -516,7 +535,7 @@ export default function NewPostPage() {
 
   return (
     <div className="container px-4 py-6 mx-auto max-w-md">
-      {step === "photo" && (
+      {step === "photo" && cameraActive && (
         <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50">
           <div className="bg-black/50 text-white/70 px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
             Take photo of the issue
@@ -524,7 +543,7 @@ export default function NewPostPage() {
         </div>
       )}
 
-      {step === "photo" ? (
+      {step === "photo" && cameraActive ? (
         <DynamicCameraCapture onCapture={handleCapture} />
       ) : (
         <>
@@ -628,67 +647,42 @@ export default function NewPostPage() {
                   </div>
                 </div>
 
-                {!isAnonymous && !loadingGroups && (
+                {!isAnonymous && (
                   <div className="flex-1">
-                    {userGroups.length > 0 ? (
-                      <Select
-                        value={selectedGroupId || "public"}
-                        onValueChange={(value) => setSelectedGroupId(value === "public" ? null : value)}
-                      >
-                        <SelectTrigger className="w-full h-12 p-3">
-                          <div className="flex items-center space-x-2 w-full">
-                            <div className="flex-shrink-0">
-                              {selectedGroupId ? (
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="14"
-                                  height="14"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="text-orange-600"
-                                >
-                                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                                  <path d="m7 11V7a5 5 0 0 1 10 0v4" />
-                                </svg>
-                              ) : (
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="14"
-                                  height="14"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="text-green-600"
-                                >
-                                  <circle cx="12" cy="12" r="10" />
-                                  <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
-                                  <path d="M2 12h20" />
-                                </svg>
-                              )}
-                            </div>
-                            <div className="flex-1 text-left min-w-0">
-                              <div className="font-medium text-xs truncate">
-                                {selectedGroupId
-                                  ? userGroups.find((g) => g.id === selectedGroupId)?.name || "Group"
-                                  : "Public"}
-                              </div>
-                            </div>
-                          </div>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="public">
-                            <div className="flex items-center space-x-3 py-1">
+                    <Select
+                      value={selectedGroupId || "public"}
+                      onValueChange={(value) => {
+                        if (value === "create-group") {
+                          router.push("/profile?tab=groups")
+                        } else {
+                          setSelectedGroupId(value === "public" ? null : value)
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full h-12 p-3">
+                        <div className="flex items-center space-x-2 w-full">
+                          <div className="flex-shrink-0">
+                            {selectedGroupId ? (
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                width="18"
-                                height="18"
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="text-orange-600"
+                              >
+                                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                                <path d="m7 11V7a5 5 0 0 1 10 0v4" />
+                              </svg>
+                            ) : (
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="14"
+                                height="14"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
@@ -701,62 +695,96 @@ export default function NewPostPage() {
                                 <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
                                 <path d="M2 12h20" />
                               </svg>
+                            )}
+                          </div>
+                          <div className="flex-1 text-left min-w-0">
+                            <div className="font-medium text-xs truncate">
+                              {selectedGroupId
+                                ? userGroups.find((g) => g.id === selectedGroupId)?.name || "Group"
+                                : "Public"}
+                            </div>
+                          </div>
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="public">
+                          <div className="flex items-center space-x-3 py-1">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="text-green-600"
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
+                              <path d="M2 12h20" />
+                            </svg>
+                            <div>
+                              <div className="font-medium">Public</div>
+                              <div className="text-xs text-muted-foreground">Anyone can see this post</div>
+                            </div>
+                          </div>
+                        </SelectItem>
+                        {userGroups.length === 0 && (
+                          <SelectItem value="create-group">
+                            <div className="flex items-center space-x-3 py-1">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="text-blue-600"
+                              >
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                              </svg>
                               <div>
-                                <div className="font-medium">Public</div>
-                                <div className="text-xs text-muted-foreground">Anyone can see this post</div>
+                                <div className="font-medium text-blue-600">+ Create new group</div>
+                                <div className="text-xs text-muted-foreground">Start a new group</div>
                               </div>
                             </div>
                           </SelectItem>
-                          {userGroups.map((group) => (
-                            <SelectItem key={group.id} value={group.id}>
-                              <div className="flex items-center space-x-3 py-1">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="18"
-                                  height="18"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="text-orange-600"
-                                >
-                                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                                  <path d="m7 11V7a5 5 0 0 1 10 0v4" />
-                                </svg>
-                                <div>
-                                  <div className="font-medium">{group.name}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    Only group members can see this post
-                                  </div>
+                        )}
+                        {userGroups.map((group) => (
+                          <SelectItem key={group.id} value={group.id}>
+                            <div className="flex items-center space-x-3 py-1">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="text-orange-600"
+                              >
+                                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                                <path d="m7 11V7a5 5 0 0 1 10 0v4" />
+                              </svg>
+                              <div>
+                                <div className="font-medium">{group.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  Only group members can see this post
                                 </div>
                               </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <div className="flex items-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg h-12">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="text-green-600 mr-2 flex-shrink-0"
-                        >
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20" />
-                          <path d="M2 12h20" />
-                        </svg>
-                        <span className="text-xs font-medium">Public</span>
-                      </div>
-                    )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
               </div>
@@ -846,6 +874,12 @@ export default function NewPostPage() {
                     </div>
                     <span>sats reward</span>
                   </div>
+
+                  {bitcoinPrice && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      ${calculateUsdValue(reward)} USD
+                    </p>
+                  )}
 
                   {showKeypad && (
                     <div className="w-full max-w-xs">
