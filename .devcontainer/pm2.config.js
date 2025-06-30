@@ -2,14 +2,15 @@ module.exports = {
   apps: [
     {
       name: "frontend",
-      script: "npm start",
+      script: "npm run dev",
       cwd: "/workspaces/ganamos",
       instances: 1,
       autorestart: true,
       watch: false,
       max_memory_restart: "1G",
       env: {
-        PORT: "3000"
+        INSTALL_COMMAND: "npm i next@latest",
+        PORT: "3457"
       }
     }
   ],
