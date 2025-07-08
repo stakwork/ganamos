@@ -2,12 +2,13 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardFooter } from "@/components/ui/card"
 import type { Post } from "@/lib/types"
 import { formatTimeAgo } from "@/lib/utils"
-import { reverseGeocode } from "@/lib/geocoding"
+import { reverseGeocode, getTravelTimes, type TravelTimes } from "@/lib/geocoding"
+import { Car, Footprints } from "lucide-react"
 
 // State abbreviation mapping
 const stateAbbreviations: { [key: string]: string } = {
@@ -75,12 +76,19 @@ function abbreviateLocation(location: string): string {
     .join(", ")
 }
 
+// Add a session-scoped in-memory cache for travel times
+const travelTimeCache = new Map<string, { walking: string | null; driving: string | null }>()
+
 export function PostCard({ post }: { post: Post }) {
   const router = useRouter()
   const [imageError, setImageError] = useState(false)
   const [userId, setUserId] = useState<string>("")
-  // Remove this line
-  // const [isMapOpen, setIsMapOpen] = useState(false)
+  const [locationName, setLocationName] = useState<string>("")
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [travelTimes, setTravelTimes] = useState<TravelTimes>({ walking: null, driving: null })
+  const [isLoadingTravelTimes, setIsLoadingTravelTimes] = useState(false)
+  const [showTravelTimes, setShowTravelTimes] = useState(false)
+  const prevTravelTimes = useRef<{ walking: string | null; driving: string | null }>({ walking: null, driving: null })
 
   useEffect(() => {
     const postUserId = post.userId || post.user_id
@@ -91,9 +99,68 @@ export function PostCard({ post }: { post: Post }) {
     setUserId(postUserId)
   }, [post.userId, post.user_id])
 
-  // Handle location display - use stored city or convert coordinates to readable name
-  const [locationName, setLocationName] = useState<string>("")
+  // Get user location on mount
+  useEffect(() => {
+    const getUserLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setUserLocation({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            })
+          },
+          (error) => {
+            console.error("Error getting user location:", error)
+          }
+        )
+      }
+    }
 
+    getUserLocation()
+  }, [])
+
+  // Fetch travel times when user location and post location are available
+  useEffect(() => {
+    if (!userLocation || !post.latitude || !post.longitude) return;
+
+    const cacheKey = `${userLocation.lat},${userLocation.lng}|${post.latitude},${post.longitude}`;
+    if (travelTimeCache.has(cacheKey)) {
+      setTravelTimes(travelTimeCache.get(cacheKey)!);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const times = await getTravelTimes(
+        userLocation.lat,
+        userLocation.lng,
+        Number(post.latitude),
+        Number(post.longitude)
+      );
+      if (!cancelled) {
+        setTravelTimes(times);
+        travelTimeCache.set(cacheKey, times);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [userLocation, post.latitude, post.longitude]);
+
+  useEffect(() => {
+    // Fade in when travelTimes change from null to a value
+    if (
+      (travelTimes.walking && travelTimes.walking !== prevTravelTimes.current.walking) ||
+      (travelTimes.driving && travelTimes.driving !== prevTravelTimes.current.driving)
+    ) {
+      setShowTravelTimes(false)
+      // Allow React to flush DOM, then fade in
+      setTimeout(() => setShowTravelTimes(true), 10)
+    }
+    prevTravelTimes.current = travelTimes
+  }, [travelTimes.walking, travelTimes.driving])
+
+  // Handle location display - use stored city or convert coordinates to readable name
   useEffect(() => {
     const handleLocation = async () => {
       // Second priority: use location field
@@ -131,7 +198,14 @@ export function PostCard({ post }: { post: Post }) {
   }, [post.location, post.latitude, post.longitude])
 
   const handleClick = () => {
+    // Immediately navigate to the post detail page
     router.push(`/post/${post.id}`)
+  }
+
+  // Preload post data on hover for faster navigation
+  const handleMouseEnter = () => {
+    // Prefetch the post detail page
+    router.prefetch(`/post/${post.id}`)
   }
 
   const handleProfileClick = (e: React.MouseEvent) => {
@@ -154,17 +228,21 @@ export function PostCard({ post }: { post: Post }) {
   }
 
   // Format the date safely
-  const formatDate = () => {
+  const formatAbbreviatedTimeAgo = () => {
     try {
-      // Check if createdAt exists and is valid
       const dateString = post.created_at || (post.createdAt ? post.createdAt.toString() : undefined)
-      if (!dateString) return "Recently"
+      if (!dateString) return "now"
       const date = new Date(dateString)
-      if (isNaN(date.getTime())) return "Recently"
-      return formatTimeAgo(date)
+      if (isNaN(date.getTime())) return "now"
+      const now = new Date()
+      const diff = Math.floor((now.getTime() - date.getTime()) / 1000)
+      if (diff < 60) return "now"
+      if (diff < 3600) return `${Math.floor(diff / 60)}m`
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h`
+      if (diff < 604800) return `${Math.floor(diff / 86400)}d`
+      return `${Math.floor(diff / 604800)}w`
     } catch (error) {
-      console.error("Error formatting date:", error)
-      return "Recently"
+      return "now"
     }
   }
 
@@ -184,7 +262,7 @@ export function PostCard({ post }: { post: Post }) {
 
   return (
     <>
-      <Card className="overflow-hidden border dark:border-gray-800 cursor-pointer" onClick={handleClick}>
+      <Card className="overflow-hidden border dark:border-gray-800 cursor-pointer" onClick={handleClick} onMouseEnter={handleMouseEnter}>
         <div className="relative w-full h-48">
           {imageError ? (
             <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
@@ -217,15 +295,15 @@ export function PostCard({ post }: { post: Post }) {
 
         <CardFooter className="p-4 pt-4">
           <div className="flex items-start justify-between w-full relative">
-            {/* Left side: Location/Timestamp row above Poster info */}
-            <div className="flex flex-col space-y-2">
+            {/* Left side: Description, Location, Travel Times, Poster info */}
+            <div className="flex flex-col space-y-2 flex-1">
               {/* Description */}
               <div>
                 <p className="text-base truncate">{post.description}</p>
               </div>
 
-              {/* Location and timestamp row - flipped order */}
-              <div className="flex items-center space-x-3">
+              {/* Location and Travel Times row */}
+              <div className="flex items-center space-x-2">
                 {locationName && (
                   <div
                     className="flex items-center cursor-pointer hover:text-blue-600 transition-colors"
@@ -251,29 +329,49 @@ export function PostCard({ post }: { post: Post }) {
                     </span>
                   </div>
                 )}
-
-                <div className="flex items-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mr-1 text-muted-foreground"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
-                  <span className="text-xs text-muted-foreground">{formatDate()}</span>
-                </div>
+                {/* Travel Times (no loading state) */}
+                {/* Only show walk time if <30min, drive time if <1hr */}
+                {(() => {
+                  // Parse walk time in min (including hours)
+                  let walkMin = null
+                  if (travelTimes.walking) {
+                    const h = travelTimes.walking.match(/(\d+)hr/)
+                    const m = travelTimes.walking.match(/(\d+)min/)
+                    walkMin = (h ? parseInt(h[1]) * 60 : 0) + (m ? parseInt(m[1]) : 0)
+                  }
+                  // Parse drive time in min
+                  let driveMin = null
+                  if (travelTimes.driving) {
+                    const h = travelTimes.driving.match(/(\d+)hr/)
+                    const m = travelTimes.driving.match(/(\d+)min/)
+                    driveMin = (h ? parseInt(h[1]) * 60 : 0) + (m ? parseInt(m[1]) : 0)
+                  }
+                  return <>
+                    {walkMin !== null && walkMin < 30 && (
+                      <div className={`flex items-center ml-2 transition-opacity duration-500 ${showTravelTimes ? 'opacity-100' : 'opacity-0'}`}>
+                        <Footprints size={14} className="mr-1 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">{travelTimes.walking}</span>
+                      </div>
+                    )}
+                    {driveMin !== null && driveMin < 60 && (
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&origin=${userLocation?.lat},${userLocation?.lng}&destination=${post.latitude},${post.longitude}&travelmode=driving`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex items-center ml-2 transition-opacity duration-500 ${showTravelTimes ? 'opacity-100' : 'opacity-0'} cursor-pointer hover:text-blue-600`}
+                        onClick={e => e.stopPropagation()}
+                        title="Open driving directions in Google Maps"
+                      >
+                        <Car size={14} strokeWidth={2} className="mr-1 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">{travelTimes.driving}</span>
+                      </a>
+                    )}
+                  </>
+                })()}
               </div>
 
-              {/* Poster info row */}
-              <div className="flex items-center space-x-3">
+              {/* Poster info and timestamp row */}
+              <div className="flex items-center space-x-2">
                 <div className="flex items-center cursor-pointer hover:opacity-80" onClick={handleProfileClick}>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -302,14 +400,32 @@ export function PostCard({ post }: { post: Post }) {
                     })()}
                   </span>
                 </div>
-                
+                {/* Timestamp immediately after poster name */}
+                <div className="flex items-center ml-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="mr-1 text-muted-foreground"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  <span className="text-xs text-muted-foreground">{formatAbbreviatedTimeAgo()}</span>
+                </div>
                 {/* Group info - only show if post has a group */}
                 {post.group && (
-                  <div className="flex items-center">
+                  <div className="flex items-center ml-2">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      width="12"
-                      height="12"
+                      width="14"
+                      height="14"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -331,28 +447,28 @@ export function PostCard({ post }: { post: Post }) {
 
             {/* Bitcoin Map Marker with Sats Reward on the right */}
             <div style={{ position: "relative", width: "48px", height: "48px" }}>
-            <div
+              <div
                 className="marker-container cursor-pointer"
-              onClick={handleClick}
-              style={{
+                onClick={handleClick}
+                style={{
                   width: "48px",
                   height: "48px",
-                borderRadius: "50%",
-                background: "#FED56B",
-                border: "1px solid #C5792D",
-                boxShadow: "0 0 0 1px #F4C14F",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <img
-                src="/images/bitcoin-logo.png"
-                alt="Bitcoin"
+                  borderRadius: "50%",
+                  background: "#FED56B",
+                  border: "1px solid #C5792D",
+                  boxShadow: "0 0 0 1px #F4C14F",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <img
+                  src="/images/bitcoin-logo.png"
+                  alt="Bitcoin"
                   width={43}
                   height={43}
                   style={{ zIndex: 1 }}
-              />
+                />
               </div>
               {/* Badge absolutely positioned over the coin */}
               <div
@@ -393,16 +509,7 @@ export function PostCard({ post }: { post: Post }) {
         </CardFooter>
       </Card>
 
-      {/* Map Modal - No longer needed as we're navigating to the map page
-      <MapModal
-        isOpen={isMapOpen}
-        onClose={() => setIsMapOpen(false)}
-        posts={[post]} 
-        centerPost={post} 
-      />
-      */}
-
-      <style jsx>{`
+      <style>{`
         .marker-container {
           position: relative;
           overflow: hidden;

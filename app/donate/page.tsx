@@ -442,11 +442,12 @@ export default function DonatePage() {
             <span>sats to donate</span>
           </div>
 
-          {bitcoinPrice && (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+          {/* Reserve space for USD conversion to prevent layout shift */}
+          <div className="h-4 flex items-center justify-center">
+            <p className={`text-xs text-gray-500 dark:text-gray-400 transition-opacity duration-300 ${bitcoinPrice ? 'opacity-100' : 'opacity-0'}`}>
               ${calculateUsdValue(selectedAmount)} USD
             </p>
-          )}
+          </div>
 
           {showKeypad && (
             <div className="w-full max-w-xs pt-4">
@@ -485,7 +486,6 @@ export default function DonatePage() {
   );
 
   // Step 2: Choose Location
-  const [showCustomPicker, setShowCustomPicker] = useState(false)
   const renderStep2 = () => (
     <div className="container px-4 py-6 mx-auto max-w-md">
       <div className="space-y-6">
@@ -500,11 +500,87 @@ export default function DonatePage() {
           </button>
           <h2 className="text-white text-lg font-light">Pick Location</h2>
         </div>
-        {/* 2-column Grid */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        
+        {/* Primary location search */}
+        <div className="mb-6">
+          <LocationInput
+            value={customLocation}
+            onChange={handleCustomLocationChange}
+            placeholder="Search for a location..."
+            className="w-full"
+            autoFocus
+          />
+        </div>
+        
+        {/* Compact list of suggested places */}
+        <div className="space-y-2 mb-6">
+          <div className="text-xs text-gray-500 dark:text-gray-500 mb-3">Suggested locations:</div>
+          
+          {/* Current City */}
+          {recommendedLocations.find((loc) => loc.type === "locality") && (
+            <button
+              onClick={() => {
+                const city = recommendedLocations.find((loc) => loc.type === "locality")
+                if (city) {
+                  setSelectedLocation(city)
+                  setCustomLocation("")
+                  setCustomLocationDetails(null)
+                }
+              }}
+              className={`w-full flex items-center justify-between p-2 rounded-lg border transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "locality" ? "ring-2 ring-primary bg-accent" : ""}`}
+            >
+              <div className="flex items-center">
+                <span className="text-sm mr-3">🏙️</span>
+                <div className="text-sm text-gray-600 dark:text-gray-400">{recommendedLocations.find((loc) => loc.type === "locality")?.name}</div>
+              </div>
+              <div className="text-xs text-gray-500">{recommendedLocations.find((loc) => loc.type === "locality")?.openIssues || 0} issues</div>
+            </button>
+          )}
+          
+          {/* State/Province */}
+          {recommendedLocations.find((loc) => loc.type === "admin_1") && (
+            <button
+              onClick={() => {
+                const state = recommendedLocations.find((loc) => loc.type === "admin_1")
+                if (state) {
+                  setSelectedLocation(state)
+                  setCustomLocation("")
+                  setCustomLocationDetails(null)
+                }
+              }}
+              className={`w-full flex items-center justify-between p-2 rounded-lg border transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "admin_1" ? "ring-2 ring-primary bg-accent" : ""}`}
+            >
+              <div className="flex items-center">
+                <span className="text-sm mr-3">🏛️</span>
+                <div className="text-sm text-gray-600 dark:text-gray-400">{recommendedLocations.find((loc) => loc.type === "admin_1")?.name}</div>
+              </div>
+              <div className="text-xs text-gray-500">{recommendedLocations.find((loc) => loc.type === "admin_1")?.openIssues || 0} issues</div>
+            </button>
+          )}
+          
+          {/* Country */}
+          {recommendedLocations.find((loc) => loc.type === "country") && (
+            <button
+              onClick={() => {
+                const country = recommendedLocations.find((loc) => loc.type === "country")
+                if (country) {
+                  setSelectedLocation(country)
+                  setCustomLocation("")
+                  setCustomLocationDetails(null)
+                }
+              }}
+              className={`w-full flex items-center justify-between p-2 rounded-lg border transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "country" && selectedLocation?.name === recommendedLocations.find((loc) => loc.type === "country")?.name ? "ring-2 ring-primary bg-accent" : ""}`}
+            >
+              <div className="flex items-center">
+                <span className="text-sm mr-3">{recommendedLocations.find((loc) => loc.type === "country")?.emoji || "🏳️"}</span>
+                <div className="text-sm text-gray-600 dark:text-gray-400">{recommendedLocations.find((loc) => loc.type === "country")?.name}</div>
+              </div>
+              <div className="text-xs text-gray-500">{recommendedLocations.find((loc) => loc.type === "country")?.openIssues || 0} issues</div>
+            </button>
+          )}
+          
           {/* Global */}
-          <Card
-            className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "global" && selectedLocation?.name === "Global" ? "ring-2 ring-primary" : ""}`}
+          <button
             onClick={() => {
               setSelectedLocation({
                 name: "Global",
@@ -514,126 +590,22 @@ export default function DonatePage() {
                 locationType: "global",
                 locationName: "Global",
               })
-              setShowCustomPicker(false)
               setCustomLocation("")
               setCustomLocationDetails(null)
             }}
+            className={`w-full flex items-center justify-between p-2 rounded-lg border transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "global" && selectedLocation?.name === "Global" ? "ring-2 ring-primary bg-accent" : ""}`}
           >
-            <CardContent className="p-3 flex flex-col items-center justify-center h-full">
-              <span className="text-2xl mb-1">🌎</span>
-              <div className="font-medium text-base text-center truncate w-full">Global</div>
-              <div className="text-xs text-gray-500 text-center mt-1">{recommendedLocations.find((loc) => loc.type === "global")?.openIssues || 0} open issues</div>
-            </CardContent>
-          </Card>
-          {/* Country */}
-          <Card
-            className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "country" && selectedLocation?.name === (recommendedLocations.find((loc) => loc.type === "country")?.name) ? "ring-2 ring-primary" : ""}`}
-            onClick={() => {
-              const country = recommendedLocations.find((loc) => loc.type === "country")
-              if (country) {
-                setSelectedLocation(country)
-                setShowCustomPicker(false)
-                setCustomLocation("")
-                setCustomLocationDetails(null)
-              }
-            }}
-          >
-            <CardContent className="p-3 flex flex-col items-center justify-center h-full">
-              <span className="text-2xl mb-1">{recommendedLocations.find((loc) => loc.type === "country")?.emoji || "🏳️"}</span>
-              <div className="font-medium text-base text-center truncate w-full">{recommendedLocations.find((loc) => loc.type === "country")?.name || "Country"}</div>
-              <div className="text-xs text-gray-500 text-center mt-1">{recommendedLocations.find((loc) => loc.type === "country")?.openIssues || 0} open issues</div>
-            </CardContent>
-          </Card>
-          {/* State */}
-          <Card
-            className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "admin_1" ? "ring-2 ring-primary" : ""}`}
-            onClick={() => {
-              const state = recommendedLocations.find((loc) => loc.type === "admin_1")
-              if (state) {
-                setSelectedLocation(state)
-                setShowCustomPicker(false)
-                setCustomLocation("")
-                setCustomLocationDetails(null)
-              }
-            }}
-          >
-            <CardContent className="p-3 flex flex-col items-center justify-center h-full">
-              <span className="text-2xl mb-1">🏛️</span>
-              <div className="font-medium text-base text-center truncate w-full">{recommendedLocations.find((loc) => loc.type === "admin_1")?.name || "State"}</div>
-              <div className="text-xs text-gray-500 text-center mt-1">{recommendedLocations.find((loc) => loc.type === "admin_1")?.openIssues || 0} open issues</div>
-            </CardContent>
-          </Card>
-          {/* City */}
-          <Card
-            className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "locality" ? "ring-2 ring-primary" : ""}`}
-            onClick={() => {
-              const city = recommendedLocations.find((loc) => loc.type === "locality")
-              if (city) {
-                setSelectedLocation(city)
-                setShowCustomPicker(false)
-                setCustomLocation("")
-                setCustomLocationDetails(null)
-              }
-            }}
-          >
-            <CardContent className="p-3 flex flex-col items-center justify-center h-full">
-              <span className="text-2xl mb-1">🏙️</span>
-              <div className="font-medium text-base text-center truncate w-full">{recommendedLocations.find((loc) => loc.type === "locality")?.name || "City"}</div>
-              <div className="text-xs text-gray-500 text-center mt-1">{recommendedLocations.find((loc) => loc.type === "locality")?.openIssues || 0} open issues</div>
-            </CardContent>
-          </Card>
-          {/* El Salvador */}
-          <Card
-            className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${selectedLocation?.type === "country" && selectedLocation?.name === "El Salvador" ? "ring-2 ring-primary" : ""}`}
-            onClick={() => {
-              setSelectedLocation({
-                name: "El Salvador",
-                type: "country",
-                emoji: "🇸🇻",
-                openIssues: 0,
-                locationType: "country",
-                locationName: "El Salvador",
-              })
-              setShowCustomPicker(false)
-              setCustomLocation("")
-              setCustomLocationDetails(null)
-            }}
-          >
-            <CardContent className="p-3 flex flex-col items-center justify-center h-full">
-              <span className="text-2xl mb-1">🇸🇻</span>
-              <div className="font-medium text-base text-center truncate w-full">El Salvador</div>
-              <div className="text-xs text-gray-500 text-center mt-1">0 open issues</div>
-            </CardContent>
-          </Card>
-          {/* Custom */}
-          <Card
-            className={`cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground ${showCustomPicker ? "ring-2 ring-primary" : ""}`}
-            onClick={() => {
-              setShowCustomPicker(true)
-              setSelectedLocation(null)
-            }}
-          >
-            <CardContent className="p-3 flex flex-col items-center justify-center h-full">
-              <DropPin className="w-6 h-6 mb-1" />
-              <div className="font-medium text-base text-center truncate w-full">Custom</div>
-            </CardContent>
-          </Card>
+            <div className="flex items-center">
+              <span className="text-sm mr-3">🌎</span>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Global</div>
+            </div>
+            <div className="text-xs text-gray-500">{recommendedLocations.find((loc) => loc.type === "global")?.openIssues || 0} issues</div>
+          </button>
         </div>
-        {/* Custom location picker (typeahead search) */}
-        {showCustomPicker && (
-          <div className="mb-6">
-            <LocationInput
-              value={customLocation}
-              onChange={handleCustomLocationChange}
-              placeholder="Search locations..."
-              className="w-full mb-2"
-            />
-          </div>
-        )}
         <Button
           className="w-full h-12"
           onClick={handleDonate}
-          disabled={!(selectedLocation || (showCustomPicker && customLocationDetails)) || isCreatingInvoice}
+          disabled={!(selectedLocation || customLocationDetails) || isCreatingInvoice}
           size="lg"
         >
           {isCreatingInvoice ? (
@@ -661,18 +633,18 @@ export default function DonatePage() {
   // Step 3: Lightning Invoice (reuse existing logic)
   const renderStep3 = () => (
     <div className="container px-4 py-6 mx-auto max-w-md flex flex-col items-center justify-center">
-      <div className="space-y-6 w-full">
-        <div className="text-center mb-6 relative">
-          <button
-            onClick={() => setStep(2)}
-            className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h2 className="text-white text-lg font-light">Pay Invoice</h2>
-        </div>
+      <div className="text-center mb-6 relative w-full">
+        <button
+          onClick={() => setStep(2)}
+          className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h2 className="text-white text-lg font-light">Pay Invoice</h2>
+      </div>
+      <div className="space-y-6 w-full flex flex-col items-center">
         {invoiceData ? (
           <>
             {paymentDetected ? (
@@ -799,9 +771,9 @@ export default function DonatePage() {
       </div>
       {/* Header and subhead always visible */}
       <div className="w-full max-w-md px-4 pb-2 pt-4">
-        <h1 className="text-2xl font-bold text-center mb-2">Donate Bitcoin, Fund Cleanups</h1>
+        <h1 className="text-2xl font-bold text-center mb-2">Fund Cleanups with Bitcoin</h1>
         <p className="text-center text-muted-foreground text-sm">
-           Donate Bitcoin to fund community improvements. Your sats fund rewards for fixing issues. 
+           Donations boost rewards and speed up clean ups
         </p>
         <Separator className="mt-4" />
       </div>

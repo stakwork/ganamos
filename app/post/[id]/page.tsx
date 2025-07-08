@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation" // Combined useParams from next/navigation
 import Image from "next/image"
 import { formatDistanceToNow } from "date-fns"
@@ -23,6 +23,8 @@ import { reverseGeocode } from "@/lib/geocoding"
 // Add the new server actions to imports
 import { markPostFixedAnonymouslyAction, submitAnonymousFixForReviewAction } from "@/app/actions/post-actions" // Adjust path if necessary
 import { LightningInvoiceModal } from "@/components/lightning-invoice-modal"
+import { v4 as uuidv4 } from "uuid"
+import dynamic from "next/dynamic"
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
   // const { id } = useParams() // params.id is used directly
@@ -46,6 +48,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [isReviewing, setIsReviewing] = useState(false)
   const [showFullAnalysis, setShowFullAnalysis] = useState(false)
   const [showLightningModal, setShowLightningModal] = useState(false)
+  const [showContent, setShowContent] = useState(false)
 
   // Force hide bottom nav when camera is shown
   useEffect(() => {
@@ -98,6 +101,10 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           if (data && !error) {
             setPost(data)
             setLoading(false)
+            // Add a small delay to show the fade effect
+            setTimeout(() => {
+              setShowContent(true)
+            }, 100)
             return
           }
         }
@@ -233,7 +240,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           // High confidence: Auto-approve anonymous fix
           const actionResult = await markPostFixedAnonymouslyAction(
             post.id,
-            fixImage,
+            fixImage || "",
             fixerNote,
             verificationResult.confidence,
             verificationResult.reasoning,
@@ -248,7 +255,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                     fixed_at: new Date().toISOString(),
                     fixed_by: null,
                     fixed_by_is_anonymous: true,
-                    fixed_image_url: fixImage,
+                    fixed_image_url: fixImage || "",
                     fixer_note: fixerNote,
                     under_review: false,
                     ai_confidence_score: verificationResult.confidence,
@@ -262,7 +269,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               variant: "success",
               duration: 2000,
             })
-            setAnonymousFixedPostId(post.id)
+            setAnonymousFixedPostId(post?.id || "")
             setShowAnonymousRewardOptions(true)
             setShowBeforeAfter(false)
             // Do not redirect yet, the UI will change based on showAnonymousRewardOptions
@@ -277,7 +284,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           // Low confidence: Submit anonymous fix for review
           const actionResult = await submitAnonymousFixForReviewAction(
             post.id,
-            fixImage,
+            fixImage || "",
             fixerNote,
             verificationResult.confidence,
             verificationResult.reasoning,
@@ -289,12 +296,12 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 ? {
                     ...prevPost,
                     under_review: true,
-                    submitted_fix_by_id: null,
-                    submitted_fix_by_name: "Anonymous Fixer (Pending Review)",
-                    submitted_fix_by_avatar: null,
-                    submitted_fix_at: new Date().toISOString(),
-                    submitted_fix_image_url: fixImage,
-                    submitted_fix_note: fixerNote,
+                    submitted_fix_by_id: "",
+                    submitted_fix_by_name: "",
+                    submitted_fix_by_avatar: "",
+                    submitted_fix_at: "",
+                    submitted_fix_image_url: "",
+                    submitted_fix_note: "",
                     ai_confidence_score: verificationResult.confidence,
                     ai_analysis: verificationResult.reasoning,
                     fixed: false, // Ensure fixed is false as it's under review
@@ -334,15 +341,15 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               .update({
                 fixed: true,
                 fixed_at: nowIso,
-                fixed_by: activeUserId || user.id,
-                fixed_image_url: fixImage,
-                fixer_note: fixerNote || null,
+                fixed_by: activeUserId || user?.id,
+                fixed_image_url: fixImage || "",
+                fixer_note: fixerNote || "",
                 under_review: false, // Clear review status
                 ai_confidence_score: verificationResult.confidence, // Store AI score
                 ai_analysis: verificationResult.reasoning, // Store AI reasoning
                 fixed_by_is_anonymous: false, // Explicitly false for logged-in user
               })
-              .eq("id", post.id)
+              .eq("id", post?.id)
             if (error) {
               console.error("Error updating post in Supabase:", error)
               throw new Error("Failed to update post in database.")
@@ -352,27 +359,38 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             const { data: fixerProfileData, error: profileError } = await supabase
               .from("profiles")
               .select("balance, fixed_issues_count")
-              .eq("id", activeUserId || user.id)
+              .eq("id", activeUserId || user?.id)
               .single()
 
             if (profileError) {
               console.error("Error fetching fixer profile for update:", profileError)
               // Decide if this is critical enough to stop the process
             } else if (fixerProfileData) {
-              const newBalance = (fixerProfileData.balance || 0) + post.reward
+              const newBalance = (fixerProfileData.balance || 0) + (post?.reward || 0)
               const newFixedCount = (fixerProfileData.fixed_issues_count || 0) + 1
               const { error: updateProfileError } = await supabase
                 .from("profiles")
                 .update({ balance: newBalance, fixed_issues_count: newFixedCount })
-                .eq("id", activeUserId || user.id)
+                .eq("id", activeUserId || user?.id)
               if (updateProfileError) {
                 console.error("Error updating fixer profile (balance/count):", updateProfileError)
               } else {
-                console.log("🔍 BALANCE UPDATE - Profile balance and count updated for user:", activeUserId || user.id)
+                console.log("🔍 BALANCE UPDATE - Profile balance and count updated for user:", activeUserId || user?.id)
                 // Call updateBalance from useAuth to reflect in UI immediately if possible
                 await updateBalance(newBalance)
               }
             }
+
+            // Add activity for fix submission
+            await supabase.from("activities").insert({
+              id: uuidv4(),
+              user_id: activeUserId || user?.id,
+              type: "fix",
+              related_id: post?.id,
+              related_table: "posts",
+              timestamp: nowIso,
+              metadata: { fixerNote, ai_confidence: verificationResult.confidence },
+            })
           }
 
           // Update local state
@@ -382,9 +400,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                   ...prevPost,
                   fixed: true,
                   fixed_at: nowIso,
-                  fixed_by: activeUserId || user.id,
-                  fixed_image_url: fixImage,
-                  fixer_note: fixerNote || null,
+                  fixed_by: activeUserId || user?.id,
+                  fixed_image_url: fixImage || "",
+                  fixer_note: fixerNote || "",
                   under_review: false,
                   ai_confidence_score: verificationResult.confidence,
                   ai_analysis: verificationResult.reasoning,
@@ -405,7 +423,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           window.dispatchEvent(new Event("storage")) // To sync across tabs/components if needed
           toast({
             title: "🎊 Fix verified!",
-            description: `${formatSatsValue(post.reward)} sats have been added to your balance 💰`,
+            description: `${formatSatsValue(post?.reward || 0)} sats have been added to your balance 💰`,
             variant: "success",
             duration: 2000,
           })
@@ -420,18 +438,18 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             .from("posts")
             .update({
               under_review: true,
-              submitted_fix_by_id: activeUserId || user.id,
-              submitted_fix_by_name: profile.name || user.email?.split("@")[0] || "Unknown User",
-              submitted_fix_by_avatar: profile.avatar_url,
-              submitted_fix_at: nowIso,
-              submitted_fix_image_url: fixImage,
-              submitted_fix_note: fixerNote || null,
+              submitted_fix_by_id: activeUserId || user?.id,
+              submitted_fix_by_name: profile?.name || user?.email?.split("@")[0] || "Unknown User",
+              submitted_fix_by_avatar: profile?.avatar_url,
+              submitted_fix_at: "",
+              submitted_fix_image_url: fixImage || "",
+              submitted_fix_note: "",
               ai_confidence_score: verificationResult.confidence,
               ai_analysis: verificationResult.reasoning,
               fixed: false, // Ensure not marked as fixed
               fixed_by_is_anonymous: false, // Not an anonymous submission
             })
-            .eq("id", post.id)
+            .eq("id", post?.id)
           if (error) {
             console.error("Error updating post review status:", error)
             throw new Error("Failed to submit fix for review.")
@@ -441,12 +459,12 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               ? {
                   ...prevPost,
                   under_review: true,
-                  submitted_fix_by_id: activeUserId || user.id,
-                  submitted_fix_by_name: profile.name || user.email?.split("@")[0] || "Unknown User",
-                  submitted_fix_by_avatar: profile.avatar_url,
-                  submitted_fix_at: nowIso,
-                  submitted_fix_image_url: fixImage,
-                  submitted_fix_note: fixerNote || null,
+                  submitted_fix_by_id: activeUserId || user?.id,
+                  submitted_fix_by_name: profile?.name || user?.email?.split("@")[0] || "Unknown User",
+                  submitted_fix_by_avatar: profile?.avatar_url,
+                  submitted_fix_at: "",
+                  submitted_fix_image_url: fixImage || "",
+                  submitted_fix_note: "",
                   ai_confidence_score: verificationResult.confidence,
                   ai_analysis: verificationResult.reasoning,
                   fixed: false,
@@ -494,15 +512,19 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           console.error("Error approving fix:", error)
           throw new Error("Failed to approve fix")
         }
-        setPost({
-          ...post,
-          fixed: true,
-          fixed_at: nowIso,
-          fixed_by: post.submitted_fix_by_id,
-          fixed_image_url: post.submitted_fix_image_url,
-          fixer_note: post.submitted_fix_note,
-          under_review: false,
-        })
+        setPost((prevPost) =>
+          prevPost
+            ? {
+                ...prevPost,
+                fixed: true,
+                fixed_at: nowIso,
+                fixed_by: post.submitted_fix_by_id,
+                fixed_image_url: post.submitted_fix_image_url,
+                fixer_note: post.submitted_fix_note,
+                under_review: false,
+              }
+            : null,
+        )
         if (post.submitted_fix_by_id) {
           const { data: fixerProfileData, error: profileError } = await supabase
             .from("profiles")
@@ -519,6 +541,28 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           title: "Fix approved",
           description: "The fix has been approved and the reward has been transferred.",
           variant: "success",
+        })
+
+        // Add activity for approve
+        await supabase.from("activities").insert({
+          id: uuidv4(),
+          user_id: post.submitted_fix_by_id,
+          type: "approve",
+          related_id: post.id,
+          related_table: "posts",
+          timestamp: nowIso,
+          metadata: { reward: post.reward },
+        })
+
+        // Also record reward earned
+        await supabase.from("activities").insert({
+          id: uuidv4(),
+          user_id: post.submitted_fix_by_id,
+          type: "reward",
+          related_id: post.id,
+          related_table: "posts",
+          timestamp: nowIso,
+          metadata: { amount: post.reward },
         })
       }
     } catch (error) {
@@ -538,32 +582,47 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           .from("posts")
           .update({
             under_review: false,
-            submitted_fix_by_id: null,
-            submitted_fix_by_name: null,
-            submitted_fix_by_avatar: null,
-            submitted_fix_at: null,
-            submitted_fix_image_url: null,
-            submitted_fix_note: null,
+            submitted_fix_by_id: "",
+            submitted_fix_by_name: "",
+            submitted_fix_by_avatar: "",
+            submitted_fix_at: "",
+            submitted_fix_image_url: "",
+            submitted_fix_note: "",
           })
           .eq("id", post.id)
         if (error) {
           console.error("Error rejecting fix:", error)
           throw new Error("Failed to reject fix")
         }
-        setPost({
-          ...post,
-          under_review: false,
-          submitted_fix_by_id: null,
-          submitted_fix_by_name: null,
-          submitted_fix_by_avatar: null,
-          submitted_fix_at: null,
-          submitted_fix_image_url: null,
-          submitted_fix_note: null,
-        })
+        setPost((prevPost) =>
+          prevPost
+            ? {
+                ...prevPost,
+                under_review: false,
+                submitted_fix_by_id: "",
+                submitted_fix_by_name: "",
+                submitted_fix_by_avatar: "",
+                submitted_fix_at: "",
+                submitted_fix_image_url: "",
+                submitted_fix_note: "",
+              }
+            : null,
+        )
         toast({
           title: "❌ Fix rejected",
           description: "The fix has been rejected. The issue is still open for others to fix.",
           variant: "default",
+        })
+
+        // Add activity for reject
+        await supabase.from("activities").insert({
+          id: uuidv4(),
+          user_id: post.submitted_fix_by_id,
+          type: "reject",
+          related_id: post.id,
+          related_table: "posts",
+          timestamp: new Date().toISOString(),
+          metadata: {},
         })
       }
     } catch (error) {
@@ -591,15 +650,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     return `${firstName} ${lastInitial}`.trim()
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">Loading...</div>
-      </div>
-    )
-  }
+  // Remove early return for loading - let our overlay system handle it
 
-  if (!post) {
+  if (!loading && !post) {
     return (
       <div className="container px-4 py-6 mx-auto">
         <div className="text-center">
@@ -655,7 +708,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             <div>
               <div className="relative w-full h-48 overflow-hidden rounded-lg">
                 <Image
-                  src={post.imageUrl || post.image_url || "/placeholder.svg"}
+                  src={post?.imageUrl || post?.image_url || "/placeholder.svg"}
                   alt="Before"
                   fill
                   className="object-cover"
@@ -753,7 +806,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           <div className="space-y-3">
             <div>
               {" "}
-              <h3 className="font-semibold text-lg">{post.title}</h3>{" "}
+              <h3 className="font-semibold text-lg">{post?.title}</h3>{" "}
             </div>
             <div className="flex items-center p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg">
               <div className="p-2 mr-3 bg-amber-100 rounded-full dark:bg-amber-950/50">
@@ -762,7 +815,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               </div>
               <div>
                 <p className="text-sm font-medium">Reward</p>
-                <p className="text-lg font-bold">{formatSatsValue(post.reward)}</p>
+                <p className="text-lg font-bold">{formatSatsValue(post?.reward || 0)}</p>
               </div>
             </div>
             {fixerNote && (
@@ -805,41 +858,131 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   }
 
   // Main content of the page when not in camera or before/after view
+
   return (
-    <div className="container px-4 pt-4 pb-20 mx-auto max-w-md">
-      {" "}
-      {/* Added pb-20 for bottom nav space */}
-      {/* Updated image display logic to handle anonymous reviews */}
-      {(post.under_review &&
-        post.submitted_fix_image_url &&
-        user &&
-        (post.userId === user.id || post.user_id === user.id || post.user_id === activeUserId)) ||
-      (post.fixed && post.fixed_image_url) ? (
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div>
-            <div className="relative w-full h-40 overflow-hidden rounded-lg">
-              <Image
-                src={post.imageUrl || post.image_url || "/placeholder.svg"}
-                alt="Before"
-                fill
-                className="object-cover"
-              />
-              <div className="absolute top-2 left-2">
-                <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">Before</span>
+    <div className="relative">
+      {/* Skeleton Loader: fades out when showContent is true */}
+      <div className={`absolute inset-0 z-10 transition-opacity duration-500 ${showContent ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className="container px-4 pt-4 pb-20 mx-auto max-w-md">
+          {/* Image skeleton with close button overlay */}
+          <div className="relative w-full h-64 mb-4 overflow-hidden rounded-lg">
+            <div className="w-full h-full animate-pulse rounded-md bg-muted" />
+            <button className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white border-0 p-2 rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              <span className="sr-only">Close</span>
+            </button>
+          </div>
+          {/* Location and meta skeleton (no title blob) */}
+          <div className="mb-6">
+            <div className="flex items-center space-x-2">
+              <div className="h-4 w-24 animate-pulse rounded-md bg-muted" />
+              <div className="h-4 w-16 animate-pulse rounded-md bg-muted" />
+            </div>
+            <div className="h-4 w-32 animate-pulse rounded-md bg-muted mt-2" />
+          </div>
+          {/* Reward card skeleton */}
+          <div className="mb-6 border rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="h-8 w-8 animate-pulse rounded-full bg-muted mr-3" />
+                <div>
+                  <div className="h-6 w-24 animate-pulse rounded-md bg-muted mb-2" />
+                  <div className="h-4 w-16 animate-pulse rounded-md bg-muted" />
+                </div>
+              </div>
+              <div className="h-10 w-24 animate-pulse rounded-md bg-muted" />
+            </div>
+          </div>
+          {/* Description skeleton */}
+          <div className="space-y-2 mb-6">
+            <div className="h-4 w-full animate-pulse rounded-md bg-muted" />
+            <div className="h-4 w-3/4 animate-pulse rounded-md bg-muted" />
+            <div className="h-4 w-1/2 animate-pulse rounded-md bg-muted" />
+          </div>
+          {/* Comments/notes section skeleton */}
+          <div className="border rounded-lg p-4">
+            <div className="space-y-3">
+              <div className="h-5 w-24 animate-pulse rounded-md bg-muted" />
+              <div className="space-y-2">
+                <div className="h-4 w-full animate-pulse rounded-md bg-muted" />
+                <div className="h-4 w-3/4 animate-pulse rounded-md bg-muted" />
               </div>
             </div>
           </div>
-          <div>
-            <div className="relative w-full h-40 overflow-hidden rounded-lg">
+        </div>
+      </div>
+      
+      {/* Real Content: fades in when showContent is true */}
+      <div className={`transition-opacity duration-500 ${showContent ? 'opacity-100' : 'opacity-0'}`}>
+        {post && (
+          <div className="container px-4 pt-4 pb-20 mx-auto max-w-md">
+            {" "}
+            {/* Added pb-20 for bottom nav space */}
+            {/* Updated image display logic to handle anonymous reviews */}
+            {((post.under_review &&
+            post.submitted_fix_image_url &&
+            user &&
+            (post.userId === user.id || post.user_id === user.id || post.user_id === activeUserId)) ||
+          (post.fixed && post.fixed_image_url)) ? (
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <div>
+                <div className="relative w-full h-40 overflow-hidden rounded-lg">
+                  <Image
+                    src={post.imageUrl || post.image_url || "/placeholder.svg"}
+                    alt="Before"
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute top-2 left-2">
+                    <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">Before</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="relative w-full h-40 overflow-hidden rounded-lg">
+                  <Image
+                    src={(post.under_review ? post.submitted_fix_image_url : post.fixed_image_url) || "/placeholder.svg"}
+                    alt="After"
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute top-2 left-2">
+                    <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">After</span>
+                  </div>
+                  {/* Close button overlaid on top-right */}
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => router.back()} 
+                    className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white border-0 p-2"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M18 6 6 18" />
+                      <path d="m6 6 12 12" />
+                    </svg>
+                    <span className="sr-only">Close</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="relative w-full h-64 mb-4 overflow-hidden rounded-lg">
               <Image
-                src={(post.under_review ? post.submitted_fix_image_url : post.fixed_image_url) || "/placeholder.svg"}
-                alt="After"
+                src={post.imageUrl || post.image_url || "/placeholder.svg"}
+                alt={post.title}
                 fill
                 className="object-cover"
               />
-              <div className="absolute top-2 left-2">
-                <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">After</span>
-              </div>
               {/* Close button overlaid on top-right */}
               <Button 
                 variant="ghost" 
@@ -864,305 +1007,300 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 <span className="sr-only">Close</span>
               </Button>
             </div>
-          </div>
-        </div>
-      ) : (
-        <div className="relative w-full h-64 mb-4 overflow-hidden rounded-lg">
-          <Image
-            src={post.imageUrl || post.image_url || "/placeholder.svg"}
-            alt={post.title}
-            fill
-            className="object-cover"
-          />
-          {/* Close button overlaid on top-right */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => router.back()} 
-            className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white border-0 p-2"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-            <span className="sr-only">Close</span>
-          </Button>
-        </div>
-      )}
-      <div className="mb-6">
-        <h2 className="text-xl font-bold">{post.title}</h2>
-        <div className="flex items-center mt-2 text-sm text-muted-foreground">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="mr-1"
-          >
-            {" "}
-            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /> <circle cx="12" cy="10" r="3" />{" "}
-          </svg>
-          <span className="mr-3">{displayLocation}</span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="mr-1"
-          >
-            {" "}
-            <circle cx="12" cy="12" r="10" /> <polyline points="12 6 12 12 16 14" />{" "}
-          </svg>
-          <span>
-            {formatDistanceToNow(new Date(post.createdAt || post.created_at), { addSuffix: false })
-              .replace("about ", "")
-              .replace(" hours", " hrs")
-              .replace(" minutes", " mins")}{" "}
-            ago
-          </span>
-        </div>
-        {!post.fixed && post.created_by && (
-          <div className="flex items-center mt-2">
-            <p className="text-xs text-muted-foreground mr-1">Created by</p>
-            <span className="text-xs font-medium text-muted-foreground">{post.created_by}</span>
-          </div>
-        )}
-        {post.under_review && post.submitted_fix_by_name && (
-          <div className="flex items-center mt-1">
-            <p className="text-xs text-muted-foreground mr-1">Fix submitted by</p>
-            <span className="text-xs font-medium text-muted-foreground">{post.submitted_fix_by_name}</span>
-          </div>
-        )}
-      </div>
-      {post.under_review && post.submitted_fix_image_url && (
-        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-6">
-          <div className="flex items-center mb-1">
-            {" "}
-            <p className="text-sm font-medium">AI Review</p>{" "}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {showFullAnalysis ? (
-              <div>
-                {post.ai_analysis || "The AI analysis is not available for this submission."}
-                <button onClick={() => setShowFullAnalysis(false)} className="text-white hover:underline ml-1">
-                  {" "}
-                  Show less{" "}
-                </button>
+          )}
+          <div className="mb-6">
+            <h2 className="text-xl font-bold">{post.title}</h2>
+            <div className="flex items-center mt-2 text-sm text-muted-foreground">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mr-1"
+              >
+                {" "}
+                <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /> <circle cx="12" cy="10" r="3" />{" "}
+              </svg>
+              <span className="mr-3">{displayLocation}</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mr-1"
+              >
+                {" "}
+                <circle cx="12" cy="12" r="10" /> <polyline points="12 6 12 12 16 14" />{" "}
+              </svg>
+              <span>
+                {formatDistanceToNow(new Date(post.createdAt || post.created_at || Date.now()), { addSuffix: false })
+                  .replace("about ", "")
+                  .replace(" hours", " hrs")
+                  .replace(" minutes", " mins")} 
+                ago
+              </span>
+              {/* Bitcoin badge to the right */}
+              <div style={{ position: "relative", width: "48px", height: "48px", marginLeft: "auto", marginTop: "-6px" }}>
+                <div
+                  className="marker-container"
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "50%",
+                    background: "#FED56B",
+                    border: "1px solid #C5792D",
+                    boxShadow: "0 0 0 1px #F4C14F",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <img
+                    src="/images/bitcoin-logo.png"
+                    alt="Bitcoin"
+                    width={43}
+                    height={43}
+                    style={{ zIndex: 1 }}
+                  />
+                </div>
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: "-20px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    background: "#fff",
+                    color: "black",
+                    padding: "2px 10px",
+                    fontSize: "14.4px",
+                    fontWeight: "bold",
+                    borderRadius: "14.4px",
+                    border: "1px solid #F7931A",
+                    boxShadow: "0 2px 3px rgba(0, 0, 0, 0.1)",
+                    fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+                    minWidth: "24px",
+                    textAlign: "center",
+                    zIndex: 3,
+                    pointerEvents: "auto",
+                    width: "max-content",
+                  }}
+                >
+                  {(() => {
+                    const sats = post.reward
+                    if (sats === 0) return "0"
+                    if (sats < 1000) return sats.toString()
+                    const inK = sats / 1000
+                    if (inK === Math.floor(inK)) {
+                      return `${Math.floor(inK)}k`
+                    }
+                    return `${inK.toFixed(1)}k`.replace(".0k", "k")
+                  })()}
+                </div>
               </div>
-            ) : (
-              <div className="line-clamp-3">
-                {post.ai_analysis && post.ai_analysis.length > 150 ? (
-                  <>
-                    {post.ai_analysis.slice(0, 150)}
-                    <button onClick={() => setShowFullAnalysis(true)} className="text-white hover:underline">
-                      {" "}
-                      ...see more{" "}
-                    </button>
-                  </>
-                ) : (
-                  post.ai_analysis || "The AI analysis is not available for this submission."
-                )}
+            </div>
+            {!post.fixed && post.created_by && (
+              <div className="flex items-center mt-2">
+                <p className="text-xs text-muted-foreground mr-1">Created by</p>
+                <span className="text-xs font-medium text-muted-foreground">{post.created_by}</span>
+              </div>
+            )}
+            {post.under_review && post.submitted_fix_by_name && (
+              <div className="flex items-center mt-1">
+                <p className="text-xs text-muted-foreground mr-1">Fix submitted by</p>
+                <span className="text-xs font-medium text-muted-foreground">{post.submitted_fix_by_name}</span>
               </div>
             )}
           </div>
-          {post.ai_confidence_score && (
-            <div className="mt-2 text-xs text-muted-foreground">Confidence Score: {post.ai_confidence_score}/10</div>
-          )}
-        </div>
-      )}
-      {post.fixed && post.fixer_note && (
-        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border">
-          <h3 className="font-medium mb-2">Fixer's note:</h3>
-          <p className="text-sm text-muted-foreground">{post.fixer_note}</p>
-        </div>
-      )}
-      {/* Check if this is the post owner viewing an anonymous fix under review */}
-      {post.under_review &&
-      post.submitted_fix_image_url &&
-      user &&
-      (post.userId === user.id || post.user_id === user.id || post.user_id === activeUserId) ? (
-        // Show review interface for post owner
-        <div className="space-y-4 mb-6">
-          {post.submitted_fix_note && (
-            <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-              <p className="text-sm font-medium mb-1">Fixer's note:</p>
-              <p className="text-sm text-muted-foreground">{post.submitted_fix_note}</p>
-            </div>
-          )}
-          <Card className="border dark:border-gray-800">
-            <CardContent className="p-3">
-              <div className="flex items-center">
-                <div className="p-2 mr-3 bg-amber-100 rounded-full dark:bg-amber-950/50">
-                  <BitcoinLogo size={16} />
-                </div>
-                <div>
-                  <p className="text-lg font-bold">{formatSatsValue(post.reward)}</p>
-                  <p className="text-sm font-medium text-muted-foreground">Reward</p>
-                </div>
+          {post.under_review && post.submitted_fix_image_url && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-6">
+              <div className="flex items-center mb-1">
+                {" "}
+                <p className="text-sm font-medium">AI Review</p>{" "}
               </div>
-            </CardContent>
-          </Card>
-          <div className="flex space-x-3">
-            <Button onClick={handleApproveFix} disabled={isReviewing} className="flex-1 w-full">
-              {isReviewing ? (
-                <div className="flex items-center">
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Processing...
-                </div>
-              ) : (
-                "Approve & Pay Reward"
-              )}
-            </Button>
-            <Button onClick={handleRejectFix} disabled={isReviewing} variant="outline" className="flex-1">
-              Reject Fix
-            </Button>
-          </div>
-        </div>
-      ) : (
-        // Show normal reward card with submit fix button (only if not under review by post owner)
-        !(
-          post.under_review &&
-          post.submitted_fix_image_url &&
-          user &&
-          (post.userId === user.id || post.user_id === user.id || post.user_id === activeUserId)
-        ) && (
-          <Card className="mb-6 border dark:border-gray-800">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="p-2 mr-3 bg-amber-100 rounded-full dark:bg-amber-950/50">
-                    <BitcoinLogo size={20} />
-                  </div>
+              <div className="text-sm text-muted-foreground">
+                {showFullAnalysis ? (
                   <div>
-                    <div className="flex items-center">
-                      <p className="text-2xl font-bold mr-2">{formatSatsValue(post.reward)}</p>
-                    </div>
-                    <p className="font-medium text-sm text-muted-foreground">Reward</p>
-                    {post.fixed && post.fixed_by && fixerProfile && (
-                      <div className="flex items-center mt-1">
-                        <p className="text-xs text-muted-foreground mr-1">Earned by</p>
-                        <div className="flex items-center">
-                          <Avatar className="h-4 w-4 mr-1">
-                            <AvatarImage
-                              src={fixerProfile.avatar_url || "/placeholder.svg?width=16&height=16&query=user+avatar"}
-                              alt={fixerProfile.name || "User"}
-                            />
-                            <AvatarFallback>{getFixerInitials()}</AvatarFallback>
-                          </Avatar>
-                          <span className="text-xs font-medium">{formatFixerName()}</span>
-                        </div>
-                      </div>
+                    {post.ai_analysis || "The AI analysis is not available for this submission."}
+                    <button onClick={() => setShowFullAnalysis(false)} className="text-white hover:underline ml-1">
+                      {" "}
+                      Show less{" "}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="line-clamp-3">
+                    {post.ai_analysis && post.ai_analysis.length > 150 ? (
+                      <>
+                        {post.ai_analysis.slice(0, 150)}
+                        <button onClick={() => setShowFullAnalysis(true)} className="text-white hover:underline">
+                          {" "}
+                          ...see more{" "}
+                        </button>
+                      </>
+                    ) : (
+                      post.ai_analysis || "The AI analysis is not available for this submission."
                     )}
                   </div>
+                )}
+              </div>
+              {post.ai_confidence_score && (
+                <div className="mt-2 text-xs text-muted-foreground">Confidence Score: {post.ai_confidence_score}/10</div>
+              )}
+            </div>
+          )}
+          {post.fixed && post.fixer_note && (
+            <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border">
+              <h3 className="font-medium mb-2">Fixer's note:</h3>
+              <p className="text-sm text-muted-foreground">{post.fixer_note}</p>
+            </div>
+          )}
+          {/* Check if this is the post owner viewing an anonymous fix under review */}
+          {post.under_review &&
+          post.submitted_fix_image_url &&
+          user &&
+          (post.userId === user.id || post.user_id === user.id || post.user_id === activeUserId) ? (
+            // Show review interface for post owner
+            <div className="space-y-4 mb-6">
+              {post.submitted_fix_note && (
+                <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                  <p className="text-sm font-medium mb-1">Fixer's note:</p>
+                  <p className="text-sm text-muted-foreground">{post.submitted_fix_note}</p>
                 </div>
-
-                {!post.fixed && <Button onClick={() => setShowCamera(true)}>Submit Fix</Button>}
-
-                {post.fixed && (
+              )}
+              <Card className="border dark:border-gray-800">
+                <CardContent className="p-3">
+                  <div className="flex items-center">
+                    <div className="p-2 mr-3 bg-amber-100 rounded-full dark:bg-amber-950/50">
+                      <BitcoinLogo size={16} />
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold">{formatSatsValue(post.reward)}</p>
+                      <p className="text-sm font-medium text-muted-foreground">Reward</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <div className="flex space-x-3">
+                <Button onClick={handleApproveFix} disabled={isReviewing} className="flex-1 w-full">
+                  {isReviewing ? (
+                    <div className="flex items-center">
+                      <svg
+                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Processing...
+                    </div>
+                  ) : (
+                    "Approve & Pay Reward"
+                  )}
+                </Button>
+                <Button onClick={handleRejectFix} disabled={isReviewing} variant="outline" className="flex-1">
+                  Reject Fix
+                </Button>
+              </div>
+            </div>
+                      ) : (
+              // Show fixed badge if post is fixed (only if not under review by post owner)
+              !(
+                post.under_review &&
+                post.submitted_fix_image_url &&
+                user &&
+                (post.userId === user.id || post.user_id === user.id || post.user_id === activeUserId)
+              ) && post.fixed && (
+                <div className="mb-6">
                   <Badge
                     variant="outline"
                     className="px-3 py-1 text-sm bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100 dark:border-emerald-800/30"
                   >
                     Fixed
                   </Badge>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )
-      )}
-      {showAnonymousRewardOptions && anonymousFixedPostId === post.id && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md">
-            <CardContent className="p-6 text-center">
-              <h2 className="text-2xl font-bold mb-4">Fix Submitted Successfully!</h2>
-              <p className="mb-2 text-muted-foreground">
-                Your fix has been recorded. You've earned {formatSatsValue(post.reward)} sats!
-              </p>
-              <p className="mb-6 text-sm text-muted-foreground">
-                You can withdraw your reward now or create an account to save your earnings and track your
-                contributions.
-              </p>
-              <div className="space-y-3">
-                <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => setShowLightningModal(true)}>
-                  Withdraw {formatSatsValue(post.reward)} sats
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => router.push(`/auth/signup?postId=${anonymousFixedPostId}`)} // Or /auth/login
-                >
-                  Create Account & Save Reward
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="w-full"
-                  onClick={() => {
-                    setShowAnonymousRewardOptions(false)
-                    router.push("/") // Go to homepage
-                  }}
-                >
-                  Maybe Later
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-      <LightningInvoiceModal
-        open={showLightningModal}
-        onOpenChange={setShowLightningModal}
-        rewardAmount={post.reward}
-        postId={post.id}
-        onSuccess={() => {
-          setShowAnonymousRewardOptions(false)
-          toast({
-            title: "Reward Claimed!",
-            description: `${formatSatsValue(post.reward)} sats sent to your Lightning wallet`,
-            variant: "success",
-          })
-          router.push("/")
-        }}
-      />
+                </div>
+              )
+            )}
+          {showAnonymousRewardOptions && anonymousFixedPostId === post.id && (
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+              <Card className="w-full max-w-md">
+                <CardContent className="p-6 text-center">
+                  <h2 className="text-2xl font-bold mb-4">Fix Submitted Successfully!</h2>
+                  <p className="mb-2 text-muted-foreground">
+                    Your fix has been recorded. You've earned {formatSatsValue(post.reward)} sats!
+                  </p>
+                  <p className="mb-6 text-sm text-muted-foreground">
+                    You can withdraw your reward now or create an account to save your earnings and track your
+                    contributions.
+                  </p>
+                  <div className="space-y-3">
+                    <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => setShowLightningModal(true)}>
+                      Withdraw {formatSatsValue(post.reward)} sats
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => router.push(`/auth/signup?postId=${anonymousFixedPostId}`)} // Or /auth/login
+                    >
+                      Create Account & Save Reward
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => {
+                        setShowAnonymousRewardOptions(false)
+                        router.push("/") // Go to homepage
+                      }}
+                    >
+                      Maybe Later
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          <LightningInvoiceModal
+            open={showLightningModal}
+            onOpenChange={setShowLightningModal}
+            rewardAmount={post.reward}
+            postId={post.id}
+            onSuccess={() => {
+              setShowAnonymousRewardOptions(false)
+              toast({
+                title: "Reward Claimed!",
+                description: `${formatSatsValue(post.reward)} sats sent to your Lightning wallet`,
+                variant: "success",
+              })
+              router.push("/")
+            }}
+          />
+          {!post.fixed && !post.under_review && (
+            <Button className="w-full mt-6" onClick={() => setShowCamera(true)}>Submit Fix</Button>
+          )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -12,7 +12,8 @@ export interface Post {
   reward: number
   fixed: boolean
   fixed_at?: string
-  fixed_by?: string
+  fixed_by?: string | null
+  fixed_by_is_anonymous?: boolean
   created_by?: string // Add this line
   created_by_avatar?: string
   createdAt?: Date
@@ -37,6 +38,8 @@ export interface Post {
   fixed_image_url?: string
   submitted_fix_note?: string | null
   city?: string | null
+  ai_confidence_score?: number
+  ai_analysis?: string
 }
 
 export interface User {

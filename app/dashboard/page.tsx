@@ -58,6 +58,10 @@ export default function DashboardPage() {
 
   const prevDeps = useRef({ user, loading, router })
   const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const initialDataLoaded = useRef(false)
+
+  // Add a ref to track the last fetched page
+  const lastFetchedPage = useRef(currentPage)
 
   // Add session guard with useEffect
   useEffect(() => {
@@ -155,7 +159,7 @@ export default function DashboardPage() {
     setFilterCleared(true) // Set flag to trigger re-fetch
   }
 
-  const fetchPosts = async (page = currentPage, filters = activeFilters) => {
+  const fetchPosts = useCallback(async (page = currentPage, filters = activeFilters) => {
     console.log("Fetching posts with filters:", filters)
     // Enhanced logging before API call
     console.log("Session before API call:", !!session)
@@ -165,9 +169,7 @@ export default function DashboardPage() {
 
     setIsLoading(true)
     try {
-      // Try to fetch from Supabase first
       if (supabase) {
-        // Calculate pagination range
         const from = (page - 1) * pageSize
         const to = from + pageSize - 1
 
@@ -232,14 +234,21 @@ export default function DashboardPage() {
 
         const { data, error, count } = await query
 
+        // Handle 416 Range Not Satisfiable error
+        if (error && error.code === '416') {
+          console.warn('Received 416 Range Not Satisfiable, setting hasMore to false')
+          setHasMore(false)
+          setIsLoading(false)
+          return
+        }
+
         if (data && !error) {
           if (page === 1) {
             setPosts(data)
           } else {
             setPosts((prev) => [...prev, ...data])
           }
-
-          // Check if there are more posts to load
+          setCurrentPage(page) // Only update after successful fetch
           setHasMore(count ? from + data.length < count : false)
           setIsLoading(false)
           return
@@ -314,7 +323,30 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [currentPage, activeFilters, supabase, session, currentLocation, pageSize])
+
+  // Initial data loading effect
+  useEffect(() => {
+    if (!loading && user && session && activeFilters) {
+      console.log("Dashboard - Initial data fetch triggered")
+      fetchPosts(1, activeFilters)
+      initialDataLoaded.current = true
+    }
+  }, [loading, user, session, activeFilters, fetchPosts])
+
+  // Handle page visibility changes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && posts.length === 0 && !isLoading && user && initialDataLoaded.current) {
+        // Tab became visible and we have no posts, reload them
+        console.log("Dashboard - Tab became visible, reloading posts")
+        fetchPosts(1, activeFilters)
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
+  }, [posts.length, isLoading, user, activeFilters, fetchPosts])
 
   // Infinite scroll effect
   useEffect(() => {
@@ -324,10 +356,15 @@ export default function DashboardPage() {
 
     const observer = new window.IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading) {
-          const nextPage = currentPage + 1
-          setCurrentPage(nextPage)
-          fetchPosts(nextPage)
+        if (
+          entries[0].isIntersecting &&
+          hasMore &&
+          !isLoading &&
+          currentPage > lastFetchedPage.current
+        ) {
+          // Only fetch if we haven't already fetched this page
+          lastFetchedPage.current = currentPage
+          fetchPosts(currentPage + 1)
         }
       },
       { root: null, rootMargin: "0px", threshold: 1.0 }
@@ -341,7 +378,7 @@ export default function DashboardPage() {
   }
 
   function handleSortChange(sort: 'proximity' | 'recency' | 'reward') {
-    const prev = (activeFilters || {}) as Partial<ActiveFilters>
+    const prev: Partial<ActiveFilters> = (activeFilters || {})
     const newFilters = {
       count: prev.count ?? 0,
       dateFilter: prev.dateFilter ?? 'any',
@@ -486,7 +523,7 @@ export default function DashboardPage() {
                     </DropdownMenuItem>
 
                     {/* Connected Accounts */}
-                    {connectedAccounts.map((account) => (
+                    {connectedAccounts.map((account: any) => (
                       <DropdownMenuItem
                         key={account.id}
                         onClick={() => switchToAccount(account.id)}
@@ -530,7 +567,7 @@ export default function DashboardPage() {
             <div className="space-y-6">
               {posts.length > 0 ? (
                 <>
-                  {posts.map((post) => (
+                  {posts.map((post: any) => (
                     <PostCard key={post.id} post={post} />
                   ))}
                   {/* Infinite scroll sentinel */}

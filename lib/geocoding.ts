@@ -18,6 +18,11 @@ export interface StandardizedLocation {
   country_code?: string
 }
 
+export interface TravelTimes {
+  walking: string | null
+  driving: string | null
+}
+
 export async function reverseGeocode(latitude: number, longitude: number): Promise<string> {
   try {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
@@ -173,4 +178,24 @@ export async function getCurrentLocationWithName(): Promise<LocationData | null>
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     )
   })
+}
+
+export async function getTravelTimes(
+  originLat: number,
+  originLng: number,
+  destinationLat: number,
+  destinationLng: number
+): Promise<TravelTimes> {
+  try {
+    // Call the Next.js API route instead of Google directly
+    const origin = `${originLat},${originLng}`
+    const destination = `${destinationLat},${destinationLng}`
+    const res = await fetch(`/api/travel-times?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`)
+    if (!res.ok) throw new Error("Failed to fetch travel times from API route")
+    const data = await res.json()
+    return { walking: data.walking, driving: data.driving }
+  } catch (error) {
+    console.error("Error getting travel times:", error)
+    return { walking: null, driving: null }
+  }
 }

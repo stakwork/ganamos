@@ -197,7 +197,12 @@ export default function LoginPage() {
                 <Button
                   className="w-full h-14 px-10"
                   variant="outline"
-                  onClick={() => setShowEmailForm(true)}
+                  onClick={() => {
+                    console.log("Sign in with Email button clicked")
+                    console.log("Current showEmailForm state:", showEmailForm)
+                    setShowEmailForm(true)
+                    console.log("Set showEmailForm to true")
+                  }}
                   disabled={isLoading}
                 >
                   Sign in with Email

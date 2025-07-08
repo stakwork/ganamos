@@ -130,43 +130,43 @@ export function MapView({
     setMapInstance(null)
   }, [])
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      setIsLoading(true)
-      try {
-        if (supabase) {
-          const { data, error } = await supabase
-            .from("posts")
-            .select(`
-              *,
-              group:group_id(
-                id,
-                name,
-                description
-              )
-            `)
-            .eq("fixed", false)
-            .neq("under_review", true)
-            .order("created_at", { ascending: false })
-          if (error) {
-            console.error("Error fetching posts:", error)
-            setAllPosts([])
-          } else {
-            setAllPosts(data || [])
-          }
-        } else {
+  const fetchPosts = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from("posts")
+          .select(`
+            *,
+            group:group_id(
+              id,
+              name,
+              description
+            )
+          `)
+          .eq("fixed", false)
+          .neq("under_review", true)
+          .order("created_at", { ascending: false })
+        if (error) {
+          console.error("Error fetching posts:", error)
           setAllPosts([])
+        } else {
+          setAllPosts(data || [])
         }
-      } catch (error) {
-        console.error("Error in fetchPosts:", error)
+      } else {
         setAllPosts([])
-      } finally {
-        setIsLoading(false)
       }
+    } catch (error) {
+      console.error("Error in fetchPosts:", error)
+      setAllPosts([])
+    } finally {
+      setIsLoading(false)
     }
-
-    fetchPosts()
   }, [supabase])
+
+  useEffect(() => {
+    fetchPosts()
+  }, [fetchPosts])
 
   useEffect(() => {
     if (mapInstance && userLocation) {

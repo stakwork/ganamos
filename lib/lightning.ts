@@ -2,6 +2,8 @@
  * Lightning Network service for interacting with LND node
  */
 
+import { extractInvoiceAmount } from "./lightning-validation"
+
 // Helper function to make authenticated requests to the LND REST API
 async function lndRequest(endpoint: string, method = "GET", body?: any) {
   const LND_REST_URL = process.env.LND_REST_URL
@@ -153,32 +155,27 @@ export async function checkInvoice(rHash: string) {
 /**
  * Pay a Lightning invoice
  * @param paymentRequest The BOLT11 payment request to pay
+ * @param amount Optional amount in sats (for zero-amount invoices)
  * @returns Payment result
  */
-export async function payInvoice(paymentRequest: string) {
+export async function payInvoice(paymentRequest: string, amount?: number) {
   try {
-    const result = await lndRequest("/v1/channels/transactions", "POST", {
-      payment_request: paymentRequest,
-    })
+    // Try to extract amount from the invoice
+    const invoiceAmount = extractInvoiceAmount(paymentRequest)
+    console.log("[payInvoice] Extracted invoice amount:", invoiceAmount)
+    console.log("[payInvoice] Provided amount:", amount)
 
-    if (!result.success) {
-      return result
+    // If invoice does not encode an amount or encodes zero, use the provided amount
+    const body: any = { payment_request: paymentRequest }
+    if ((invoiceAmount === null || invoiceAmount === 0) && amount) {
+      body.amount = amount
     }
+    console.log("[payInvoice] Body sent to LND API:", body)
 
-    return {
-      success: true,
-      paymentHash: result.data.payment_hash,
-      paymentPreimage: result.data.payment_preimage,
-      paymentRoute: result.data.payment_route,
-      feeSat: result.data.payment_route?.total_fees,
-    }
+    const result = await lndRequest("/v1/channels/transactions", body)
+    return result
   } catch (error) {
-    console.error("Pay invoice error:", error)
-    return {
-      success: false,
-      error: "Failed to pay invoice",
-      details: error instanceof Error ? error.message : String(error),
-    }
+    throw error
   }
 }
 

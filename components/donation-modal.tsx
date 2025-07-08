@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -10,6 +10,7 @@ import { LocationInput } from "@/components/location-input"
 import { MapView } from "@/components/map-view"
 import { Heart, Bitcoin, Copy, Eye, EyeOff, CheckCircle, Loader2 } from "lucide-react"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
+import type { Post } from "@/lib/types"
 
 interface DonationModalProps {
   open: boolean
@@ -19,7 +20,7 @@ interface DonationModalProps {
 
 declare global {
   interface Window {
-    google: any
+    google?: any
   }
 }
 
@@ -46,7 +47,7 @@ export function DonationModal({ open, onOpenChange, preSelectedLocation }: Donat
     { label: "100K sats", value: 100000 },
   ]
 
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
     setIsLoadingPosts(true)
     try {
       const supabase = createBrowserSupabaseClient()
@@ -78,7 +79,7 @@ export function DonationModal({ open, onOpenChange, preSelectedLocation }: Donat
     } finally {
       setIsLoadingPosts(false)
     }
-  }
+  }, [])
 
   // Start polling for payment when invoice is shown
   useEffect(() => {
@@ -127,7 +128,7 @@ export function DonationModal({ open, onOpenChange, preSelectedLocation }: Donat
     if (open) {
       fetchPosts()
     }
-  }, [open])
+  }, [open, fetchPosts])
 
   useEffect(() => {
     if (preSelectedLocation && open) {
@@ -152,8 +153,6 @@ export function DonationModal({ open, onOpenChange, preSelectedLocation }: Donat
       // Store bounds for smart zoom
       if (placeDetails.geometry.viewport) {
         setSelectedBounds(placeDetails.geometry.viewport)
-      } else if (placeDetails.geometry.bounds) {
-        setSelectedBounds(placeDetails.geometry.bounds)
       } else {
         setSelectedBounds(null)
       }
@@ -256,7 +255,6 @@ export function DonationModal({ open, onOpenChange, preSelectedLocation }: Donat
         {step === "map" && selectedLocation && (
           <div className="space-y-4">
             <div className="h-64 w-full rounded-lg overflow-hidden">
-              {console.log("Rendering map with:", selectedLocation, "bounds:", selectedBounds)}
               <MapView
                 posts={posts}
                 center={selectedLocation}

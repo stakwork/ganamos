@@ -72,7 +72,7 @@ export default function NewPostPage() {
 
   useEffect(() => {
     if (isAnonymous) {
-      setReward((prev) => Math.max(prev, MIN_ANONYMOUS_REWARD))
+      setReward((prev: number) => Math.max(prev, MIN_ANONYMOUS_REWARD))
     }
   }, [isAnonymous])
 
@@ -128,8 +128,8 @@ export default function NewPostPage() {
 
         // Transform the data to match the Group interface
         const transformedGroups = memberGroups
-          .filter((item) => item.groups) // Filter out any null groups
-          .map((item) => item.groups as Group)
+          .filter((item: any) => item.groups) // Filter out any null groups
+          .map((item: any) => item.groups as Group)
 
         setUserGroups(transformedGroups)
       } catch (error) {
@@ -290,7 +290,7 @@ export default function NewPostPage() {
       } else {
         // This case handles if getCurrentLocationWithName returns null (e.g., geolocation not supported)
         // This path might not be hit if getCurrentLocationWithName always rejects on failure.
-        setLocationErrorCount((prev) => prev + 1)
+        setLocationErrorCount((prev: number) => prev + 1)
         toast({
           title: "Location Unavailable",
           description: "Could not retrieve location. Geolocation might not be supported or enabled.",
@@ -301,7 +301,7 @@ export default function NewPostPage() {
     } catch (error: any) {
       // Catch any unexpected errors from the utility or promise
       console.error("Error in handleGetLocation:", error)
-      setLocationErrorCount((prev) => prev + 1)
+      setLocationErrorCount((prev: number) => prev + 1)
 
       let errorMessage = "Location Error"
       let errorDescription = "Failed to get your location. You can still post without it."
@@ -488,6 +488,20 @@ export default function NewPostPage() {
           console.error("Error saving post to Supabase:", insertError)
           throw insertError
         }
+        // Insert activity for new post
+        try {
+          await supabase.from("activities").insert({
+            id: uuidv4(),
+            user_id: activeUserId || user!.id,
+            type: "post",
+            related_id: postId,
+            related_table: "posts",
+            timestamp: now.toISOString(),
+            metadata: { title: description.substring(0, 50) },
+          })
+        } catch (activityError) {
+          console.error("Error inserting activity for new post:", activityError)
+        }
       }
 
       if (profile && reward > 0) {
@@ -651,7 +665,7 @@ export default function NewPostPage() {
                   <div className="flex-1">
                     <Select
                       value={selectedGroupId || "public"}
-                      onValueChange={(value) => {
+                      onValueChange={(value: string) => {
                         if (value === "create-group") {
                           router.push("/profile?tab=groups")
                         } else {
@@ -700,7 +714,7 @@ export default function NewPostPage() {
                           <div className="flex-1 text-left min-w-0">
                             <div className="font-medium text-xs truncate">
                               {selectedGroupId
-                                ? userGroups.find((g) => g.id === selectedGroupId)?.name || "Group"
+                                ? userGroups.find((g: Group) => g.id === selectedGroupId)?.name || "Group"
                                 : "Public"}
                             </div>
                           </div>
@@ -750,14 +764,14 @@ export default function NewPostPage() {
                                 <line x1="5" y1="12" x2="19" y2="12" />
                               </svg>
                               <div>
-                                <div className="font-medium text-blue-600">+ Create new group</div>
+                                <div className="font-medium text-white">Create new group</div>
                                 <div className="text-xs text-muted-foreground">Start a new group</div>
                               </div>
                             </div>
                           </SelectItem>
                         )}
-                        {userGroups.map((group) => (
-                          <SelectItem key={group.id} value={group.id}>
+                        {userGroups.map((g: Group) => (
+                          <SelectItem key={g.id} value={g.id}>
                             <div className="flex items-center space-x-3 py-1">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -775,7 +789,7 @@ export default function NewPostPage() {
                                 <path d="m7 11V7a5 5 0 0 1 10 0v4" />
                               </svg>
                               <div>
-                                <div className="font-medium">{group.name}</div>
+                                <div className="font-medium">{g.name}</div>
                                 <div className="text-xs text-muted-foreground">
                                   Only group members can see this post
                                 </div>
@@ -794,7 +808,8 @@ export default function NewPostPage() {
                   <div className="flex items-center justify-between w-full max-w-xs">
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={(e: React.MouseEvent) => {
+                        e.preventDefault()
                         if (isAnonymous && reward <= MIN_ANONYMOUS_REWARD) {
                           toast({
                             title: "Minimum Reward Required",
@@ -804,7 +819,7 @@ export default function NewPostPage() {
                           })
                           return
                         }
-                        setReward(Math.max(isAnonymous ? MIN_ANONYMOUS_REWARD : 0, reward - 500))
+                        setReward((prev: number) => Math.max(isAnonymous ? MIN_ANONYMOUS_REWARD : 0, prev - 500))
                       }}
                       disabled={isAnonymous && reward <= MIN_ANONYMOUS_REWARD}
                       className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-800"
@@ -832,7 +847,10 @@ export default function NewPostPage() {
 
                     <button
                       type="button"
-                      onClick={() => setShowKeypad(!showKeypad)}
+                      onClick={(e: React.MouseEvent) => {
+                        e.preventDefault()
+                        setShowKeypad(!showKeypad)
+                      }}
                       className="w-32 text-center hover:opacity-80 transition-opacity"
                     >
                       <span className="text-5xl font-light text-gray-900 dark:text-white">
@@ -842,7 +860,10 @@ export default function NewPostPage() {
 
                     <button
                       type="button"
-                      onClick={() => setReward(reward + 500)}
+                      onClick={(e: React.MouseEvent) => {
+                        e.preventDefault()
+                        setReward((prev: number) => Math.max(isAnonymous ? MIN_ANONYMOUS_REWARD : 0, prev + 500))
+                      }}
                       className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                     >
                       <svg
@@ -886,7 +907,7 @@ export default function NewPostPage() {
                       <input
                         type="number"
                         value={reward}
-                        onChange={(e) => {
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                           let newAmount = Number(e.target.value) || 0
                           if (isAnonymous) {
                             newAmount = Math.max(newAmount, MIN_ANONYMOUS_REWARD)
@@ -922,7 +943,10 @@ export default function NewPostPage() {
             <div className="mb-4">
               <div
                 className="p-3 border rounded-md bg-gray-50 dark:bg-gray-700 text-xs cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-between"
-                onClick={() => setShowFullInvoice(!showFullInvoice)}
+                onClick={(e: React.MouseEvent) => {
+                  e.preventDefault()
+                  setShowFullInvoice(!showFullInvoice)
+                }}
               >
                 <code className="break-all flex-1 mr-2">
                   {showFullInvoice
@@ -930,7 +954,7 @@ export default function NewPostPage() {
                     : `${fundingPaymentRequest.slice(0, 20)}...${fundingPaymentRequest.slice(-20)}`}
                 </code>
                 <button
-                  onClick={(e) => {
+                  onClick={(e: React.MouseEvent) => {
                     e.stopPropagation()
                     navigator.clipboard.writeText(fundingPaymentRequest)
                     toast({
@@ -982,7 +1006,8 @@ export default function NewPostPage() {
             <Button
               variant="outline"
               className="w-full mt-4"
-              onClick={() => {
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault()
                 if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
                 setShowFundingModal(false)
                 setIsAwaitingPayment(false)
@@ -1029,7 +1054,8 @@ export default function NewPostPage() {
             </p>
             <div className="space-y-3">
               <Button
-                onClick={() => {
+                onClick={(e: React.MouseEvent) => {
+                  e.preventDefault()
                   router.push(`/auth/register?redirect=/post/${lastCreatedPostId}`)
                 }}
                 className="w-full bg-green-600 hover:bg-green-700 text-white"
@@ -1038,7 +1064,8 @@ export default function NewPostPage() {
               </Button>
               <Button
                 variant="secondary"
-                onClick={() => {
+                onClick={(e: React.MouseEvent) => {
+                  e.preventDefault()
                   setShowCreateAccountPrompt(false)
                   router.push(lastCreatedPostId ? `/map?selectedPost=${lastCreatedPostId}` : "/map")
                 }}

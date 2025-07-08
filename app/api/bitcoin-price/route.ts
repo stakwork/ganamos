@@ -2,11 +2,16 @@ import { NextResponse } from "next/server"
 
 export async function GET() {
   try {
+    const apiKey = process.env.COINMARKETCAP_API_KEY
+    if (!apiKey) {
+      throw new Error("CoinMarketCap API key not configured")
+    }
+
     const response = await fetch(
       "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=BTC&convert=USD",
       {
         headers: {
-          "X-CMC_PRO_API_KEY": "ee315a66-b24a-4092-93d1-573f7c5824f9",
+          "X-CMC_PRO_API_KEY": apiKey,
           Accept: "application/json",
         },
         cache: "no-store",

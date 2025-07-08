@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import type { User, Session } from "@supabase/supabase-js"
@@ -14,7 +14,7 @@ type AuthContextType = {
   profile: Profile | null
   session: Session | null
   loading: boolean
-  sessionLoaded: boolean // Added to track when session loading is complete
+  sessionLoaded: boolean
   signInWithGoogle: () => Promise<void>
   signInWithEmail: (email: string, password: string) => Promise<{ success: boolean; message?: string }>
   signInWithPhone: (phone: string) => Promise<{ success: boolean; message?: string }>
@@ -23,7 +23,6 @@ type AuthContextType = {
   updateProfile: (updates: Partial<Profile>) => Promise<void>
   updateBalance: (newBalance: number) => Promise<void>
   refreshProfile: () => Promise<void>
-  // New account switching functionality
   activeUserId: string | null
   isConnectedAccount: boolean
   switchToAccount: (userId: string) => Promise<void>
@@ -41,16 +40,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [sessionLoaded, setSessionLoaded] = useState(false) // Track when session is loaded
+  const [loading, setLoading] = useState(true) // Start with true
+  const [sessionLoaded, setSessionLoaded] = useState(false) // Start with false
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient({
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: false,
-    },
-  })
+  const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
 
   // New state for account switching
@@ -59,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [connectedAccounts, setConnectedAccounts] = useState<Profile[]>([])
 
   // Fetch user profile
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
 
@@ -97,10 +90,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       return null
     }
-  }
+  }, [supabase])
 
   // Refresh the user's profile
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (!user) {
       return
     }
@@ -112,10 +105,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (profileData) {
       setProfile(profileData)
     }
-  }
+  }, [user, activeUserId, fetchProfile])
 
   // Fetch connected accounts
-  const fetchConnectedAccounts = async () => {
+  const fetchConnectedAccounts = useCallback(async () => {
     if (!user) return
 
     try {
@@ -131,14 +124,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (data && data.length > 0) {
         // Extract the profile data from the joined query
-        const accounts = data.map((item) => item.profiles as Profile)
+        const accounts = data.map((item) => item.profiles as unknown as Profile)
         setConnectedAccounts(accounts)
       } else {
         setConnectedAccounts([])
       }
     } catch (error) {
     }
-  }
+  }, [user, supabase])
 
   // Switch to a connected account
   const switchToAccount = async (userId: string) => {
@@ -218,93 +211,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Initialize auth state
+  // Robust session management: only check session once on mount, and subscribe to changes
   useEffect(() => {
-    const initializeAuth = async () => {
-      setLoading(true)
-
-      try {
-        // Get the initial session
-        const {
-          data: { session: initialSession },
-        } = await supabase.auth.getSession()
-
-        setSession(initialSession)
-        setUser(initialSession?.user || null)
-
-        if (initialSession?.user) {
-          // Check if we have an active user ID in localStorage
-          const storedActiveUserId = localStorage.getItem(ACTIVE_USER_KEY)
-
-          if (storedActiveUserId && storedActiveUserId !== initialSession.user.id) {
-            // Verify this is a valid connected account
-            const { data } = await supabase
-              .from("connected_accounts")
-              .select("*")
-              .eq("primary_user_id", initialSession.user.id)
-              .eq("connected_user_id", storedActiveUserId)
-              .single()
-
-            if (data) {
-              // Valid connected account, use it
-              setActiveUserId(storedActiveUserId)
-              setIsConnectedAccount(true)
-              const profileData = await fetchProfile(storedActiveUserId)
-              setProfile(profileData)
-
-              // Also fetch connected accounts
-              fetchConnectedAccounts()
-            } else {
-              // Invalid connected account, use main account
-              localStorage.removeItem(ACTIVE_USER_KEY)
-              const profileData = await fetchProfile(initialSession.user.id)
-              setProfile(profileData)
-            }
-          } else {
-            // No active user ID or it's the same as the main user, use main account
-            const profileData = await fetchProfile(initialSession.user.id)
-            setProfile(profileData)
-
-            // Fetch connected accounts
-            fetchConnectedAccounts()
-          }
-        }
-      } catch (error) {
-      } finally {
-        setLoading(false)
-        setSessionLoaded(true) // Mark session as loaded regardless of outcome
+    let isMounted = true;
+    setLoading(true);
+    setSessionLoaded(false);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return;
+      setSession(session);
+      setUser(session?.user || null);
+      setLoading(false);
+      setSessionLoaded(true);
+      if (session?.user) {
+        fetchProfile(session.user.id).then((profileData) => {
+          if (isMounted) setProfile(profileData);
+        });
+      } else {
+        setProfile(null);
       }
-
-      // Set up auth state change listener
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-        setSession(newSession)
-        setUser(newSession?.user || null)
-
-        if (newSession?.user) {
-          // On sign in, always use the main account first
-          const profileData = await fetchProfile(newSession.user.id)
-          setProfile(profileData)
-          setActiveUserId(null)
-          setIsConnectedAccount(false)
-          localStorage.removeItem(ACTIVE_USER_KEY)
-
-          // Fetch connected accounts
-          fetchConnectedAccounts()
-        } else {
-          setProfile(null)
-          setConnectedAccounts([])
-        }
-      })
-
-      return () => {
-        subscription.unsubscribe()
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+      setSession(session);
+      setUser(session?.user || null);
+      setSessionLoaded(true);
+      setLoading(false);
+      if (session?.user) {
+        fetchProfile(session.user.id).then((profileData) => {
+          if (isMounted) setProfile(profileData);
+        });
+      } else {
+        setProfile(null);
       }
+    });
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase, fetchProfile]);
+
+  // Fetch connected accounts after user is set
+  useEffect(() => {
+    if (user) {
+      fetchConnectedAccounts()
     }
-
-    initializeAuth()
-  }, [supabase])
+  }, [user, fetchConnectedAccounts])
 
   // Set up a real-time subscription to the profile table
   useEffect(() => {
@@ -334,48 +285,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sign in with Google
   const signInWithGoogle = async () => {
     try {
-      // Log the redirect URL for debugging
-      const redirectUrl = `${window.location.origin}/auth/callback`
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       })
 
       if (error) {
-        throw error
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        })
       }
     } catch (error) {
-      throw error
+      toast({
+        title: "Error",
+        description: "Failed to sign in with Google",
+        variant: "destructive",
+      })
     }
   }
 
   // Sign in with email and password
   const signInWithEmail = async (email: string, password: string) => {
     try {
-      if (!email || !password) {
-        return { success: false, message: "Email and password are required" }
-      }
-
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (error) {
-        return {
-          success: false,
-          message: error.message || "Authentication failed",
-        }
+        return { success: false, message: error.message }
       }
 
       return { success: true }
-    } catch (error: any) {
-      return {
-        success: false,
-        message: error?.message || "An unexpected error occurred",
-      }
+    } catch (error) {
+      return { success: false, message: "An unexpected error occurred" }
     }
   }
 
@@ -384,53 +331,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         phone,
+        options: {
+          shouldCreateUser: true,
+        },
       })
 
       if (error) {
-        return {
-          success: false,
-          message: error.message || "Failed to send verification code",
-        }
+        return { success: false, message: error.message }
       }
 
       return { success: true }
-    } catch (error: any) {
-      return {
-        success: false,
-        message: error?.message || "An unexpected error occurred",
-      }
+    } catch (error) {
+      return { success: false, message: "An unexpected error occurred" }
     }
   }
 
   // Sign up with email
   const signUpWithEmail = async (email: string, password: string, name: string) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            full_name: name,
+            name,
           },
         },
       })
 
       if (error) {
         toast({
-          title: "Error signing up",
+          title: "Error",
           description: error.message,
           variant: "destructive",
         })
-        throw error
+      } else {
+        toast({
+          title: "Success",
+          description: "Please check your email to verify your account",
+        })
       }
-
+    } catch (error) {
       toast({
-        title: "Success!",
-        description: "Check your email to verify your account.",
+        title: "Error",
+        description: "Failed to create account",
+        variant: "destructive",
       })
-
-      router.push("/auth/login")
-    } catch (error: any) {
     }
   }
 
@@ -496,12 +442,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw error
     }
   }
-
-  useEffect(() => {
-    if (user) {
-      fetchConnectedAccounts()
-    }
-  }, [user]) // Only re-run when user changes, not on every render
 
   return (
     <AuthContext.Provider

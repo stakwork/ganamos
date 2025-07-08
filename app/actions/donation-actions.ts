@@ -2,6 +2,7 @@
 
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { createInvoice, checkInvoice } from "@/lib/lightning"
+import { v4 as uuidv4 } from "uuid"
 
 interface CreateDonationInvoiceParams {
   amount: number
@@ -115,7 +116,7 @@ export async function checkDonationPayment(paymentHash: string) {
       // Update donation pool totals
       const { data: donation } = await adminSupabase
         .from("donations")
-        .select("donation_pool_id, amount")
+        .select("donation_pool_id, amount, donor_user_id, message")
         .eq("payment_hash", paymentHash)
         .single()
 
@@ -123,6 +124,19 @@ export async function checkDonationPayment(paymentHash: string) {
         await adminSupabase.rpc("increment_donation_pool", {
           pool_id: donation.donation_pool_id,
           amount: donation.amount,
+        })
+        await adminSupabase.from("activities").insert({
+          id: uuidv4(),
+          user_id: donation.donor_user_id,
+          type: "donation",
+          related_id: donation.id,
+          related_table: "donations",
+          timestamp: new Date().toISOString(),
+          metadata: {
+            amount: donation.amount,
+            message: donation.message,
+            pool_id: donation.donation_pool_id,
+          },
         })
       }
     }

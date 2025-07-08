@@ -3,6 +3,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { createInvoice, checkInvoice, payInvoice } from "@/lib/lightning"
 import { revalidatePath } from "next/cache"
+import { v4 as uuidv4 } from "uuid"
 
 // Dynamic import for cookies to avoid issues with pages directory
 async function getCookieStore() {
@@ -285,6 +286,17 @@ export async function checkDepositStatus(rHash: string, userId: string) {
       revalidatePath("/dashboard")
       revalidatePath("/wallet")
 
+      // Add activity for deposit
+      await adminSupabase.from("activities").insert({
+        id: uuidv4(),
+        user_id: effectiveUserId,
+        type: "deposit",
+        related_id: transaction.id,
+        related_table: "transactions",
+        timestamp: new Date().toISOString(),
+        metadata: { amount: transaction.amount, status: "completed" },
+      })
+
       return {
         success: true,
         settled: true,
@@ -299,126 +311,6 @@ export async function checkDepositStatus(rHash: string, userId: string) {
     }
   } catch (error) {
     console.error("Unexpected error in checkDepositStatus:", error)
-    return {
-      success: false,
-      error: "An unexpected error occurred",
-      details: error instanceof Error ? error.message : String(error),
-    }
-  }
-}
-
-/**
- * Process a withdrawal request
- */
-export async function processWithdrawal(formData: FormData) {
-  try {
-    const cookieStore = await getCookieStore()
-    const supabase = createServerSupabaseClient({ cookieStore })
-
-    // Get the current user
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError || !session) {
-      console.error("Session error or no session:", sessionError)
-      return { success: false, error: "Not authenticated" }
-    }
-
-    const userId = session.user.id
-
-    // Get the payment request and amount from the form
-    const paymentRequest = formData.get("paymentRequest") as string
-    const amount = Number.parseInt(formData.get("amount") as string, 10)
-
-    if (!paymentRequest || isNaN(amount) || amount <= 0) {
-      return { success: false, error: "Invalid payment request or amount" }
-    }
-
-    // Use service role key for admin access to bypass RLS
-    const adminSupabase = createServerSupabaseClient({
-      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    })
-
-    // Check if the user has enough balance
-    const { data: profile } = await adminSupabase.from("profiles").select("balance").eq("id", userId).single()
-
-    if (!profile) {
-      return { success: false, error: "User profile not found" }
-    }
-
-    if (profile.balance < amount) {
-      return { success: false, error: "Insufficient balance" }
-    }
-
-    // Create a transaction record
-    const { data: transaction, error: txError } = await adminSupabase
-      .from("transactions")
-      .insert({
-        user_id: userId,
-        type: "withdrawal",
-        amount,
-        status: "pending",
-        payment_request: paymentRequest,
-        memo: `Withdrawal of ${amount} sats from Ganamos!`,
-      })
-      .select()
-      .single()
-
-    if (txError || !transaction) {
-      console.error("Error creating transaction:", txError)
-      return { success: false, error: "Failed to create transaction" }
-    }
-
-    // Pay the invoice
-    const paymentResult = await payInvoice(paymentRequest)
-
-    if (!paymentResult.success) {
-      // Update transaction to failed
-      await adminSupabase
-        .from("transactions")
-        .update({
-          status: "failed",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", transaction.id)
-
-      return { success: false, error: "Failed to pay invoice" }
-    }
-
-    // Update transaction with payment hash and status
-    await adminSupabase
-      .from("transactions")
-      .update({
-        status: "completed",
-        payment_hash: paymentResult.paymentHash,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", transaction.id)
-
-    // Update user balance
-    const newBalance = profile.balance - amount
-    await adminSupabase
-      .from("profiles")
-      .update({
-        balance: newBalance,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId)
-
-    // Revalidate the profile page to show updated balance
-    revalidatePath("/profile")
-    revalidatePath("/dashboard")
-    revalidatePath("/wallet")
-
-    return {
-      success: true,
-      paymentHash: paymentResult.paymentHash,
-      newBalance,
-    }
-  } catch (error) {
-    console.error("Unexpected error in processWithdrawal:", error)
     return {
       success: false,
       error: "An unexpected error occurred",

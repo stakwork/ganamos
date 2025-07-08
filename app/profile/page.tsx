@@ -52,6 +52,7 @@ type ActivityItem = {
   locationName?: string
   donorName?: string
   message?: string
+  related_id?: string
 }
 
 export default function ProfilePage() {
@@ -101,6 +102,8 @@ export default function ProfilePage() {
 
   // Cache for posts data to avoid redundant processing
   const postsCache = useRef<Post[]>([])
+  // Add a ref for activities cache to avoid redundant fetching
+  const activitiesCache = useRef<ActivityItem[] | null>(null)
   // Track if initial data has been loaded
   const initialDataLoaded = useRef(false)
   // Track if Bitcoin price has been fetched
@@ -198,7 +201,7 @@ export default function ProfilePage() {
 
         // Deduplicate posts by id in case a user both created and fixed the same post
         const uniquePosts = data
-          ? data.filter((post, index, self) => index === self.findIndex((p) => p.id === post.id))
+          ? data.filter((post: any, index: number, self: any[]) => index === self.findIndex((p: any) => p.id === post.id))
           : []
 
         // Check if there are more posts
@@ -261,8 +264,8 @@ export default function ProfilePage() {
 
       // Update state based on append flag
       if (append) {
-        setPostedIssues((prev) => [...prev, ...posted])
-        setFixedIssues((prev) => [...prev, ...fixed])
+        setPostedIssues((prev: Post[]) => [...prev, ...posted])
+        setFixedIssues((prev: Post[]) => [...prev, ...fixed])
       } else {
         setPostedIssues(posted)
         setFixedIssues(fixed)
@@ -305,13 +308,27 @@ export default function ProfilePage() {
   // Initial load and tab change for activity tab
   useEffect(() => {
     if (activeTab === 'activity' && user) {
-      setIsActivityLoading(true);
-      fetchActivities(1).then(({ activities: acts, hasMore }) => {
-        setActivities(acts);
-        setHasMoreActivities(hasMore);
-        setActivitiesPage(1);
+      if (activitiesCache.current) {
+        setActivities(activitiesCache.current);
         setIsActivityLoading(false);
-      });
+      } else {
+        setIsActivityLoading(true);
+        fetchActivities(1).then(({ activities: acts, hasMore }: { activities: ActivityItem[]; hasMore: boolean }) => {
+          setActivities((prev: ActivityItem[]) => {
+            const all = [...prev, ...acts];
+            const seen = new Set();
+            return all.filter((a) => {
+              if (seen.has(a.id)) return false;
+              seen.add(a.id);
+              return true;
+            });
+          });
+          setHasMoreActivities(hasMore);
+          setActivitiesPage(1);
+          setIsActivityLoading(false);
+          activitiesCache.current = acts; // cache the result
+        });
+      }
     }
   }, [activeTab, user, fetchActivities]);
 
@@ -320,8 +337,16 @@ export default function ProfilePage() {
     if (isLoadingMore) return;
     setIsLoadingMore(true);
     const nextPage = activitiesPage + 1;
-    fetchActivities(nextPage).then(({ activities: acts, hasMore }) => {
-      setActivities((prev) => [...prev, ...acts]);
+    fetchActivities(nextPage).then(({ activities: acts, hasMore }: { activities: ActivityItem[]; hasMore: boolean }) => {
+      setActivities((prev: ActivityItem[]) => {
+        const all = [...prev, ...acts];
+        const seen = new Set();
+        return all.filter((a) => {
+          if (seen.has(a.id)) return false;
+          seen.add(a.id);
+          return true;
+        });
+      });
       setHasMoreActivities(hasMore);
       setActivitiesPage(nextPage);
       setIsLoadingMore(false);
@@ -355,34 +380,45 @@ export default function ProfilePage() {
 
     const loadInitialData = async () => {
       setIsLoading(true)
-
-      // Fetch Bitcoin price (only once)
-      fetchBitcoinPrice()
-
-      // Fetch user posts immediately regardless of active tab
-      const { posts, hasMore } = await fetchUserPosts(1)
-
-      // Fetch recent donations
-      const { donations } = await fetchDonations()
-
-      if (posts.length > 0) {
-        // Process posts into different categories
-        processPosts(posts)
-        setHasMorePosts(hasMore)
-
-        // Generate initial activities if on activity tab
-        if (activeTab === "activity") {
-          fetchActivities(1).then(({ activities: acts, hasMore }) => {
-            setActivities(acts);
-            setHasMoreActivities(hasMore);
-            setActivitiesPage(1);
-            setIsActivityLoading(false);
-          });
-        }
-      }
-
       initialDataLoaded.current = true
       setIsLoading(false)
+
+      // Defer heavy data loading to not block navigation
+      setTimeout(async () => {
+        // Fetch Bitcoin price (only once)
+        fetchBitcoinPrice()
+
+        // Fetch user posts immediately regardless of active tab
+        const { posts, hasMore } = await fetchUserPosts(1)
+
+        // Fetch recent donations
+        const { donations } = await fetchDonations()
+
+        if (posts.length > 0) {
+          // Process posts into different categories
+          processPosts(posts)
+          setHasMorePosts(hasMore)
+
+          // Generate initial activities if on activity tab
+          if (activeTab === "activity") {
+            fetchActivities(1).then(({ activities: acts, hasMore }: { activities: ActivityItem[]; hasMore: boolean }) => {
+              setActivities((prev: ActivityItem[]) => {
+                const all = [...prev, ...acts];
+                const seen = new Set();
+                return all.filter((a) => {
+                  if (seen.has(a.id)) return false;
+                  seen.add(a.id);
+                  return true;
+                });
+              });
+              setHasMoreActivities(hasMore);
+              setActivitiesPage(1);
+              setIsActivityLoading(false);
+              activitiesCache.current = acts; // cache the result
+            });
+          }
+        }
+      }, 0)
     }
 
     loadInitialData()
@@ -412,8 +448,16 @@ export default function ProfilePage() {
           if (posts.length > 0) {
             processPosts(posts)
             if (activeTab === "activity") {
-              fetchActivities(1).then(({ activities: acts, hasMore }) => {
-                setActivities(acts);
+              fetchActivities(1).then(({ activities: acts, hasMore }: { activities: ActivityItem[]; hasMore: boolean }) => {
+                setActivities((prev: ActivityItem[]) => {
+                  const all = [...prev, ...acts];
+                  const seen = new Set();
+                  return all.filter((a) => {
+                    if (seen.has(a.id)) return false;
+                    seen.add(a.id);
+                    return true;
+                  });
+                });
                 setHasMoreActivities(hasMore);
                 setActivitiesPage(1);
                 setIsActivityLoading(false);
@@ -443,7 +487,7 @@ export default function ProfilePage() {
         console.error("Supabase error fetching all posts for activity feed:", error);
         return [];
       }
-      const deduped = data ? data.filter((post, index, self) => index === self.findIndex((p) => p.id === post.id)) : [];
+      const deduped = data ? data.filter((post: any, index: number, self: any[]) => index === self.findIndex((p: any) => p.id === post.id)) : [];
       console.log("Fetched all posts for activity feed:", deduped.length);
       return deduped;
     } catch (error) {
@@ -457,27 +501,49 @@ export default function ProfilePage() {
     (value: string) => {
       setActiveTab(value);
       if (value === "activity") {
-        fetchAllUserPosts().then((allPosts) => {
-          console.log('Posts passed to generateActivities:', allPosts.length);
-          postsCache.current = allPosts;
-          fetchActivities(1).then(({ activities: acts, hasMore }) => {
-            setActivities(acts);
-            setHasMoreActivities(hasMore);
-            setActivitiesPage(1);
-            setIsActivityLoading(false);
+        if (activitiesCache.current) {
+          setActivities(activitiesCache.current);
+          setIsActivityLoading(false);
+        } else {
+          setIsActivityLoading(true);
+          fetchAllUserPosts().then((allPosts: Post[]) => {
+            postsCache.current = allPosts;
+            fetchActivities(1).then(({ activities: acts, hasMore }: { activities: ActivityItem[]; hasMore: boolean }) => {
+              setActivities((prev: ActivityItem[]) => {
+                const all = [...prev, ...acts];
+                const seen = new Set();
+                return all.filter((a) => {
+                  if (seen.has(a.id)) return false;
+                  seen.add(a.id);
+                  return true;
+                });
+              });
+              setHasMoreActivities(hasMore);
+              setActivitiesPage(1);
+              setIsActivityLoading(false);
+              activitiesCache.current = acts; // cache the result
+            });
           });
-        });
+        }
       } else if (value === "activity" && activities.length === 0 && postsCache.current.length > 0) {
         // Fallback for legacy logic
-        fetchActivities(1).then(({ activities: acts, hasMore }) => {
-          setActivities(acts);
+        fetchActivities(1).then(({ activities: acts, hasMore }: { activities: ActivityItem[]; hasMore: boolean }) => {
+          setActivities((prev: ActivityItem[]) => {
+            const all = [...prev, ...acts];
+            const seen = new Set();
+            return all.filter((a) => {
+              if (seen.has(a.id)) return false;
+              seen.add(a.id);
+              return true;
+            });
+          });
           setHasMoreActivities(hasMore);
           setActivitiesPage(1);
           setIsActivityLoading(false);
         });
       }
     },
-    [activities.length, fetchActivities, fetchAllUserPosts],
+    [fetchActivities, fetchAllUserPosts],
   );
 
   // Handle account management
@@ -1221,8 +1287,8 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
 
   const handleClick = () => {
     // Only link if we have a related_id and a known type
-    if (["post", "fix", "reward"].includes(activity.type) && activity.postId) {
-      router.push(`/post/${activity.postId}`)
+    if (["post", "fix", "reward"].includes(activity.type) && activity.related_id) {
+      router.push(`/post/${activity.related_id}`)
       return
     }
     // Optionally, donations could link to a donation details page if you have one
@@ -1248,7 +1314,7 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
 
   return (
     <Card
-      className={`hover:bg-muted/50 border dark:border-gray-800 ${["post", "fix", "reward"].includes(activity.type) && activity.postId ? "cursor-pointer" : ""}`}
+      className={`hover:bg-muted/50 border dark:border-gray-800 ${["post", "fix", "reward"].includes(activity.type) && activity.related_id ? "cursor-pointer hover:ring-2 hover:ring-blue-400" : ""}`}
       onClick={handleClick}
     >
       <CardContent className="p-4">
@@ -1296,7 +1362,7 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
                 {/* For post/fix, show description */}
                 {(activity.type === "post" || activity.type === "fix") && description && (
                   <p className="text-sm text-muted-foreground">{description}</p>
-                )}
+            )}
               </div>
               <div className="text-xs text-muted-foreground">{formatDate()}</div>
             </div>

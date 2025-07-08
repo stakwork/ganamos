@@ -126,6 +126,18 @@ export async function payAnonymousRewardAction(
 
     console.log(`Anonymous reward successfully paid for post ${postId}. Payment hash: ${paymentResult.paymentHash}`)
 
+    if (!updateError) {
+      await supabase.from("activities").insert({
+        id: uuidv4(),
+        user_id: post && post.fixed_by ? post.fixed_by : null,
+        type: "reward",
+        related_id: postId,
+        related_table: "posts",
+        timestamp: now,
+        metadata: { amount: post ? post.reward : undefined },
+      });
+    }
+
     return {
       success: true,
       paymentHash: paymentResult.paymentHash || paymentResult.paymentPreimage,
@@ -322,6 +334,19 @@ export async function createFundedAnonymousPostAction(postDetails: {
     }
 
     console.log("Funded anonymous post created successfully:", data.id)
+
+    if (data && data.id) {
+      await supabase.from("activities").insert({
+        id: uuidv4(),
+        user_id: null, // Anonymous post
+        type: "post",
+        related_id: data.id,
+        related_table: "posts",
+        timestamp: now.toISOString(),
+        metadata: { title: postDetails.description.substring(0, 50) },
+      });
+    }
+
     return { success: true, postId: data.id }
   } catch (error) {
     console.error("Unexpected error in createFundedAnonymousPostAction:", error)
@@ -382,6 +407,19 @@ export async function markPostFixedAnonymouslyAction(
     console.log(`Post ${postId} marked as fixed anonymously.`)
     // TODO: In a later step, we'll need to handle the reward payout mechanism for anonymous users.
     // This might involve generating a claim code or a pre-image for a LNURL-withdraw.
+
+    if (!error) {
+      await supabase.from("activities").insert({
+        id: uuidv4(),
+        user_id: null, // Anonymous fix
+        type: "fix",
+        related_id: postId,
+        related_table: "posts",
+        timestamp: now,
+        metadata: { fixImageUrl, fixerNote, aiConfidence, aiAnalysis },
+      });
+    }
+
     return { success: true }
   } catch (error) {
     console.error("Unexpected error in markPostFixedAnonymouslyAction:", error)

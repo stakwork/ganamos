@@ -4,7 +4,6 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { processWithdrawal } from "@/app/actions/lightning-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -90,14 +89,21 @@ export default function WithdrawPage() {
 
     setLoading(true)
     try {
+      // Log cookies and user info for debugging session issues
+      console.log("[Withdraw] document.cookie:", document.cookie)
+      console.log("[Withdraw] user:", user)
+
       // Wait a moment to ensure authentication is fully established
       await new Promise((resolve) => setTimeout(resolve, 500))
 
-      const formData = new FormData()
-      formData.append("paymentRequest", paymentRequest)
-      formData.append("amount", amount.toString())
-
-      const result = await processWithdrawal(formData)
+      // Call the new API route
+      const response = await fetch("/api/wallet/withdraw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ paymentRequest, amount }),
+      })
+      const result = await response.json()
 
       if (result.success) {
         toast({
@@ -150,7 +156,7 @@ export default function WithdrawPage() {
             <ArrowLeftIcon className="h-5 w-5" />
             <span className="sr-only">Back</span>
           </Button>
-          <h1 className="text-2xl font-bold">Withdraw Bitcoin</h1>
+          <h1 className="text-2xl font-bold">Send Bitcoin</h1>
         </div>
         <div className="flex flex-col items-center justify-center py-12">
           <LoadingSpinner />
@@ -169,7 +175,7 @@ export default function WithdrawPage() {
             <ArrowLeftIcon className="h-5 w-5" />
             <span className="sr-only">Back</span>
           </Button>
-          <h1 className="text-2xl font-bold">Withdraw Bitcoin</h1>
+          <h1 className="text-2xl font-bold">Send Bitcoin</h1>
         </div>
 
         <Card>
@@ -192,60 +198,44 @@ export default function WithdrawPage() {
           <ArrowLeftIcon className="h-5 w-5" />
           <span className="sr-only">Back</span>
         </Button>
-        <h1 className="text-2xl font-bold">Withdraw Bitcoin</h1>
+        <h1 className="text-2xl font-bold">Send Bitcoin</h1>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Withdraw Bitcoin</CardTitle>
-          <CardDescription>Send funds from your Ganamos! account to your Lightning wallet</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleWithdrawal} className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <label htmlFor="amount" className="text-sm font-medium">
-                  Amount (sats)
-                </label>
-                <span className="text-sm text-gray-500">
-                  Balance: {loadingBalance ? "Loading..." : `${balance} sats`}
-                </span>
-              </div>
-              <Input
-                id="amount"
-                type="number"
-                min="100"
-                max={balance}
-                value={amount}
-                onChange={(e) => setAmount(Number.parseInt(e.target.value, 10))}
-                placeholder="Enter amount in sats"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="invoice" className="text-sm font-medium">
-                Lightning Invoice
-              </label>
-              <Input
-                id="invoice"
-                value={paymentRequest}
-                onChange={(e) => setPaymentRequest(e.target.value)}
-                placeholder="lnbc..."
-              />
-              <p className="text-xs text-gray-500">
-                Generate an invoice in your Lightning wallet for the amount you want to withdraw
-              </p>
-            </div>
-
-            <Button type="submit" className="w-full" disabled={loading || loadingBalance || balance < 100}>
-              {loading ? <LoadingSpinner /> : "Withdraw"}
-            </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="flex justify-center text-sm text-gray-500">
-          <p>Withdrawals are typically processed within seconds</p>
-        </CardFooter>
-      </Card>
+      <form onSubmit={handleWithdrawal} className="space-y-6">
+        <div>
+          <label htmlFor="amount" className="block text-sm font-medium mb-1">
+            Amount
+          </label>
+          <div className="relative flex items-center">
+            <Input
+              id="amount"
+              type="number"
+              min={100}
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
+              className="pr-12"
+              required
+            />
+            <span className="absolute right-3 text-xs text-muted-foreground">sats</span>
+          </div>
+        </div>
+        <div>
+          <label htmlFor="paymentRequest" className="block text-sm font-medium mb-1">
+            Lightning Invoice
+          </label>
+          <Input
+            id="paymentRequest"
+            type="text"
+            value={paymentRequest}
+            onChange={(e) => setPaymentRequest(e.target.value)}
+            placeholder="Paste your Lightning invoice here"
+            required
+          />
+        </div>
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? "Sending..." : "Send"}
+        </Button>
+      </form>
     </div>
   )
 }

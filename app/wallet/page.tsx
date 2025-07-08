@@ -196,7 +196,11 @@ export default function WalletPage() {
         </Link>
 
         <Link href="/wallet/withdraw" className="w-full">
-          <Button variant="outline" className="w-full h-24 flex flex-col items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            className="w-full h-24 flex flex-col items-center justify-center gap-2"
+            onClick={() => router.push("/wallet/withdraw")}
+          >
             <ArrowUpIcon className="h-6 w-6 text-red-500" />
             <span>Send</span>
           </Button>
