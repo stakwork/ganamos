@@ -25,6 +25,7 @@ import { markPostFixedAnonymouslyAction, submitAnonymousFixForReviewAction } fro
 import { LightningInvoiceModal } from "@/components/lightning-invoice-modal"
 import { v4 as uuidv4 } from "uuid"
 import dynamic from "next/dynamic"
+import PostDetailSkeleton from "@/components/post-detail-skeleton"
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
   // const { id } = useParams() // params.id is used directly
@@ -861,56 +862,11 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="relative">
-      {/* Skeleton Loader: fades out when showContent is true */}
-      <div className={`absolute inset-0 z-10 transition-opacity duration-500 ${showContent ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        <div className="container px-4 pt-4 pb-20 mx-auto max-w-md">
-          {/* Image skeleton with close button overlay */}
-          <div className="relative w-full h-64 mb-4 overflow-hidden rounded-lg">
-            <div className="w-full h-full animate-pulse rounded-md bg-muted" />
-            <button className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white border-0 p-2 rounded-full">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-              <span className="sr-only">Close</span>
-            </button>
-          </div>
-          {/* Location and meta skeleton (no title blob) */}
-          <div className="mb-6">
-            <div className="flex items-center space-x-2">
-              <div className="h-4 w-24 animate-pulse rounded-md bg-muted" />
-              <div className="h-4 w-16 animate-pulse rounded-md bg-muted" />
-            </div>
-            <div className="h-4 w-32 animate-pulse rounded-md bg-muted mt-2" />
-          </div>
-          {/* Reward card skeleton */}
-          <div className="mb-6 border rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="h-8 w-8 animate-pulse rounded-full bg-muted mr-3" />
-                <div>
-                  <div className="h-6 w-24 animate-pulse rounded-md bg-muted mb-2" />
-                  <div className="h-4 w-16 animate-pulse rounded-md bg-muted" />
-                </div>
-              </div>
-              <div className="h-10 w-24 animate-pulse rounded-md bg-muted" />
-            </div>
-          </div>
-          {/* Description skeleton */}
-          <div className="space-y-2 mb-6">
-            <div className="h-4 w-full animate-pulse rounded-md bg-muted" />
-            <div className="h-4 w-3/4 animate-pulse rounded-md bg-muted" />
-            <div className="h-4 w-1/2 animate-pulse rounded-md bg-muted" />
-          </div>
-          {/* Comments/notes section skeleton */}
-          <div className="border rounded-lg p-4">
-            <div className="space-y-3">
-              <div className="h-5 w-24 animate-pulse rounded-md bg-muted" />
-              <div className="space-y-2">
-                <div className="h-4 w-full animate-pulse rounded-md bg-muted" />
-                <div className="h-4 w-3/4 animate-pulse rounded-md bg-muted" />
-              </div>
-            </div>
-          </div>
+      {!showContent && (
+        <div className="absolute inset-0 z-10 transition-opacity duration-500 opacity-100">
+          <PostDetailSkeleton />
         </div>
-      </div>
+      )}
       
       {/* Real Content: fades in when showContent is true */}
       <div className={`transition-opacity duration-500 ${showContent ? 'opacity-100' : 'opacity-0'}`}>

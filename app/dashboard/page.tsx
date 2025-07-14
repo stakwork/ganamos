@@ -417,56 +417,6 @@ export default function DashboardPage() {
         <div className="w-full max-w-md pt-6 px-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              {/* Sort Pill */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="flex items-center gap-1 h-9 px-3 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-xs font-medium text-gray-700 dark:text-gray-200 shadow-sm focus-visible:ring-0 focus-visible:outline-none border-0"
-                    aria-label="Sort options"
-                  >
-                    {(() => {
-                      const sortBy = activeFilters?.sortBy || 'proximity'
-                      if (sortBy === 'proximity') return 'Nearby'
-                      if (sortBy === 'recency') return 'Recent'
-                      if (sortBy === 'reward') return 'Reward'
-                    })()}
-                    {/* Custom sort icon SVG */}
-                    <svg className="ml-1 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                      <rect x="10" y="5" width="8" height="2" rx="1" />
-                      <rect x="10" y="9" width="6" height="2" rx="1" />
-                      <rect x="10" y="13" width="4" height="2" rx="1" />
-                      <rect x="10" y="17" width="2" height="2" rx="1" />
-                      <path d="M6 5v12M6 17l-2-2M6 17l2-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    </svg>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuItem
-                    onClick={() => handleSortChange('recency')}
-                    className={activeFilters?.sortBy === 'recency' ? 'font-semibold text-emerald-600' : ''}
-                  >
-                    Recent
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleSortChange('proximity')}
-                    className={activeFilters?.sortBy === 'proximity' ? 'font-semibold text-emerald-600' : ''}
-                  >
-                    Nearby
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleSortChange('reward')}
-                    className={activeFilters?.sortBy === 'reward' ? 'font-semibold text-emerald-600' : ''}
-                  >
-                    Reward
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push('/search')}>
-                    Filters
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
               {activeFilters && activeFilters.count > 0 && (
                 <button
                   onClick={clearFilters}
@@ -553,12 +503,42 @@ export default function DashboardPage() {
           {posts.length === 0 && isLoading ? (
             <div className="space-y-6">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="border rounded-lg dark:border-gray-800 overflow-hidden">
+                <div key={i} className="border rounded-lg dark:border-gray-800 overflow-hidden relative">
+                  {/* Image skeleton */}
                   <div className="w-full h-48 bg-gray-200 dark:bg-gray-800 animate-pulse"></div>
-                  <div className="p-4">
-                    <div className="h-5 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mb-2 animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full mb-1 animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-2/3 animate-pulse"></div>
+                  {/* Details skeleton - matches CardFooter */}
+                  <div className="p-4 pt-4 h-[104px] flex items-start justify-between w-full relative">
+                    {/* Left side: Description, Location, Travel Times, Poster info */}
+                    <div className="flex flex-col space-y-2 flex-1">
+                      {/* Title skeleton */}
+                      <div className="h-5 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mb-2 animate-pulse"></div>
+                      {/* Location and Travel Times row skeleton */}
+                      <div className="flex items-center space-x-2">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-20 animate-pulse"></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-16 animate-pulse"></div>
+                      </div>
+                      {/* Poster info and timestamp row skeleton */}
+                      <div className="flex items-center space-x-2">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-24 animate-pulse"></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-12 animate-pulse"></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-16 animate-pulse"></div>
+                      </div>
+                    </div>
+                    {/* Bitcoin icon and badge placeholder */}
+                    <div style={{ position: "relative", width: "48px", height: "48px" }}>
+                      {/* Bitcoin icon blob skeleton */}
+                      <div className="bg-gray-200 dark:bg-gray-800 rounded-full animate-pulse" style={{ width: 43, height: 43, position: 'absolute', top: 0, left: 2 }}></div>
+                      {/* Badge placeholder */}
+                      <div className="bg-gray-200 dark:bg-gray-800 rounded-full animate-pulse" style={{
+                        position: "absolute",
+                        bottom: "-16px",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        width: "40px",
+                        height: "24px",
+                        zIndex: 3,
+                      }}></div>
+                    </div>
                   </div>
                 </div>
               ))}

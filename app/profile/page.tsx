@@ -22,7 +22,7 @@ import { PostCard } from "@/components/post-card"
 import { useAuth } from "@/components/auth-provider"
 import { useNotifications } from "@/components/notifications-provider"
 import { Badge } from "@/components/ui/badge"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { useTheme } from "next-themes"
 import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
@@ -34,6 +34,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu"
 import { AddConnectedAccountDialog } from "@/components/add-connected-account-dialog"
 import { Check, X, MapPin } from "lucide-react"
@@ -84,6 +87,7 @@ export default function ProfilePage() {
   const [isPriceLoading, setIsPriceLoading] = useState(true)
   const supabase = createBrowserSupabaseClient()
   const { toast } = useToast()
+  const { theme, setTheme } = useTheme()
   const [activitiesPage, setActivitiesPage] = useState(1)
   const [hasMoreActivities, setHasMoreActivities] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -99,6 +103,7 @@ export default function ProfilePage() {
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isRemoveMode, setIsRemoveMode] = useState(false)
+  const [currentSort, setCurrentSort] = useState<'Recent' | 'Nearby' | 'Reward'>('Recent')
 
   // Cache for posts data to avoid redundant processing
   const postsCache = useRef<Post[]>([])
@@ -546,6 +551,22 @@ export default function ProfilePage() {
     [fetchActivities, fetchAllUserPosts],
   );
 
+  // Handle sort selection
+  const handleSortChange = (sortOption: 'Recent' | 'Nearby' | 'Reward') => {
+    setCurrentSort(sortOption)
+    // Here you would implement the actual sorting logic
+    // For now, just show a toast to confirm the selection
+    toast({
+      title: "Feed sort updated",
+      description: `Feed is now sorted by ${sortOption}`,
+    })
+  }
+
+  // Handle filter navigation
+  const handleFilterNavigation = () => {
+    router.push('/search')
+  }
+
   // Handle account management
   const handleAccountAction = (account: any) => {
     setAccountToManage(account)
@@ -712,66 +733,28 @@ export default function ProfilePage() {
                   </svg>
                 </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold">
-                  {profile.name
-                    ? profile.name
-                        .split(" ")
-                        .map((part, index, array) =>
-                          index === array.length - 1 && array.length > 1 ? part.charAt(0) + "." : part,
-                        )
-                        .join(" ")
-                    : profile.name}
-                </h2>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <DropdownMenu
-                onOpenChange={(open) => {
-                  if (!open) {
-                    setIsRemoveMode(false)
-                  }
-                }}
-              >
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="default" className="h-11 w-11 rounded-md">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                    <span className="sr-only">Open menu</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64 p-2">
-                  {/* Primary Account */}
-                  <DropdownMenuItem
-                    onClick={() => (!isConnectedAccount ? null : resetToMainAccount())}
-                    className={`p-4 ${!isConnectedAccount ? "bg-muted" : "cursor-pointer"}`}
+              <div className="flex items-center gap-2">
+                {/* Account Switcher Dropdown - Only show if there are connected accounts */}
+                {connectedAccounts.length > 0 ? (
+                  <DropdownMenu
+                    onOpenChange={(open) => {
+                      if (!open) {
+                        setIsRemoveMode(false)
+                      }
+                    }}
                   >
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center">
-                        <div className="w-6 h-6 mr-2 overflow-hidden rounded-full">
-                          <Image
-                            src={user?.user_metadata?.avatar_url || "/placeholder.svg?height=24&width=24"}
-                            alt={user?.user_metadata?.full_name || "Main Account"}
-                            width={24}
-                            height={24}
-                            className="object-cover"
-                          />
-                        </div>
-                        <span>{user?.user_metadata?.full_name || "Main Account"} (You)</span>
-                      </div>
-                      {!isConnectedAccount && (
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center gap-2 text-left focus:outline-none focus:ring-0 focus:ring-offset-0">
+                        <h2 className="text-2xl font-bold">
+                          {profile.name
+                            ? profile.name
+                                .split(" ")
+                                .map((part, index, array) =>
+                                  index === array.length - 1 && array.length > 1 ? part.charAt(0) : part,
+                                )
+                                .join(" ")
+                            : profile.name}
+                        </h2>
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           width="16"
@@ -782,37 +765,297 @@ export default function ProfilePage() {
                           strokeWidth="2"
                           strokeLinecap="round"
                           strokeLinejoin="round"
+                          className="text-muted-foreground"
                         >
-                          <path d="M20 6 9 17l-5-5" />
+                          <path d="m6 9 6 6 6-6" />
                         </svg>
-                      )}
-                    </div>
-                  </DropdownMenuItem>
-
-                  {/* Connected Accounts */}
-                  {connectedAccounts.map((account) => (
+                        <span className="sr-only">Switch account</span>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-64 p-2">
+                    {/* Primary Account */}
                     <DropdownMenuItem
-                      key={account.id}
-                      onClick={() =>
-                        isConnectedAccount && profile?.id === account.id ? null : switchToAccount(account.id)
-                      }
-                      className={`p-4 ${isConnectedAccount && profile?.id === account.id ? "bg-muted" : "cursor-pointer"}`}
+                      onClick={() => (!isConnectedAccount ? null : resetToMainAccount())}
+                      className={`p-4 ${!isConnectedAccount ? "bg-muted" : "cursor-pointer"}`}
                     >
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center">
                           <div className="w-6 h-6 mr-2 overflow-hidden rounded-full">
                             <Image
-                              src={account.avatar_url || "/placeholder.svg?height=24&width=24"}
-                              alt={account.name || "Account"}
+                              src={user?.user_metadata?.avatar_url || "/placeholder.svg?height=24&width=24"}
+                              alt={user?.user_metadata?.full_name || "Main Account"}
                               width={24}
                               height={24}
                               className="object-cover"
                             />
                           </div>
-                          <span>{account.name}</span>
+                          <span>{user?.user_metadata?.full_name || "Main Account"} (You)</span>
                         </div>
-                        <div className="flex items-center">
-                          {isConnectedAccount && profile?.id === account.id && (
+                        {!isConnectedAccount && (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M20 6 9 17l-5-5" />
+                          </svg>
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+
+                    {/* Connected Accounts */}
+                    {connectedAccounts.map((account) => (
+                      <DropdownMenuItem
+                        key={account.id}
+                        onClick={() =>
+                          isConnectedAccount && profile?.id === account.id ? null : switchToAccount(account.id)
+                        }
+                        className={`p-4 ${isConnectedAccount && profile?.id === account.id ? "bg-muted" : "cursor-pointer"}`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center">
+                            <div className="w-6 h-6 mr-2 overflow-hidden rounded-full">
+                              <Image
+                                src={account.avatar_url || "/placeholder.svg?height=24&width=24"}
+                                alt={account.name || "Account"}
+                                width={24}
+                                height={24}
+                                className="object-cover"
+                              />
+                            </div>
+                            <span>{account.name}</span>
+                          </div>
+                          <div className="flex items-center">
+                            {isConnectedAccount && profile?.id === account.id && (
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="mr-2"
+                              >
+                                <path d="M20 6 9 17l-5-5" />
+                              </svg>
+                            )}
+                            {isRemoveMode && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleAccountAction(account)
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+
+                    <DropdownMenuSeparator />
+
+                    <DropdownMenuItem onClick={() => setShowAddAccountDialog(true)} className="p-4">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mr-2"
+                      >
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <line x1="19" y1="8" x2="19" y2="14" />
+                        <line x1="22" y1="11" x2="16" y2="11" />
+                      </svg>
+                      Add Account
+                    </DropdownMenuItem>
+
+                    {connectedAccounts.length > 0 && (
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault()
+                          setIsRemoveMode(!isRemoveMode)
+                        }}
+                        className="p-4 cursor-pointer"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="mr-2 text-muted-foreground"
+                        >
+                          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                          <circle cx="9" cy="7" r="4" />
+                          <line x1="22" y1="11" x2="16" y2="11" />
+                        </svg>
+                        <span className={`text-muted-foreground ${isRemoveMode ? "font-bold" : ""}`}>
+                          Remove Account
+                        </span>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <h2 className="text-2xl font-bold">
+                    {profile.name
+                      ? profile.name
+                          .split(" ")
+                          .map((part, index, array) =>
+                            index === array.length - 1 && array.length > 1 ? part.charAt(0) : part,
+                          )
+                          .join(" ")
+                      : profile.name}
+                  </h2>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <DropdownMenu
+                onOpenChange={(open) => {
+                  if (!open) {
+                    setIsRemoveMode(false)
+                  }
+                }}
+              >
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="default" className="h-11 w-11 rounded-md focus:outline-none focus:ring-0 focus:ring-offset-0">
+                    <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    >
+                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                     </svg>
+                    <span className="sr-only">Open menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 p-2">
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault()
+                      setTheme(theme === "dark" ? "light" : "dark")
+                    }}
+                    className="p-4 cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center">
+                        {theme === "light" ? (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-2"
+                          >
+                            <circle cx="12" cy="12" r="4" />
+                            <path d="M12 2v2" />
+                            <path d="M12 20v2" />
+                            <path d="m4.93 4.93 1.41 1.41" />
+                            <path d="m17.66 17.66 1.41 1.41" />
+                            <path d="M2 12h2" />
+                            <path d="M20 12h2" />
+                            <path d="m6.34 17.66-1.41 1.41" />
+                            <path d="m19.07 4.93-1.41 1.41" />
+                          </svg>
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-2"
+                          >
+                            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                          </svg>
+                        )}
+                        <span>Theme</span>
+                      </div>
+                      <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 dark:bg-gray-700">
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            theme === "dark" ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="p-4">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mr-2"
+                      >
+                        <path d="M8 6L21 6" />
+                        <path d="M8 12L21 12" />
+                        <path d="M8 18L21 18" />
+                        <path d="M3 6L3.01 6" />
+                        <path d="M3 12L3.01 12" />
+                        <path d="M3 18L3.01 18" />
+                      </svg>
+                      <span>Sort Feed</span>
+                      <span className="ml-auto text-sm text-muted-foreground">{currentSort}</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuItem 
+                        onClick={() => handleSortChange('Recent')}
+                        className={currentSort === 'Recent' ? 'bg-muted' : ''}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span>Recent</span>
+                          {currentSort === 'Recent' && (
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="16"
@@ -823,28 +1066,78 @@ export default function ProfilePage() {
                               strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
-                              className="mr-2"
                             >
                               <path d="M20 6 9 17l-5-5" />
                             </svg>
                           )}
-                          {isRemoveMode && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleAccountAction(account)
-                              }}
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleSortChange('Nearby')}
+                        className={currentSort === 'Nearby' ? 'bg-muted' : ''}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span>Nearby</span>
+                          {currentSort === 'Nearby' && (
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
                             >
-                              <X className="h-4 w-4" />
-                            </Button>
+                              <path d="M20 6 9 17l-5-5" />
+                            </svg>
                           )}
                         </div>
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleSortChange('Reward')}
+                        className={currentSort === 'Reward' ? 'bg-muted' : ''}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span>Reward</span>
+                          {currentSort === 'Reward' && (
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M20 6 9 17l-5-5" />
+                            </svg>
+                          )}
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleFilterNavigation}>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="mr-2"
+                        >
+                          <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+                        </svg>
+                        More Filters
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
 
                   <DropdownMenuSeparator />
 
@@ -868,36 +1161,6 @@ export default function ProfilePage() {
                     </svg>
                     Add Account
                   </DropdownMenuItem>
-
-                  {connectedAccounts.length > 0 && (
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault()
-                        setIsRemoveMode(!isRemoveMode)
-                      }}
-                      className="p-4 cursor-pointer"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="mr-2 text-muted-foreground"
-                      >
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                        <circle cx="9" cy="7" r="4" />
-                        <line x1="22" y1="11" x2="16" y2="11" />
-                      </svg>
-                      <span className={`text-muted-foreground ${isRemoveMode ? "font-bold" : ""}`}>
-                        Remove Account
-                      </span>
-                    </DropdownMenuItem>
-                  )}
 
                   <DropdownMenuSeparator />
 
@@ -949,8 +1212,10 @@ export default function ProfilePage() {
                       <p className="text-sm text-muted-foreground">Balance</p>
                     </div>
                     <p className="text-xl font-bold">{formatSatsValue(profile.balance)}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {isPriceLoading ? "Loading..." : `$${calculateUsdValue(profile.balance)} USD`}
+                    <p className={`text-xs text-muted-foreground mt-0.5 transition-opacity duration-500 ${isPriceLoading ? 'opacity-0' : 'opacity-100'}`}
+                      style={{ minHeight: '1.25rem' }} // Reserve space to prevent layout shift
+                    >
+                      {!isPriceLoading && `$${calculateUsdValue(profile.balance)} USD`}
                     </p>
                   </div>
                 </Button>
