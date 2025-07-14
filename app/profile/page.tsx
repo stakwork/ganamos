@@ -1167,6 +1167,8 @@ export default function ProfilePage() {
                     Add Account
                   </DropdownMenuItem>
 
+                  <DropdownMenuSeparator />
+
                   <DropdownMenuItem onClick={handleConnectPet} className="p-4">
                     <Cat className="mr-2 h-4 w-4" />
                     Connect Pet
