@@ -39,7 +39,7 @@ import {
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu"
 import { AddConnectedAccountDialog } from "@/components/add-connected-account-dialog"
-import { Check, X, MapPin } from "lucide-react"
+import { Check, X, MapPin, Cat } from "lucide-react"
 
 type ActivityItem = {
   id: string
@@ -565,6 +565,11 @@ export default function ProfilePage() {
   // Handle filter navigation
   const handleFilterNavigation = () => {
     router.push('/search')
+  }
+
+  // Handle connect pet navigation
+  const handleConnectPet = () => {
+    router.push('/connect-pet')
   }
 
   // Handle account management
@@ -1160,6 +1165,11 @@ export default function ProfilePage() {
                       <line x1="22" y1="11" x2="16" y2="11" />
                     </svg>
                     Add Account
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={handleConnectPet} className="p-4">
+                    <Cat className="mr-2 h-4 w-4" />
+                    Connect Pet
                   </DropdownMenuItem>
 
                   <DropdownMenuSeparator />
