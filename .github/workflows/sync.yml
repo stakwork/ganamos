@@ -1,0 +1,17 @@
+name: Hive - Auto Sync
+
+on:
+  push:
+    branches:
+      - master
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Stakgraph Sync Endpoint
+        run: |
+          curl -G 'https://stakgraph.ganamos.sphinx.chat/sync' \
+            --header "Authorization: Bearer ${{ secrets.SWARM_API_KEY }}" \
+            -d '{"repo_url":"https://github.com/brianmurray333/ganamos"}'
