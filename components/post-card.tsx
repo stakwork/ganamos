@@ -303,7 +303,7 @@ export function PostCard({ post }: { post: Post }) {
               </div>
 
               {/* Location and Travel Times row - fixed position */}
-              <div className="absolute top-7 left-0 right-0 flex items-center space-x-2">
+              <div className="absolute top-9 left-0 right-0 flex items-center space-x-2">
                 {locationName && (
                   <div
                     className="flex items-center cursor-pointer hover:text-blue-600 transition-colors"
