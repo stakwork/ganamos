@@ -14,7 +14,7 @@ import { useAuth } from "@/components/auth-provider"
 
 export default function WithdrawPage() {
   const router = useRouter()
-  const { user, profile, loading: authLoading } = useAuth()
+  const { user, profile, loading: authLoading, refreshProfile } = useAuth()
   const [amount, setAmount] = useState<number>(1000)
   const [paymentRequest, setPaymentRequest] = useState<string>("")
   const [loading, setLoading] = useState<boolean>(false)
@@ -57,10 +57,10 @@ export default function WithdrawPage() {
       return
     }
 
-    if (amount < 100) {
+    if (amount <= 0) {
       toast({
         title: "Invalid amount",
-        description: "Minimum withdrawal is 100 sats",
+        description: "Please enter a valid amount",
         variant: "destructive",
         duration: 2000,
       })
@@ -106,14 +106,28 @@ export default function WithdrawPage() {
       const result = await response.json()
 
       if (result.success) {
-        toast({
-          title: "Withdrawal successful!",
-          description: `${amount} sats have been sent to your wallet`,
-          variant: "default",
-          duration: 2000,
-        })
+        // Immediately refresh profile to get updated balance
+        await refreshProfile()
+        
+        // Also update local balance state for immediate UI feedback
+        if (result.newBalance !== undefined) {
+          setBalance(result.newBalance)
+        }
+        
+        // Navigate back to wallet page
+        router.push("/wallet")
+        
+        // Show success toast on wallet page
+        setTimeout(() => {
+          toast({
+            title: "Withdrawal successful!",
+            description: `${result.amount || amount} sats have been sent to your wallet`,
+            variant: "default",
+            duration: 3000,
+          })
+        }, 100) // Small delay to ensure navigation is complete
+        
         setPaymentRequest("")
-        setBalance(result.newBalance)
       } else {
         // Handle authentication errors specifically
         if (result.error === "Not authenticated") {
@@ -127,12 +141,22 @@ export default function WithdrawPage() {
           return
         }
 
+        // Extract payment error details if available
+        let errorMessage = result.error || "Failed to process withdrawal"
+        if (result.details && typeof result.details === 'string') {
+          errorMessage = result.details
+        } else if (result.debugInfo && typeof result.debugInfo === 'string') {
+          errorMessage = result.debugInfo
+        }
+
         toast({
           title: "Withdrawal failed",
-          description: result.error || "Failed to process withdrawal",
+          description: errorMessage,
           variant: "destructive",
-          duration: 2000,
+          duration: 4000,
         })
+        
+        // Stay on the withdrawal page for failures
       }
     } catch (error) {
       console.error("Error processing withdrawal:", error)
@@ -210,7 +234,8 @@ export default function WithdrawPage() {
             <Input
               id="amount"
               type="number"
-              min={100}
+              min={0}
+              step={1}
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
               className="pr-12"

@@ -1,34 +1,35 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { CreateGroupDialog } from "@/components/create-group-dialog"
-import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { useToast } from "@/hooks/use-toast"
-import { useNotifications } from "@/components/notifications-provider"
-import type { Group } from "@/lib/types"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CreateGroupDialog } from "@/components/create-group-dialog";
+import { createBrowserSupabaseClient } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
+import { useNotifications } from "@/components/notifications-provider";
+import type { Group } from "@/lib/types";
 
 export function GroupsList({ userId }: { userId: string }) {
-  const [groups, setGroups] = useState<Group[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
-  const { toast } = useToast()
-  const { pendingGroupIds } = useNotifications()
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const router = useRouter();
+  const supabase = createBrowserSupabaseClient();
+  const { toast } = useToast();
+  const { pendingGroupIds } = useNotifications();
 
   useEffect(() => {
     async function fetchGroups() {
-      setLoading(true)
+      setLoading(true);
       try {
         // Fetch groups where the user is a member
         const { data: memberGroups, error: memberError } = await supabase
           .from("group_members")
-          .select(`
+          .select(
+            `
             group_id,
             role,
             status,
@@ -41,83 +42,108 @@ export function GroupsList({ userId }: { userId: string }) {
               updated_at,
               invite_code
             )
-          `)
+          `
+          )
           .eq("user_id", userId)
-          .eq("status", "approved")
+          .eq("status", "approved");
 
         if (memberError) {
-          console.error("Error fetching member groups:", memberError)
-          throw memberError
+          console.error("Error fetching member groups:", memberError);
+          throw memberError;
         }
 
         // Transform the data to match the Group interface
         const transformedGroups = memberGroups
           .filter((item) => item.groups) // Filter out any null groups
           .map((item) => {
-            const group = item.groups as any
+            const group = item.groups as any;
             return {
               ...group,
               role: item.role,
               status: item.status,
-            }
-          })
+            };
+          });
 
-        // Fetch member counts for each group
-        const groupsWithCounts = await Promise.all(
-          transformedGroups.map(async (group) => {
-            const { count, error } = await supabase
-              .from("group_members")
-              .select("*", { count: "exact", head: true })
-              .eq("group_id", group.id)
-              .eq("status", "approved")
+        // Fetch member counts for all groups in two optimized queries
+        const groupIds = transformedGroups.map((g) => g.id);
 
-            // Get pending request count for this group
-            const { count: pendingCount, error: pendingError } = await supabase
-              .from("group_members")
-              .select("*", { count: "exact", head: true })
-              .eq("group_id", group.id)
-              .eq("status", "pending")
+        // Get all approved members for all groups
+        const { data: approvedMembers, error: approvedError } = await supabase
+          .from("group_members")
+          .select("group_id")
+          .in("group_id", groupIds)
+          .eq("status", "approved");
 
-            return {
-              ...group,
-              memberCount: error ? 0 : count || 0,
-              pendingCount: pendingError ? 0 : pendingCount || 0,
-              hasPendingRequests: pendingGroupIds.includes(group.id),
-            }
-          }),
-        )
+        // Get all pending members for all groups
+        const { data: pendingMembers, error: pendingError } = await supabase
+          .from("group_members")
+          .select("group_id")
+          .in("group_id", groupIds)
+          .eq("status", "pending");
 
-        setGroups(groupsWithCounts)
+        // Create lookup maps for member counts
+        const approvedCountMap = new Map();
+        const pendingCountMap = new Map();
+
+        // Count approved members per group
+        if (!approvedError && approvedMembers) {
+          approvedMembers.forEach((member) => {
+            approvedCountMap.set(
+              member.group_id,
+              (approvedCountMap.get(member.group_id) || 0) + 1
+            );
+          });
+        }
+
+        // Count pending members per group
+        if (!pendingError && pendingMembers) {
+          pendingMembers.forEach((member) => {
+            pendingCountMap.set(
+              member.group_id,
+              (pendingCountMap.get(member.group_id) || 0) + 1
+            );
+          });
+        }
+
+        // Add counts to groups
+        const groupsWithCounts = transformedGroups.map((group) => ({
+          ...group,
+          memberCount: approvedCountMap.get(group.id) || 0,
+          pendingCount: pendingCountMap.get(group.id) || 0,
+          hasPendingRequests: pendingGroupIds.includes(group.id),
+        }));
+
+        setGroups(groupsWithCounts);
       } catch (error) {
-        console.error("Error in fetchGroups:", error)
+        console.error("Error in fetchGroups:", error);
         toast({
           title: "Error",
           description: "Failed to load groups. Please try again.",
           variant: "destructive",
-        })
+        });
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
     if (userId) {
-      fetchGroups()
+      fetchGroups();
     }
-  }, [userId, supabase, toast, pendingGroupIds])
+  }, [userId, supabase, toast, pendingGroupIds]);
 
   const handleGroupClick = (groupId: string) => {
-    router.push(`/groups/${groupId}`)
-  }
+    router.push(`/groups/${groupId}`);
+  };
 
   const handleCreateSuccess = (newGroup: Group) => {
-    setGroups((prev) => [newGroup, ...prev])
-    setShowCreateDialog(false)
+    setGroups((prev) => [newGroup, ...prev]);
+    setShowCreateDialog(false);
     toast({
       title: "Group Created",
       description: "Your new group has been created successfully.",
       variant: "success",
-    })
-  }
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -134,31 +160,34 @@ export function GroupsList({ userId }: { userId: string }) {
               className="cursor-pointer hover:bg-muted/50 transition-colors"
               onClick={() => handleGroupClick(group.id)}
             >
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <div className="flex items-baseline gap-2">
                       <h3 className="font-medium">{group.name}</h3>
-                      {group.hasPendingRequests && <span className="w-2 h-2 bg-red-500 rounded-full"></span>}
+                      <span className="text-xs text-muted-foreground">
+                        {group.memberCount}{" "}
+                        {group.memberCount === 1 ? "member" : "members"}
+                      </span>
+                      {group.hasPendingRequests && (
+                        <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                      )}
+                      {(group.pendingCount || 0) > 0 &&
+                        group.created_by === userId && (
+                          <Badge className="bg-red-100 text-red-800 hover:bg-red-200 border-red-200 text-[10px] px-1.5 py-0.5 h-5">
+                            {group.pendingCount} pending
+                          </Badge>
+                        )}
                     </div>
-                    {group.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-1">{group.description}</p>
+                    {(group.description || group.created_by === userId) && (
+                      <p className="text-sm text-muted-foreground line-clamp-1 mt-1">
+                        {group.description}
+                        {group.description &&
+                          group.created_by === userId &&
+                          " · "}
+                        {group.created_by === userId && "Admin"}
+                      </p>
                     )}
-                    <div className="flex gap-2 mt-2">
-                      <Badge variant="outline" className="text-xs">
-                        {group.memberCount} {group.memberCount === 1 ? "member" : "members"}
-                      </Badge>
-                      {group.created_by === userId && (
-                        <Badge className="bg-green-100 text-green-800 hover:bg-green-200 border-green-200 text-xs">
-                          Admin
-                        </Badge>
-                      )}
-                      {group.pendingCount > 0 && group.created_by === userId && (
-                        <Badge className="bg-red-100 text-red-800 hover:bg-red-200 border-red-200 text-xs">
-                          {group.pendingCount} pending
-                        </Badge>
-                      )}
-                    </div>
                   </div>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -198,8 +227,12 @@ export function GroupsList({ userId }: { userId: string }) {
             <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
             <path d="M16 3.13a4 4 0 0 1 0 7.75" />
           </svg>
-          <p className="text-muted-foreground mb-4">You haven't joined any groups yet</p>
-          <Button onClick={() => setShowCreateDialog(true)}>Create Your First Group</Button>
+          <p className="text-muted-foreground mb-4">
+            You haven't joined any groups yet
+          </p>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            Create Your First Group
+          </Button>
         </div>
       )}
 
@@ -210,7 +243,7 @@ export function GroupsList({ userId }: { userId: string }) {
         onSuccess={handleCreateSuccess}
       />
     </div>
-  )
+  );
 }
 
 function GroupSkeleton() {
@@ -227,5 +260,5 @@ function GroupSkeleton() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

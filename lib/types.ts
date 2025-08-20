@@ -66,6 +66,8 @@ export interface Group {
   updated_at: string
   invite_code: string
   memberCount?: number
+  pendingCount?: number
+  hasPendingRequests?: boolean
 }
 
 export interface GroupMember {

@@ -5,7 +5,7 @@
 import { extractInvoiceAmount } from "./lightning-validation"
 
 // Helper function to make authenticated requests to the LND REST API
-async function lndRequest(endpoint: string, method = "GET", body?: any) {
+export async function lndRequest(endpoint: string, method = "GET", body?: any) {
   const LND_REST_URL = process.env.LND_REST_URL
   const LND_ADMIN_MACAROON = process.env.LND_ADMIN_MACAROON
 
@@ -74,6 +74,74 @@ async function lndRequest(endpoint: string, method = "GET", body?: any) {
     return {
       success: false,
       error: "Failed to communicate with Lightning node",
+      details: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
+// Separate helper function for Voltage Payments API
+async function voltageRequest(endpoint: string, method = "GET", body?: any) {
+  const VOLTAGE_API_KEY = process.env.VOLTAGE_API_KEY
+  const VOLTAGE_ORGANIZATION_ID = process.env.VOLTAGE_ORGANIZATION_ID
+  const VOLTAGE_ENVIRONMENT_ID = process.env.VOLTAGE_ENVIRONMENT_ID
+
+  if (!VOLTAGE_API_KEY || !VOLTAGE_ORGANIZATION_ID || !VOLTAGE_ENVIRONMENT_ID) {
+    console.error("Voltage configuration missing")
+    return { success: false, error: "Voltage configuration missing" }
+  }
+
+  try {
+    const baseUrl = "https://api.voltage.cloud"
+    const url = `${baseUrl}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`
+
+    console.log(`Making Voltage API request to: ${url}`)
+
+    const headers: HeadersInit = {
+      "Authorization": `Bearer ${VOLTAGE_API_KEY}`,
+      "Content-Type": "application/json",
+    }
+
+    const options: RequestInit = {
+      method,
+      headers,
+      cache: "no-store",
+    }
+
+    if (body) {
+      options.body = JSON.stringify(body)
+    }
+
+    const response = await fetch(url, options)
+
+    // Check if the response is JSON
+    const contentType = response.headers.get("content-type")
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text()
+      console.error(`Non-JSON response (${response.status}):`, text.substring(0, 500))
+      return {
+        success: false,
+        error: `Invalid response format: ${contentType || "unknown"}`,
+        details: `Status: ${response.status}, Body: ${text.substring(0, 200)}...`,
+      }
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error(`Voltage API error (${response.status}):`, errorData)
+      return {
+        success: false,
+        error: `Voltage API error: ${response.status} ${response.statusText}`,
+        details: errorData,
+      }
+    }
+
+    const data = await response.json()
+    return { success: true, data }
+  } catch (error) {
+    console.error("Voltage request error:", error)
+    return {
+      success: false,
+      error: "Failed to communicate with Voltage API",
       details: error instanceof Error ? error.message : String(error),
     }
   }
@@ -165,14 +233,38 @@ export async function payInvoice(paymentRequest: string, amount?: number) {
     console.log("[payInvoice] Extracted invoice amount:", invoiceAmount)
     console.log("[payInvoice] Provided amount:", amount)
 
-    // If invoice does not encode an amount or encodes zero, use the provided amount
+    // Build LND API request body for SendPaymentSync
     const body: any = { payment_request: paymentRequest }
     if ((invoiceAmount === null || invoiceAmount === 0) && amount) {
-      body.amount = amount
+      body.amt = amount // LND expects 'amt' in satoshis
     }
-    console.log("[payInvoice] Body sent to LND API:", body)
+    console.log("[payInvoice] Body sent to LND API:", JSON.stringify(body, null, 2))
 
-    const result = await lndRequest("/v1/channels/transactions", body)
+    const result = await lndRequest("/v1/channels/transactions", "POST", body)
+    console.log("[payInvoice] LND API response:", JSON.stringify(result, null, 2))
+    
+    if (result.success && result.data) {
+      // Check if there's a payment error
+      if (result.data.payment_error) {
+        console.log("[payInvoice] Payment failed with error:", result.data.payment_error)
+        return {
+          success: false,
+          error: `Payment failed: ${result.data.payment_error}`,
+          details: result.data
+        }
+      }
+      
+      // Extract payment hash from the LND response
+      const paymentHash = result.data.payment_hash
+      console.log("[payInvoice] Payment successful, extracted payment hash:", paymentHash)
+      return {
+        success: true,
+        paymentHash,
+        data: result.data
+      }
+    }
+    
+    console.log("[payInvoice] Payment failed, returning error result")
     return result
   } catch (error) {
     throw error

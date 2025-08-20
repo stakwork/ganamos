@@ -151,24 +151,23 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
     <div className="space-y-4">
       <style jsx>{`
         .camera-preview-container {
-          min-height: 40vh;
-          height: 100dvh;
-          max-height: 90vh;
           width: 100%;
-          max-width: 600px;
+          max-width: 100%;
+          height: calc(100vh - 120px);
+          min-height: 600px;
           margin: 0 auto;
           position: relative;
           background: #111;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
+          border-radius: 16px;
+          overflow: hidden;
         }
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
           .camera-preview-container {
-            max-width: 100vw;
-            max-height: 100dvh;
-            min-height: 40vh;
+            height: calc(100vh - 100px);
+            min-height: 500px;
           }
         }
         .camera-preview-video {
@@ -182,14 +181,14 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
           position: absolute;
           left: 50%;
           transform: translateX(-50%);
-          bottom: calc(env(safe-area-inset-bottom, 0px) + 104px);
+          bottom: 20px;
           z-index: 50;
         }
       `}</style>
-      <Card className="overflow-hidden border dark:border-gray-800">
-        <CardContent className="p-0 relative">
-          {error ? (
-            <div className="flex items-center justify-center p-8 text-center">
+      {error ? (
+        <Card className="overflow-hidden border dark:border-gray-800">
+          <CardContent className="p-8">
+            <div className="flex items-center justify-center text-center">
               <div>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -212,11 +211,13 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
                 </Button>
               </div>
             </div>
-          ) : (
-            <div
-              className="camera-preview-container"
-              id="camera-preview-container"
-            >
+          </CardContent>
+        </Card>
+      ) : (
+        <div
+          className="camera-preview-container"
+          id="camera-preview-container"
+        >
               <video
                 ref={videoRef}
                 autoPlay
@@ -284,10 +285,8 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
                   <span className="sr-only">Switch Camera</span>
                 </Button>
               )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
       {/* Safari mobile fix: set container height dynamically if on iOS Safari */}
       <script dangerouslySetInnerHTML={{
         __html: `

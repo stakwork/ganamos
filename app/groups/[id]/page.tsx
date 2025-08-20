@@ -475,64 +475,9 @@ export default function GroupPage({ params }: { params: { id: string } }) {
         )}
       </div>
 
-      <Tabs defaultValue="posts" className="w-full" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 mb-4 dark:bg-gray-800/50">
-          <TabsTrigger value="posts">Posts</TabsTrigger>
-          <TabsTrigger value="members" className="relative">
-            Members
-            {pendingMembers.length > 0 && userRole === "admin" && (
-              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="members" className="w-full" onValueChange={setActiveTab}>
 
-        <TabsContent value="posts" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-medium">Group Posts</h2>
-            <Button size="sm" onClick={handleCreatePost}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mr-1"
-              >
-                <path d="M12 5v14" />
-                <path d="M5 12h14" />
-              </svg>
-              New Post
-            </Button>
-          </div>
 
-          {posts.length > 0 ? (
-            posts.map((post) => <PostCard key={post.id} post={post} />)
-          ) : (
-            <div className="text-center p-8 border rounded-lg border-dashed">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="40"
-                height="40"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mx-auto mb-4 text-muted-foreground"
-              >
-                <rect width="18" height="18" x="3" y="3" rx="2" />
-                <path d="M3 9h18" />
-              </svg>
-              <p className="text-muted-foreground mb-4">No posts in this group yet</p>
-              <Button onClick={handleCreatePost}>Create First Post</Button>
-            </div>
-          )}
-        </TabsContent>
 
         <TabsContent value="members" className="space-y-4">
           <div className="flex justify-between items-center">

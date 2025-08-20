@@ -62,8 +62,12 @@ export async function POST(request: Request) {
     }
 
     // Pay the invoice
+    console.log("[Withdraw API] About to pay invoice:", paymentRequest, "amount:", amount)
     const paymentResult = await payInvoice(paymentRequest, amount)
+    console.log("[Withdraw API] Payment result:", JSON.stringify(paymentResult, null, 2))
+    
     if (!paymentResult.success) {
+      console.log("[Withdraw API] Payment failed, updating transaction to failed")
       // Update transaction to failed
       await adminSupabase
         .from("transactions")
@@ -72,7 +76,12 @@ export async function POST(request: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", transaction.id)
-      return NextResponse.json({ success: false, error: "Failed to pay invoice" }, { status: 500 })
+      return NextResponse.json({ 
+        success: false, 
+        error: "Failed to pay invoice",
+        details: paymentResult.error,
+        debugInfo: paymentResult.details
+      }, { status: 500 })
     }
 
     // Update transaction with payment hash and status
@@ -115,6 +124,7 @@ export async function POST(request: Request) {
       success: true,
       paymentHash: paymentResult.paymentHash,
       newBalance,
+      amount: amount, // Include withdrawal amount for confirmation
     })
   } catch (error) {
     console.error("Unexpected error in withdraw API:", error)

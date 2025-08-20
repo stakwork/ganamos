@@ -1,15 +1,15 @@
-"use client"
+"use client";
 
-import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Skeleton } from "@/components/ui/skeleton"
+import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogTrigger,
@@ -17,18 +17,18 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "@/components/ui/dialog"
-import { PostCard } from "@/components/post-card"
-import { useAuth } from "@/components/auth-provider"
-import { useNotifications } from "@/components/notifications-provider"
-import { Badge } from "@/components/ui/badge"
-import { useTheme } from "next-themes"
-import { formatSatsValue, formatTimeAgo } from "@/lib/utils"
-import { createBrowserSupabaseClient } from "@/lib/supabase"
-import { useToast } from "@/hooks/use-toast"
-import { AvatarSelector } from "@/components/avatar-selector"
-import { GroupsList } from "@/components/groups-list"
-import type { Post } from "@/lib/types"
+} from "@/components/ui/dialog";
+import { PostCard } from "@/components/post-card";
+import { useAuth } from "@/components/auth-provider";
+import { useNotifications } from "@/components/notifications-provider";
+import { Badge } from "@/components/ui/badge";
+import { useTheme } from "next-themes";
+import { formatSatsValue, formatTimeAgo } from "@/lib/utils";
+import { createBrowserSupabaseClient } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
+import { AvatarSelector } from "@/components/avatar-selector";
+import { GroupsList } from "@/components/groups-list";
+import type { Post } from "@/lib/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,26 +37,34 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-} from "@/components/ui/dropdown-menu"
-import { AddConnectedAccountDialog } from "@/components/add-connected-account-dialog"
-import { Check, X, MapPin, Cat } from "lucide-react"
+} from "@/components/ui/dropdown-menu";
+import { AddConnectedAccountDialog } from "@/components/add-connected-account-dialog";
+import { CreateGroupDialog } from "@/components/create-group-dialog";
+import { Check, X, MapPin, Cat } from "lucide-react";
 
 type ActivityItem = {
-  id: string
-  type: "post" | "fix" | "reward" | "fix_submitted" | "fix_review_needed" | "donation"
-  postId?: string
-  postTitle?: string
-  timestamp: Date
-  amount?: number
-  submitterName?: string
-  submitterAvatar?: string
+  id: string;
+  type:
+    | "post"
+    | "fix"
+    | "reward"
+    | "fix_submitted"
+    | "fix_review_needed"
+    | "donation"
+    | "withdrawal";
+  postId?: string;
+  postTitle?: string;
+  timestamp: Date;
+  amount?: number;
+  submitterName?: string;
+  submitterAvatar?: string;
   // Donation specific fields
-  donationId?: string
-  locationName?: string
-  donorName?: string
-  message?: string
-  related_id?: string
-}
+  donationId?: string;
+  locationName?: string;
+  donorName?: string;
+  message?: string;
+  related_id?: string;
+};
 
 export default function ProfilePage() {
   const {
@@ -72,170 +80,182 @@ export default function ProfilePage() {
     connectedAccounts,
     fetchConnectedAccounts,
     activeUserId,
-  } = useAuth()
-  const { hasPendingRequests } = useNotifications()
-  const router = useRouter()
-  const [activeTab, setActiveTab] = useState("activity")
-  const [activities, setActivities] = useState<ActivityItem[]>([])
-  const [showQrDialog, setShowQrDialog] = useState(false)
-  const [showAvatarSelector, setShowAvatarSelector] = useState(false)
-  const [postedIssues, setPostedIssues] = useState<Post[]>([])
-  const [fixedIssues, setFixedIssues] = useState<Post[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [isActivityLoading, setIsActivityLoading] = useState(false)
-  const [bitcoinPrice, setBitcoinPrice] = useState(64000)
-  const [isPriceLoading, setIsPriceLoading] = useState(true)
-  const supabase = createBrowserSupabaseClient()
-  const { toast } = useToast()
-  const { theme, setTheme } = useTheme()
-  const [activitiesPage, setActivitiesPage] = useState(1)
-  const [hasMoreActivities, setHasMoreActivities] = useState(false)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [postsPage, setPostsPage] = useState(1)
-  const [hasMorePosts, setHasMorePosts] = useState(false)
-  const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false)
-  const ACTIVITIES_PER_PAGE = 10
-  const [showAddAccountDialog, setShowAddAccountDialog] = useState(false)
+  } = useAuth();
+  const { hasPendingRequests } = useNotifications();
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState("activity");
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [showQrDialog, setShowQrDialog] = useState(false);
+  const [showAvatarSelector, setShowAvatarSelector] = useState(false);
+  const [postedIssues, setPostedIssues] = useState<Post[]>([]);
+  const [fixedIssues, setFixedIssues] = useState<Post[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isActivityLoading, setIsActivityLoading] = useState(false);
+  const [bitcoinPrice, setBitcoinPrice] = useState(64000);
+  const [isPriceLoading, setIsPriceLoading] = useState(true);
+  const supabase = createBrowserSupabaseClient();
+  const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
+  const [activitiesPage, setActivitiesPage] = useState(1);
+  const [hasMoreActivities, setHasMoreActivities] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [postsPage, setPostsPage] = useState(1);
+  const [hasMorePosts, setHasMorePosts] = useState(false);
+  const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false);
+  const [isPostsLoading, setIsPostsLoading] = useState(false);
+  const ACTIVITIES_PER_PAGE = 10;
+  const [showAddAccountDialog, setShowAddAccountDialog] = useState(false);
+  const [showCreateGroupDialog, setShowCreateGroupDialog] = useState(false);
 
   // New state for account management
-  const [accountToManage, setAccountToManage] = useState<any>(null)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [isRemoveMode, setIsRemoveMode] = useState(false)
-  const [currentSort, setCurrentSort] = useState<'Recent' | 'Nearby' | 'Reward'>('Recent')
+  const [accountToManage, setAccountToManage] = useState<any>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isRemoveMode, setIsRemoveMode] = useState(false);
+  const [currentSort, setCurrentSort] = useState<
+    "Recent" | "Nearby" | "Reward"
+  >("Recent");
 
   // Cache for posts data to avoid redundant processing
-  const postsCache = useRef<Post[]>([])
+  const postsCache = useRef<Post[]>([]);
   // Add a ref for activities cache to avoid redundant fetching
-  const activitiesCache = useRef<ActivityItem[] | null>(null)
+  const activitiesCache = useRef<ActivityItem[] | null>(null);
   // Track if initial data has been loaded
-  const initialDataLoaded = useRef(false)
+  const initialDataLoaded = useRef(false);
   // Track if Bitcoin price has been fetched
-  const bitcoinPriceFetched = useRef(false)
+  const bitcoinPriceFetched = useRef(false);
   // Track the current active user to detect changes
-  const currentActiveUser = useRef<string | null>(null)
+  const currentActiveUser = useRef<string | null>(null);
 
   // Add a ref to track the current post page for activities
-  const activitiesPostPage = useRef(1)
+  const activitiesPostPage = useRef(1);
 
   // Add session guard with useEffect
   useEffect(() => {
     if (sessionLoaded && !session) {
-      router.push("/auth/login")
+      router.push("/auth/login");
     }
-  }, [session, sessionLoaded, router])
+  }, [session, sessionLoaded, router]);
 
   // Detect when active user changes and reset data
   useEffect(() => {
-    const newActiveUser = activeUserId || user?.id || null
+    const newActiveUser = activeUserId || user?.id || null;
 
     if (currentActiveUser.current !== newActiveUser && newActiveUser) {
-      setActivities([])
-      setPostedIssues([])
-      setFixedIssues([])
-      setActivitiesPage(1)
-      setPostsPage(1)
-      setHasMoreActivities(false)
-      setHasMorePosts(false)
-      postsCache.current = []
-      initialDataLoaded.current = false
+      setActivities([]);
+      setPostedIssues([]);
+      setFixedIssues([]);
+      setActivitiesPage(1);
+      setPostsPage(1);
+      setHasMoreActivities(false);
+      setHasMorePosts(false);
+      postsCache.current = [];
+      initialDataLoaded.current = false;
 
       // Update the tracked user
-      currentActiveUser.current = newActiveUser
+      currentActiveUser.current = newActiveUser;
     }
-  }, [activeUserId, user?.id])
+  }, [activeUserId, user?.id]);
 
   // Fetch the current Bitcoin price - memoized to prevent unnecessary re-creation
   const fetchBitcoinPrice = useCallback(async () => {
-    if (bitcoinPriceFetched.current) return
+    if (bitcoinPriceFetched.current) return;
 
     try {
-      setIsPriceLoading(true)
+      setIsPriceLoading(true);
 
-      const response = await fetch("/api/bitcoin-price")
-      const data = await response.json()
+      const response = await fetch("/api/bitcoin-price");
+      const data = await response.json();
 
       if (data.price) {
-        setBitcoinPrice(data.price)
-        bitcoinPriceFetched.current = true
+        setBitcoinPrice(data.price);
+        bitcoinPriceFetched.current = true;
       } else {
       }
     } catch (error) {
     } finally {
-      setIsPriceLoading(false)
+      setIsPriceLoading(false);
     }
-  }, [])
+  }, []);
 
   // Calculate USD value from satoshis
   const calculateUsdValue = (sats: number) => {
-    const btcAmount = sats / 100000000
-    const usdValue = btcAmount * bitcoinPrice
-    return usdValue.toFixed(2)
-  }
+    const btcAmount = sats / 100000000;
+    const usdValue = btcAmount * bitcoinPrice;
+    return usdValue.toFixed(2);
+  };
 
   // Fetch all posts related to the user in a single query
   const fetchUserPosts = useCallback(
     async (page = 1) => {
-      if (!user || !supabase) return { posts: [], hasMore: false }
+      if (!user || !supabase) return { posts: [], hasMore: false };
 
       try {
-        const currentUserId = activeUserId || user.id
+        const currentUserId = activeUserId || user.id;
 
-        const limit = 5
-        const offset = (page - 1) * limit
+        const limit = 5;
+        const offset = (page - 1) * limit;
 
         const { data, error } = await supabase
           .from("posts")
-          .select(`
+          .select(
+            `
             *,
             group:group_id(
               id,
               name,
               description
             )
-          `)
+          `
+          )
           .or(`user_id.eq.${currentUserId},fixed_by.eq.${currentUserId}`)
           .order("created_at", { ascending: false })
           .limit(limit)
-          .range(offset, offset + limit - 1)
+          .range(offset, offset + limit - 1);
 
         if (error) {
-          return { posts: [], hasMore: false }
+          return { posts: [], hasMore: false };
         }
 
         // Deduplicate posts by id in case a user both created and fixed the same post
         const uniquePosts = data
-          ? data.filter((post: any, index: number, self: any[]) => index === self.findIndex((p: any) => p.id === post.id))
-          : []
+          ? data.filter(
+              (post: any, index: number, self: any[]) =>
+                index === self.findIndex((p: any) => p.id === post.id)
+            )
+          : [];
 
         // Check if there are more posts
         const { count } = await supabase
           .from("posts")
-          .select(`
+          .select(
+            `
             *,
             group:group_id(
               id,
               name,
               description
             )
-          `, { count: "exact", head: true })
-          .or(`user_id.eq.${currentUserId},fixed_by.eq.${currentUserId}`)
+          `,
+            { count: "exact", head: true }
+          )
+          .or(`user_id.eq.${currentUserId},fixed_by.eq.${currentUserId}`);
 
         return {
           posts: uniquePosts,
           hasMore: (count || 0) > page * limit,
-        }
+        };
       } catch (error) {
-        return { posts: [], hasMore: false }
+        return { posts: [], hasMore: false };
       }
     },
-    [user, supabase, session, activeUserId],
-  )
+    [user, supabase, session, activeUserId]
+  );
 
   // Fetch recent donations
   const fetchDonations = useCallback(async () => {
-    if (!supabase) return { donations: [] }
+    if (!supabase) return { donations: [] };
 
     try {
       const { data, error } = await supabase
@@ -243,96 +263,110 @@ export default function ProfilePage() {
         .select("*, donation_pools(location_name)")
         .eq("status", "completed")
         .order("created_at", { ascending: false })
-        .limit(20)
+        .limit(20);
 
       if (error) {
-        return { donations: [] }
+        return { donations: [] };
       }
 
-      return { donations: data }
+      return { donations: data };
     } catch (error) {
-      return { donations: [] }
+      return { donations: [] };
     }
-  }, [supabase])
+  }, [supabase]);
 
   // Process posts into different categories (posted, fixed, activities)
   const processPosts = useCallback(
     (posts: Post[], append = false) => {
-      if (!user || !posts) return
+      if (!user || !posts) return;
 
-      const currentUserId = activeUserId || user.id
+      const currentUserId = activeUserId || user.id;
 
       // Filter posted issues
-      const posted = posts.filter((post) => post.user_id === currentUserId || post.userId === currentUserId)
+      const posted = posts.filter(
+        (post) =>
+          post.user_id === currentUserId || post.userId === currentUserId
+      );
       // Filter fixed issues
-      const fixed = posts.filter((post) => post.fixed_by === currentUserId)
+      const fixed = posts.filter((post) => post.fixed_by === currentUserId);
 
       // Update state based on append flag
       if (append) {
-        setPostedIssues((prev: Post[]) => [...prev, ...posted])
-        setFixedIssues((prev: Post[]) => [...prev, ...fixed])
+        setPostedIssues((prev: Post[]) => [...prev, ...posted]);
+        setFixedIssues((prev: Post[]) => [...prev, ...fixed]);
       } else {
-        setPostedIssues(posted)
-        setFixedIssues(fixed)
+        setPostedIssues(posted);
+        setFixedIssues(fixed);
       }
 
       // Store in cache for later use
       if (!append) {
-        postsCache.current = posts
+        postsCache.current = posts;
       } else {
-        postsCache.current = [...postsCache.current, ...posts]
+        postsCache.current = [...postsCache.current, ...posts];
       }
 
-      return { posted, fixed }
+      return { posted, fixed };
     },
-    [user, activeUserId],
-  )
+    [user, activeUserId]
+  );
 
   // Add a function to fetch activities from the activities table
-  const fetchActivities = useCallback(async (page = 1) => {
-    if (!user || !supabase) return { activities: [], hasMore: false };
-    const pageSize = ACTIVITIES_PER_PAGE;
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    const { data, error, count } = await supabase
-      .from('activities')
-      .select('*', { count: 'exact' })
-      .eq('user_id', user.id)
-      .order('timestamp', { ascending: false })
-      .range(from, to);
-    if (error) {
-      console.error('Error fetching activities:', error);
-      return { activities: [], hasMore: false };
-    }
-    return {
-      activities: data || [],
-      hasMore: count ? to + 1 < count : false,
-    };
-  }, [user, supabase]);
+  const fetchActivities = useCallback(
+    async (page = 1) => {
+      if (!user || !supabase) return { activities: [], hasMore: false };
+      const pageSize = ACTIVITIES_PER_PAGE;
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      const { data, error, count } = await supabase
+        .from("activities")
+        .select("*", { count: "exact" })
+        .eq("user_id", user.id)
+        .order("timestamp", { ascending: false })
+        .range(from, to);
+      if (error) {
+        console.error("Error fetching activities:", error);
+        return { activities: [], hasMore: false };
+      }
+      return {
+        activities: data || [],
+        hasMore: count ? to + 1 < count : false,
+      };
+    },
+    [user, supabase]
+  );
 
   // Initial load and tab change for activity tab
   useEffect(() => {
-    if (activeTab === 'activity' && user) {
+    if (activeTab === "activity" && user) {
       if (activitiesCache.current) {
         setActivities(activitiesCache.current);
         setIsActivityLoading(false);
       } else {
         setIsActivityLoading(true);
-        fetchActivities(1).then(({ activities: acts, hasMore }: { activities: ActivityItem[]; hasMore: boolean }) => {
-          setActivities((prev: ActivityItem[]) => {
-            const all = [...prev, ...acts];
-            const seen = new Set();
-            return all.filter((a) => {
-              if (seen.has(a.id)) return false;
-              seen.add(a.id);
-              return true;
+        fetchActivities(1).then(
+          ({
+            activities: acts,
+            hasMore,
+          }: {
+            activities: ActivityItem[];
+            hasMore: boolean;
+          }) => {
+            setActivities((prev: ActivityItem[]) => {
+              const all = [...prev, ...acts];
+              const seen = new Set();
+              return all.filter((a) => {
+                if (seen.has(a.id)) return false;
+                seen.add(a.id);
+                return true;
+              });
             });
-          });
-          setHasMoreActivities(hasMore);
-          setActivitiesPage(1);
-          setIsActivityLoading(false);
-          activitiesCache.current = acts; // cache the result
-        });
+            setHasMoreActivities(hasMore);
+            setActivitiesPage(1);
+            setIsActivityLoading(false);
+            activitiesCache.current = acts; // cache the result
+          }
+        );
       }
     }
   }, [activeTab, user, fetchActivities]);
@@ -342,118 +376,86 @@ export default function ProfilePage() {
     if (isLoadingMore) return;
     setIsLoadingMore(true);
     const nextPage = activitiesPage + 1;
-    fetchActivities(nextPage).then(({ activities: acts, hasMore }: { activities: ActivityItem[]; hasMore: boolean }) => {
-      setActivities((prev: ActivityItem[]) => {
-        const all = [...prev, ...acts];
-        const seen = new Set();
-        return all.filter((a) => {
-          if (seen.has(a.id)) return false;
-          seen.add(a.id);
-          return true;
+    fetchActivities(nextPage).then(
+      ({
+        activities: acts,
+        hasMore,
+      }: {
+        activities: ActivityItem[];
+        hasMore: boolean;
+      }) => {
+        setActivities((prev: ActivityItem[]) => {
+          const all = [...prev, ...acts];
+          const seen = new Set();
+          return all.filter((a) => {
+            if (seen.has(a.id)) return false;
+            seen.add(a.id);
+            return true;
+          });
         });
-      });
-      setHasMoreActivities(hasMore);
-      setActivitiesPage(nextPage);
-      setIsLoadingMore(false);
-    });
+        setHasMoreActivities(hasMore);
+        setActivitiesPage(nextPage);
+        setIsLoadingMore(false);
+      }
+    );
   }, [isLoadingMore, activitiesPage, fetchActivities]);
 
   // Add Load More Posts Function
   const handleLoadMorePosts = useCallback(async () => {
-    if (isLoadingMorePosts) return
+    if (isLoadingMorePosts) return;
 
-    setIsLoadingMorePosts(true)
-    const nextPage = postsPage + 1
+    setIsLoadingMorePosts(true);
+    const nextPage = postsPage + 1;
 
     try {
-      const { posts, hasMore } = await fetchUserPosts(nextPage)
+      const { posts, hasMore } = await fetchUserPosts(nextPage);
 
       if (posts.length > 0) {
-        processPosts(posts, true) // true = append mode
-        setHasMorePosts(hasMore)
-        setPostsPage(nextPage)
+        processPosts(posts, true); // true = append mode
+        setHasMorePosts(hasMore);
+        setPostsPage(nextPage);
       }
     } catch (error) {
     } finally {
-      setIsLoadingMorePosts(false)
+      setIsLoadingMorePosts(false);
     }
-  }, [fetchUserPosts, postsPage, isLoadingMorePosts, processPosts])
+  }, [fetchUserPosts, postsPage, isLoadingMorePosts, processPosts]);
 
   // Initial data loading
   useEffect(() => {
-    if (loading || !user || initialDataLoaded.current) return
+    if (loading || !user || initialDataLoaded.current) return;
 
     const loadInitialData = async () => {
-      setIsLoading(true)
-      initialDataLoaded.current = true
-      setIsLoading(false)
+      setIsLoading(true);
+      initialDataLoaded.current = true;
+      setIsLoading(false);
 
       // Defer heavy data loading to not block navigation
       setTimeout(async () => {
         // Fetch Bitcoin price (only once)
-        fetchBitcoinPrice()
+        fetchBitcoinPrice();
 
         // Fetch user posts immediately regardless of active tab
-        const { posts, hasMore } = await fetchUserPosts(1)
+        const { posts, hasMore } = await fetchUserPosts(1);
 
         // Fetch recent donations
-        const { donations } = await fetchDonations()
+        const { donations } = await fetchDonations();
 
         if (posts.length > 0) {
           // Process posts into different categories
-          processPosts(posts)
-          setHasMorePosts(hasMore)
+          processPosts(posts);
+          setHasMorePosts(hasMore);
 
           // Generate initial activities if on activity tab
           if (activeTab === "activity") {
-            fetchActivities(1).then(({ activities: acts, hasMore }: { activities: ActivityItem[]; hasMore: boolean }) => {
-              setActivities((prev: ActivityItem[]) => {
-                const all = [...prev, ...acts];
-                const seen = new Set();
-                return all.filter((a) => {
-                  if (seen.has(a.id)) return false;
-                  seen.add(a.id);
-                  return true;
-                });
-              });
-              setHasMoreActivities(hasMore);
-              setActivitiesPage(1);
-              setIsActivityLoading(false);
-              activitiesCache.current = acts; // cache the result
-            });
-          }
-        }
-      }, 0)
-    }
-
-    loadInitialData()
-  }, [
-    user,
-    loading,
-    activeTab,
-    fetchBitcoinPrice,
-    fetchUserPosts,
-    processPosts,
-    fetchActivities,
-    activeUserId,
-    fetchDonations,
-  ])
-
-  useEffect(() => {
-    fetchConnectedAccounts()
-  }, [user?.id])
-
-  // Handle page visibility changes
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && activities.length === 0 && !isLoading && user && initialDataLoaded.current) {
-        // Tab became visible and we have no activities, reload them
-        const loadData = async () => {
-          const { posts } = await fetchUserPosts(1)
-          if (posts.length > 0) {
-            processPosts(posts)
-            if (activeTab === "activity") {
-              fetchActivities(1).then(({ activities: acts, hasMore }: { activities: ActivityItem[]; hasMore: boolean }) => {
+            fetchActivities(1).then(
+              ({
+                activities: acts,
+                hasMore,
+              }: {
+                activities: ActivityItem[];
+                hasMore: boolean;
+              }) => {
                 setActivities((prev: ActivityItem[]) => {
                   const all = [...prev, ...acts];
                   const seen = new Set();
@@ -466,17 +468,88 @@ export default function ProfilePage() {
                 setHasMoreActivities(hasMore);
                 setActivitiesPage(1);
                 setIsActivityLoading(false);
-              });
-            }
+                activitiesCache.current = acts; // cache the result
+              }
+            );
           }
         }
-        loadData()
-      }
-    }
+      }, 0);
+    };
 
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
-  }, [activities.length, isLoading, user, activeTab, fetchUserPosts, processPosts, fetchActivities])
+    loadInitialData();
+  }, [
+    user,
+    loading,
+    activeTab,
+    fetchBitcoinPrice,
+    fetchUserPosts,
+    processPosts,
+    fetchActivities,
+    activeUserId,
+    fetchDonations,
+  ]);
+
+  useEffect(() => {
+    fetchConnectedAccounts();
+  }, [user?.id]);
+
+  // Handle page visibility changes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (
+        !document.hidden &&
+        activities.length === 0 &&
+        !isLoading &&
+        user &&
+        initialDataLoaded.current
+      ) {
+        // Tab became visible and we have no activities, reload them
+        const loadData = async () => {
+          const { posts } = await fetchUserPosts(1);
+          if (posts.length > 0) {
+            processPosts(posts);
+            if (activeTab === "activity") {
+              fetchActivities(1).then(
+                ({
+                  activities: acts,
+                  hasMore,
+                }: {
+                  activities: ActivityItem[];
+                  hasMore: boolean;
+                }) => {
+                  setActivities((prev: ActivityItem[]) => {
+                    const all = [...prev, ...acts];
+                    const seen = new Set();
+                    return all.filter((a) => {
+                      if (seen.has(a.id)) return false;
+                      seen.add(a.id);
+                      return true;
+                    });
+                  });
+                  setHasMoreActivities(hasMore);
+                  setActivitiesPage(1);
+                  setIsActivityLoading(false);
+                }
+              );
+            }
+          }
+        };
+        loadData();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [
+    activities.length,
+    isLoading,
+    user,
+    activeTab,
+    fetchUserPosts,
+    processPosts,
+    fetchActivities,
+  ]);
 
   // Add a function to fetch all posts for the user (no limit)
   const fetchAllUserPosts = useCallback(async () => {
@@ -489,10 +562,18 @@ export default function ProfilePage() {
         .or(`user_id.eq.${currentUserId},fixed_by.eq.${currentUserId}`)
         .order("created_at", { ascending: false });
       if (error) {
-        console.error("Supabase error fetching all posts for activity feed:", error);
+        console.error(
+          "Supabase error fetching all posts for activity feed:",
+          error
+        );
         return [];
       }
-      const deduped = data ? data.filter((post: any, index: number, self: any[]) => index === self.findIndex((p: any) => p.id === post.id)) : [];
+      const deduped = data
+        ? data.filter(
+            (post: any, index: number, self: any[]) =>
+              index === self.findIndex((p: any) => p.id === post.id)
+          )
+        : [];
       console.log("Fetched all posts for activity feed:", deduped.length);
       return deduped;
     } catch (error) {
@@ -505,6 +586,24 @@ export default function ProfilePage() {
   const handleTabChange = useCallback(
     (value: string) => {
       setActiveTab(value);
+
+      // Handle posts tab loading
+      if (
+        value === "posts" &&
+        postedIssues.length === 0 &&
+        fixedIssues.length === 0 &&
+        !isLoading
+      ) {
+        setIsPostsLoading(true);
+        fetchUserPosts(1).then(({ posts, hasMore }) => {
+          if (posts.length > 0) {
+            processPosts(posts);
+            setHasMorePosts(hasMore);
+          }
+          setIsPostsLoading(false);
+        });
+      }
+
       if (value === "activity") {
         if (activitiesCache.current) {
           setActivities(activitiesCache.current);
@@ -513,84 +612,112 @@ export default function ProfilePage() {
           setIsActivityLoading(true);
           fetchAllUserPosts().then((allPosts: Post[]) => {
             postsCache.current = allPosts;
-            fetchActivities(1).then(({ activities: acts, hasMore }: { activities: ActivityItem[]; hasMore: boolean }) => {
-              setActivities((prev: ActivityItem[]) => {
-                const all = [...prev, ...acts];
-                const seen = new Set();
-                return all.filter((a) => {
-                  if (seen.has(a.id)) return false;
-                  seen.add(a.id);
-                  return true;
+            fetchActivities(1).then(
+              ({
+                activities: acts,
+                hasMore,
+              }: {
+                activities: ActivityItem[];
+                hasMore: boolean;
+              }) => {
+                setActivities((prev: ActivityItem[]) => {
+                  const all = [...prev, ...acts];
+                  const seen = new Set();
+                  return all.filter((a) => {
+                    if (seen.has(a.id)) return false;
+                    seen.add(a.id);
+                    return true;
+                  });
                 });
-              });
-              setHasMoreActivities(hasMore);
-              setActivitiesPage(1);
-              setIsActivityLoading(false);
-              activitiesCache.current = acts; // cache the result
-            });
+                setHasMoreActivities(hasMore);
+                setActivitiesPage(1);
+                setIsActivityLoading(false);
+                activitiesCache.current = acts; // cache the result
+              }
+            );
           });
         }
-      } else if (value === "activity" && activities.length === 0 && postsCache.current.length > 0) {
+      } else if (
+        value === "activity" &&
+        activities.length === 0 &&
+        postsCache.current.length > 0
+      ) {
         // Fallback for legacy logic
-        fetchActivities(1).then(({ activities: acts, hasMore }: { activities: ActivityItem[]; hasMore: boolean }) => {
-          setActivities((prev: ActivityItem[]) => {
-            const all = [...prev, ...acts];
-            const seen = new Set();
-            return all.filter((a) => {
-              if (seen.has(a.id)) return false;
-              seen.add(a.id);
-              return true;
+        fetchActivities(1).then(
+          ({
+            activities: acts,
+            hasMore,
+          }: {
+            activities: ActivityItem[];
+            hasMore: boolean;
+          }) => {
+            setActivities((prev: ActivityItem[]) => {
+              const all = [...prev, ...acts];
+              const seen = new Set();
+              return all.filter((a) => {
+                if (seen.has(a.id)) return false;
+                seen.add(a.id);
+                return true;
+              });
             });
-          });
-          setHasMoreActivities(hasMore);
-          setActivitiesPage(1);
-          setIsActivityLoading(false);
-        });
+            setHasMoreActivities(hasMore);
+            setActivitiesPage(1);
+            setIsActivityLoading(false);
+          }
+        );
       }
     },
-    [fetchActivities, fetchAllUserPosts],
+    [
+      fetchActivities,
+      fetchAllUserPosts,
+      fetchUserPosts,
+      processPosts,
+      postedIssues.length,
+      fixedIssues.length,
+      isLoading,
+    ]
   );
 
   // Handle sort selection
-  const handleSortChange = (sortOption: 'Recent' | 'Nearby' | 'Reward') => {
-    setCurrentSort(sortOption)
+  const handleSortChange = (sortOption: "Recent" | "Nearby" | "Reward") => {
+    setCurrentSort(sortOption);
     // Here you would implement the actual sorting logic
     // For now, just show a toast to confirm the selection
     toast({
       title: "Feed sort updated",
       description: `Feed is now sorted by ${sortOption}`,
-    })
-  }
+    });
+  };
 
   // Handle filter navigation
   const handleFilterNavigation = () => {
-    router.push('/search')
-  }
+    router.push("/search");
+  };
 
   // Handle connect pet navigation
   const handleConnectPet = () => {
-    router.push('/connect-pet')
-  }
+    router.push("/connect-pet");
+  };
 
   // Handle account management
   const handleAccountAction = (account: any) => {
-    setAccountToManage(account)
+    setAccountToManage(account);
 
     // Check if it's a child account (email ends with @ganamos.app)
-    const isChildAccount = account.email?.endsWith("@ganamos.app")
+    const isChildAccount = account.email?.endsWith("@ganamos.app");
 
     if (isChildAccount) {
-      setShowDeleteDialog(true)
+      setShowDeleteDialog(true);
     } else {
-      setShowDisconnectDialog(true)
+      setShowDisconnectDialog(true);
     }
-  }
+  };
 
   // Handle disconnect account
   const handleDisconnectAccount = async () => {
-    if (!accountToManage || !user) return
+    if (!accountToManage || !user) return;
 
-    setIsProcessing(true)
+    setIsProcessing(true);
 
     try {
       const response = await fetch("/api/disconnect-account", {
@@ -601,46 +728,47 @@ export default function ProfilePage() {
         body: JSON.stringify({
           connectedAccountId: accountToManage.id,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to disconnect account")
+        throw new Error(data.message || "Failed to disconnect account");
       }
 
       // If currently viewing the disconnected account, switch back to main
       if (isConnectedAccount && profile?.id === accountToManage.id) {
-        resetToMainAccount()
+        resetToMainAccount();
       }
 
       // Refresh the connected accounts list
-      fetchConnectedAccounts()
+      fetchConnectedAccounts();
 
       toast({
         title: "Account disconnected",
         description: `${accountToManage.name} has been disconnected from your account.`,
         duration: 2000,
-      })
+      });
 
-      setShowDisconnectDialog(false)
+      setShowDisconnectDialog(false);
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to disconnect account. Please try again.",
+        description:
+          error.message || "Failed to disconnect account. Please try again.",
         variant: "destructive",
         duration: 2000,
-      })
+      });
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
 
   // Handle delete child account
   const handleDeleteChildAccount = async () => {
-    if (!accountToManage || !user) return
+    if (!accountToManage || !user) return;
 
-    setIsProcessing(true)
+    setIsProcessing(true);
 
     try {
       const response = await fetch("/api/delete-child-account", {
@@ -651,47 +779,48 @@ export default function ProfilePage() {
         body: JSON.stringify({
           childAccountId: accountToManage.id,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to delete child account")
+        throw new Error(data.message || "Failed to delete child account");
       }
 
       // If currently viewing the deleted account, switch back to main
       if (isConnectedAccount && profile?.id === accountToManage.id) {
-        resetToMainAccount()
+        resetToMainAccount();
       }
 
       // Refresh the connected accounts list
-      fetchConnectedAccounts()
+      fetchConnectedAccounts();
 
       toast({
         title: "Account deleted",
         description: `${accountToManage.name}'s account has been permanently deleted.`,
         duration: 2000,
-      })
+      });
 
-      setShowDeleteDialog(false)
+      setShowDeleteDialog(false);
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to delete child account. Please try again.",
+        description:
+          error.message || "Failed to delete child account. Please try again.",
         variant: "destructive",
         duration: 2000,
-      })
+      });
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
 
   // Check if current profile is a child account
-  const isChildAccount = profile?.email?.endsWith("@ganamos.app") || false
+  const isChildAccount = profile?.email?.endsWith("@ganamos.app") || false;
 
   // Session guard with early return
   if (sessionLoaded && !session) {
-    return null // Will redirect in useEffect
+    return null; // Will redirect in useEffect
   }
 
   if (loading || !user || !profile) {
@@ -699,7 +828,7 @@ export default function ProfilePage() {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">Loading...</div>
       </div>
-    )
+    );
   }
 
   return (
@@ -715,7 +844,9 @@ export default function ProfilePage() {
                 onClick={() => setShowAvatarSelector(true)}
               >
                 <Image
-                  src={profile.avatar_url || "/placeholder.svg?height=64&width=64"}
+                  src={
+                    profile.avatar_url || "/placeholder.svg?height=64&width=64"
+                  }
                   alt={profile.name || "User"}
                   fill
                   className="object-cover"
@@ -744,7 +875,7 @@ export default function ProfilePage() {
                   <DropdownMenu
                     onOpenChange={(open) => {
                       if (!open) {
-                        setIsRemoveMode(false)
+                        setIsRemoveMode(false);
                       }
                     }}
                   >
@@ -755,7 +886,9 @@ export default function ProfilePage() {
                             ? profile.name
                                 .split(" ")
                                 .map((part, index, array) =>
-                                  index === array.length - 1 && array.length > 1 ? part.charAt(0) : part,
+                                  index === array.length - 1 && array.length > 1
+                                    ? part.charAt(0)
+                                    : part
                                 )
                                 .join(" ")
                             : profile.name}
@@ -778,129 +911,127 @@ export default function ProfilePage() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-64 p-2">
-                    {/* Primary Account */}
-                    <DropdownMenuItem
-                      onClick={() => (!isConnectedAccount ? null : resetToMainAccount())}
-                      className={`p-4 ${!isConnectedAccount ? "bg-muted" : "cursor-pointer"}`}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center">
-                          <div className="w-6 h-6 mr-2 overflow-hidden rounded-full">
-                            <Image
-                              src={user?.user_metadata?.avatar_url || "/placeholder.svg?height=24&width=24"}
-                              alt={user?.user_metadata?.full_name || "Main Account"}
-                              width={24}
-                              height={24}
-                              className="object-cover"
-                            />
-                          </div>
-                          <span>{user?.user_metadata?.full_name || "Main Account"} (You)</span>
-                        </div>
-                        {!isConnectedAccount && (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M20 6 9 17l-5-5" />
-                          </svg>
-                        )}
-                      </div>
-                    </DropdownMenuItem>
-
-                    {/* Connected Accounts */}
-                    {connectedAccounts.map((account) => (
+                      {/* Primary Account */}
                       <DropdownMenuItem
-                        key={account.id}
                         onClick={() =>
-                          isConnectedAccount && profile?.id === account.id ? null : switchToAccount(account.id)
+                          !isConnectedAccount ? null : resetToMainAccount()
                         }
-                        className={`p-4 ${isConnectedAccount && profile?.id === account.id ? "bg-muted" : "cursor-pointer"}`}
+                        className={`p-4 ${
+                          !isConnectedAccount ? "bg-muted" : "cursor-pointer"
+                        }`}
                       >
                         <div className="flex items-center justify-between w-full">
                           <div className="flex items-center">
                             <div className="w-6 h-6 mr-2 overflow-hidden rounded-full">
                               <Image
-                                src={account.avatar_url || "/placeholder.svg?height=24&width=24"}
-                                alt={account.name || "Account"}
+                                src={
+                                  user?.user_metadata?.avatar_url ||
+                                  "/placeholder.svg?height=24&width=24"
+                                }
+                                alt={
+                                  user?.user_metadata?.full_name ||
+                                  "Main Account"
+                                }
                                 width={24}
                                 height={24}
                                 className="object-cover"
                               />
                             </div>
-                            <span>{account.name}</span>
+                            <span>
+                              {user?.user_metadata?.full_name || "Main Account"}{" "}
+                              (You)
+                            </span>
                           </div>
-                          <div className="flex items-center">
-                            {isConnectedAccount && profile?.id === account.id && (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="mr-2"
-                              >
-                                <path d="M20 6 9 17l-5-5" />
-                              </svg>
-                            )}
-                            {isRemoveMode && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleAccountAction(account)
-                                }}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
+                          {!isConnectedAccount && (
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M20 6 9 17l-5-5" />
+                            </svg>
+                          )}
                         </div>
                       </DropdownMenuItem>
-                    ))}
 
-                    <DropdownMenuSeparator />
+                      {/* Connected Accounts */}
+                      {connectedAccounts.map((account) => (
+                        <DropdownMenuItem
+                          key={account.id}
+                          onClick={() =>
+                            isConnectedAccount && profile?.id === account.id
+                              ? null
+                              : switchToAccount(account.id)
+                          }
+                          className={`p-4 ${
+                            isConnectedAccount && profile?.id === account.id
+                              ? "bg-muted"
+                              : "cursor-pointer"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center">
+                              <div className="w-6 h-6 mr-2 overflow-hidden rounded-full">
+                                <Image
+                                  src={
+                                    account.avatar_url ||
+                                    "/placeholder.svg?height=24&width=24"
+                                  }
+                                  alt={account.name || "Account"}
+                                  width={24}
+                                  height={24}
+                                  className="object-cover"
+                                />
+                              </div>
+                              <span>{account.name}</span>
+                            </div>
+                            <div className="flex items-center">
+                              {isConnectedAccount &&
+                                profile?.id === account.id && (
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="mr-2"
+                                  >
+                                    <path d="M20 6 9 17l-5-5" />
+                                  </svg>
+                                )}
+                              {isRemoveMode && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAccountAction(account);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
 
-                    <DropdownMenuItem onClick={() => setShowAddAccountDialog(true)} className="p-4">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="mr-2"
-                      >
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                        <circle cx="9" cy="7" r="4" />
-                        <line x1="19" y1="8" x2="19" y2="14" />
-                        <line x1="22" y1="11" x2="16" y2="11" />
-                      </svg>
-                      Add Account
-                    </DropdownMenuItem>
+                      <DropdownMenuSeparator />
 
-                    {connectedAccounts.length > 0 && (
                       <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault()
-                          setIsRemoveMode(!isRemoveMode)
-                        }}
-                        className="p-4 cursor-pointer"
+                        onClick={() => setShowAddAccountDialog(true)}
+                        className="p-4"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -912,18 +1043,50 @@ export default function ProfilePage() {
                           strokeWidth="2"
                           strokeLinecap="round"
                           strokeLinejoin="round"
-                          className="mr-2 text-muted-foreground"
+                          className="mr-2"
                         >
                           <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                           <circle cx="9" cy="7" r="4" />
+                          <line x1="19" y1="8" x2="19" y2="14" />
                           <line x1="22" y1="11" x2="16" y2="11" />
                         </svg>
-                        <span className={`text-muted-foreground ${isRemoveMode ? "font-bold" : ""}`}>
-                          Remove Account
-                        </span>
+                        Add Account
                       </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
+
+                      {connectedAccounts.length > 0 && (
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            setIsRemoveMode(!isRemoveMode);
+                          }}
+                          className="p-4 cursor-pointer"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-2 text-muted-foreground"
+                          >
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <line x1="22" y1="11" x2="16" y2="11" />
+                          </svg>
+                          <span
+                            className={`text-muted-foreground ${
+                              isRemoveMode ? "font-bold" : ""
+                            }`}
+                          >
+                            Remove Account
+                          </span>
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
                   </DropdownMenu>
                 ) : (
                   <h2 className="text-2xl font-bold">
@@ -931,7 +1094,9 @@ export default function ProfilePage() {
                       ? profile.name
                           .split(" ")
                           .map((part, index, array) =>
-                            index === array.length - 1 && array.length > 1 ? part.charAt(0) : part,
+                            index === array.length - 1 && array.length > 1
+                              ? part.charAt(0)
+                              : part
                           )
                           .join(" ")
                       : profile.name}
@@ -943,34 +1108,38 @@ export default function ProfilePage() {
               <DropdownMenu
                 onOpenChange={(open) => {
                   if (!open) {
-                    setIsRemoveMode(false)
+                    setIsRemoveMode(false);
                   }
                 }}
               >
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="default" className="h-11 w-11 rounded-md focus:outline-none focus:ring-0 focus:ring-offset-0">
+                  <Button
+                    variant="outline"
+                    size="default"
+                    className="h-11 w-11 rounded-md focus:outline-none focus:ring-0 focus:ring-offset-0"
+                  >
                     <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     >
-                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-                      <circle cx="12" cy="12" r="3"/>
-                     </svg>
+                      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
                     <span className="sr-only">Open menu</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-64 p-2">
                   <DropdownMenuItem
                     onSelect={(e) => {
-                      e.preventDefault()
-                      setTheme(theme === "dark" ? "light" : "dark")
+                      e.preventDefault();
+                      setTheme(theme === "dark" ? "light" : "dark");
                     }}
                     className="p-4 cursor-pointer"
                   >
@@ -1051,16 +1220,18 @@ export default function ProfilePage() {
                         <path d="M3 18L3.01 18" />
                       </svg>
                       <span>Sort Feed</span>
-                      <span className="ml-auto text-sm text-muted-foreground">{currentSort}</span>
+                      <span className="ml-auto text-sm text-muted-foreground">
+                        {currentSort}
+                      </span>
                     </DropdownMenuSubTrigger>
                     <DropdownMenuSubContent>
-                      <DropdownMenuItem 
-                        onClick={() => handleSortChange('Recent')}
-                        className={currentSort === 'Recent' ? 'bg-muted' : ''}
+                      <DropdownMenuItem
+                        onClick={() => handleSortChange("Recent")}
+                        className={currentSort === "Recent" ? "bg-muted" : ""}
                       >
                         <div className="flex items-center justify-between w-full">
                           <span>Recent</span>
-                          {currentSort === 'Recent' && (
+                          {currentSort === "Recent" && (
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="16"
@@ -1077,13 +1248,13 @@ export default function ProfilePage() {
                           )}
                         </div>
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => handleSortChange('Nearby')}
-                        className={currentSort === 'Nearby' ? 'bg-muted' : ''}
+                      <DropdownMenuItem
+                        onClick={() => handleSortChange("Nearby")}
+                        className={currentSort === "Nearby" ? "bg-muted" : ""}
                       >
                         <div className="flex items-center justify-between w-full">
                           <span>Nearby</span>
-                          {currentSort === 'Nearby' && (
+                          {currentSort === "Nearby" && (
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="16"
@@ -1100,13 +1271,13 @@ export default function ProfilePage() {
                           )}
                         </div>
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => handleSortChange('Reward')}
-                        className={currentSort === 'Reward' ? 'bg-muted' : ''}
+                      <DropdownMenuItem
+                        onClick={() => handleSortChange("Reward")}
+                        className={currentSort === "Reward" ? "bg-muted" : ""}
                       >
                         <div className="flex items-center justify-between w-full">
                           <span>Reward</span>
-                          {currentSort === 'Reward' && (
+                          {currentSort === "Reward" && (
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="16"
@@ -1144,28 +1315,37 @@ export default function ProfilePage() {
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>
 
-                  <DropdownMenuSeparator />
+                  {connectedAccounts.length === 0 && (
+                    <>
+                      <DropdownMenuSeparator />
 
-                  <DropdownMenuItem onClick={() => setShowAddAccountDialog(true)} className="p-4">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="mr-2"
-                    >
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <line x1="19" y1="8" x2="19" y2="14" />
-                      <line x1="22" y1="11" x2="16" y2="11" />
-                    </svg>
-                    Add Account
-                  </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setShowAddAccountDialog(true)}
+                        className="p-4"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="mr-2"
+                        >
+                          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                          <circle cx="9" cy="7" r="4" />
+                          <line x1="19" y1="8" x2="19" y2="14" />
+                          <line x1="22" y1="11" x2="16" y2="11" />
+                        </svg>
+                        Add Account
+                      </DropdownMenuItem>
+
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
 
                   <DropdownMenuSeparator />
 
@@ -1200,9 +1380,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <Separator className="my-4 dark:bg-gray-800" />
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 mt-4">
             <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
               <DialogTrigger asChild>
                 <Button
@@ -1223,11 +1401,17 @@ export default function ProfilePage() {
                       </div>
                       <p className="text-sm text-muted-foreground">Balance</p>
                     </div>
-                    <p className="text-xl font-bold">{formatSatsValue(profile.balance)}</p>
-                    <p className={`text-xs text-muted-foreground mt-0.5 transition-opacity duration-500 ${isPriceLoading ? 'opacity-0' : 'opacity-100'}`}
-                      style={{ minHeight: '1.25rem' }} // Reserve space to prevent layout shift
+                    <p className="text-xl font-bold">
+                      {formatSatsValue(profile.balance)}
+                    </p>
+                    <p
+                      className={`text-xs text-muted-foreground mt-0.5 transition-opacity duration-500 ${
+                        isPriceLoading ? "opacity-0" : "opacity-100"
+                      }`}
+                      style={{ minHeight: "1.25rem" }} // Reserve space to prevent layout shift
                     >
-                      {!isPriceLoading && `$${calculateUsdValue(profile.balance)} USD`}
+                      {!isPriceLoading &&
+                        `$${calculateUsdValue(profile.balance)} USD`}
                     </p>
                   </div>
                 </Button>
@@ -1235,32 +1419,43 @@ export default function ProfilePage() {
             </Dialog>
             <div className="p-3 text-center border rounded-lg dark:border-gray-800">
               <p className="text-sm text-muted-foreground">Issues Fixed</p>
-              <p className="text-xl font-bold">{profile.fixed_issues_count || 0}</p>
+              <p className="text-xl font-bold">
+                {profile.fixed_issues_count || 0}
+              </p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="activity" className="w-full" onValueChange={handleTabChange}>
+      <Tabs
+        defaultValue="activity"
+        className="w-full"
+        onValueChange={handleTabChange}
+      >
         <TabsList className="grid w-full grid-cols-3 mb-4 dark:bg-gray-800/50">
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="posts">Posts</TabsTrigger>
           <TabsTrigger value="groups" className="relative">
             Groups
-            {hasPendingRequests && <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>}
+            {hasPendingRequests && (
+              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+            )}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="posts" className="space-y-4">
-          {isLoading ? (
+          {isLoading || isPostsLoading ? (
             <div className="flex flex-col space-y-4">
-              {[1,2,3,4].map(i => (
-                <Card key={i} className="overflow-hidden border dark:border-gray-800 w-full">
+              {[1, 2, 3, 4].map((i) => (
+                <Card
+                  key={i}
+                  className="overflow-hidden border dark:border-gray-800 w-full"
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start">
                       <div className="p-2 bg-muted rounded-full dark:bg-gray-800">
                         <Skeleton className="w-6 h-6 rounded-full" />
-              </div>
+                      </div>
                       <div className="ml-3 flex-1">
                         <div className="flex items-start justify-between">
                           <div>
@@ -1280,7 +1475,11 @@ export default function ProfilePage() {
             <>
               <div className="space-y-4">
                 {[...postedIssues, ...fixedIssues]
-                  .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+                  .sort(
+                    (a, b) =>
+                      new Date(b.created_at || 0).getTime() -
+                      new Date(a.created_at || 0).getTime()
+                  )
                   .map((post) => (
                     <PostCard key={post.id} post={post} />
                   ))}
@@ -1328,7 +1527,10 @@ export default function ProfilePage() {
           ) : (
             <div className="p-8 text-center">
               <p className="text-muted-foreground">No posts yet</p>
-              <Button className="mt-4" onClick={() => router.push("/dashboard")}>
+              <Button
+                className="mt-4"
+                onClick={() => router.push("/dashboard")}
+              >
                 Start exploring issues
               </Button>
             </div>
@@ -1338,13 +1540,16 @@ export default function ProfilePage() {
         <TabsContent value="activity" className="space-y-4">
           {isLoading || isActivityLoading ? (
             <div className="flex flex-col space-y-4">
-              {[1,2,3,4].map(i => (
-                <Card key={i} className="overflow-hidden border dark:border-gray-800 w-full">
+              {[1, 2, 3, 4].map((i) => (
+                <Card
+                  key={i}
+                  className="overflow-hidden border dark:border-gray-800 w-full"
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start">
                       <div className="p-2 bg-muted rounded-full dark:bg-gray-800">
                         <Skeleton className="w-6 h-6 rounded-full" />
-              </div>
+                      </div>
                       <div className="ml-3 flex-1">
                         <div className="flex items-start justify-between">
                           <div>
@@ -1370,7 +1575,12 @@ export default function ProfilePage() {
 
               {hasMoreActivities && (
                 <div className="mt-6 text-center">
-                  <Button variant="outline" onClick={handleLoadMoreActivities} disabled={isLoadingMore} className="w-full">
+                  <Button
+                    variant="outline"
+                    onClick={handleLoadMoreActivities}
+                    disabled={isLoadingMore}
+                    className="w-full"
+                  >
                     {isLoadingMore ? (
                       <div className="flex items-center justify-center">
                         <svg
@@ -1405,7 +1615,10 @@ export default function ProfilePage() {
           ) : (
             <div className="p-8 text-center">
               <p className="text-muted-foreground">No activity yet</p>
-              <Button className="mt-4" onClick={() => router.push("/dashboard")}>
+              <Button
+                className="mt-4"
+                onClick={() => router.push("/dashboard")}
+              >
                 Start exploring issues
               </Button>
             </div>
@@ -1413,8 +1626,14 @@ export default function ProfilePage() {
         </TabsContent>
 
         <TabsContent value="groups" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <Button size="sm" variant="outline" onClick={() => router.push("/groups/search")}>
+          <GroupsList userId={activeUserId || user.id} />
+
+          <div className="space-y-2 pt-4">
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => setShowCreateGroupDialog(true)}
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="16"
@@ -1425,58 +1644,88 @@ export default function ProfilePage() {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="mr-1"
+                className="mr-2"
+              >
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
+              </svg>
+              Create new Group
+            </Button>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => router.push("/groups/search")}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mr-2"
               >
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.3-4.3" />
               </svg>
               Find Group
             </Button>
-            <Button size="sm" variant="outline">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mr-1"
-              >
-                <path d="M12 5v14" />
-                <path d="M5 12h14" />
-              </svg>
-              New Group
-            </Button>
           </div>
-          <GroupsList userId={activeUserId || user.id} />
         </TabsContent>
       </Tabs>
 
-      <AvatarSelector isOpen={showAvatarSelector} onOpenChange={setShowAvatarSelector} />
+      <AvatarSelector
+        isOpen={showAvatarSelector}
+        onOpenChange={setShowAvatarSelector}
+      />
       <AddConnectedAccountDialog
         open={showAddAccountDialog}
         onOpenChange={setShowAddAccountDialog}
         onAccountAdded={fetchConnectedAccounts}
+      />
+      <CreateGroupDialog
+        open={showCreateGroupDialog}
+        onOpenChange={setShowCreateGroupDialog}
+        userId={activeUserId || user.id}
+        onSuccess={(newGroup) => {
+          setShowCreateGroupDialog(false);
+          toast({
+            title: "Group Created",
+            description: "Your new group has been created successfully.",
+          });
+          // Optionally refresh or navigate to the new group
+          router.push(`/groups/${newGroup.id}`);
+        }}
       />
 
       {/* Delete Child Account Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-destructive">Delete Child Account</DialogTitle>
+            <DialogTitle className="text-destructive">
+              Delete Child Account
+            </DialogTitle>
             <DialogDescription>
-              This will permanently delete {accountToManage?.name}'s account and all their data. This action cannot be
-              undone.
+              This will permanently delete {accountToManage?.name}'s account and
+              all their data. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={isProcessing}>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={isProcessing}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteChildAccount} disabled={isProcessing}>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteChildAccount}
+              disabled={isProcessing}
+            >
               {isProcessing ? (
                 <div className="flex items-center">
                   <svg
@@ -1510,17 +1759,24 @@ export default function ProfilePage() {
       </Dialog>
 
       {/* Disconnect Account Dialog */}
-      <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
+      <Dialog
+        open={showDisconnectDialog}
+        onOpenChange={setShowDisconnectDialog}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Disconnect Account</DialogTitle>
             <DialogDescription>
-              This will remove {accountToManage?.name} from your connected accounts. They will still have their own
-              account.
+              This will remove {accountToManage?.name} from your connected
+              accounts. They will still have their own account.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setShowDisconnectDialog(false)} disabled={isProcessing}>
+            <Button
+              variant="outline"
+              onClick={() => setShowDisconnectDialog(false)}
+              disabled={isProcessing}
+            >
               Cancel
             </Button>
             <Button onClick={handleDisconnectAccount} disabled={isProcessing}>
@@ -1556,42 +1812,52 @@ export default function ProfilePage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
 
 function ActivityCard({ activity }: { activity: ActivityItem }) {
-  const router = useRouter()
+  const router = useRouter();
 
   const handleClick = () => {
     // Only link if we have a related_id and a known type
-    if (["post", "fix", "reward"].includes(activity.type) && activity.related_id) {
-      router.push(`/post/${activity.related_id}`)
-      return
+    if (
+      ["post", "fix", "reward"].includes(activity.type) &&
+      activity.related_id
+    ) {
+      router.push(`/post/${activity.related_id}`);
+      return;
     }
     // Optionally, donations could link to a donation details page if you have one
     // For now, do nothing for donations
-  }
+  };
 
   // Format the date safely
   const formatDate = () => {
     try {
-      if (!activity.timestamp) return "Recently"
-      const dateObj = typeof activity.timestamp === "string" ? new Date(activity.timestamp) : activity.timestamp
-      if (isNaN(dateObj.getTime())) return "Recently"
-      return formatTimeAgo(dateObj)
+      if (!activity.timestamp) return "Recently";
+      const dateObj =
+        typeof activity.timestamp === "string"
+          ? new Date(activity.timestamp)
+          : activity.timestamp;
+      if (isNaN(dateObj.getTime())) return "Recently";
+      return formatTimeAgo(dateObj);
     } catch (error) {
-      return "Recently"
+      return "Recently";
     }
-  }
+  };
 
   // Extract metadata fields
-  const description = activity.message || activity.postTitle || ""
-  const sats = activity.amount
-  const location = activity.locationName
+  const description = activity.message || activity.postTitle || "";
+  const sats = activity.amount;
+  const location = activity.locationName;
 
   return (
     <Card
-      className={`hover:bg-muted/50 border dark:border-gray-800 ${["post", "fix", "reward"].includes(activity.type) && activity.related_id ? "cursor-pointer hover:ring-2 hover:ring-blue-400" : ""}`}
+      className={`hover:bg-muted/50 border dark:border-gray-800 ${
+        ["post", "fix", "reward"].includes(activity.type) && activity.related_id
+          ? "cursor-pointer hover:ring-2 hover:ring-blue-400"
+          : ""
+      }`}
       onClick={handleClick}
     >
       <CardContent className="p-4">
@@ -1610,7 +1876,13 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
                         className="mr-1.5 flex items-center gap-1 bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-800/30"
                       >
                         <div className="w-3 h-3 relative">
-                          <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={12} height={12} className="object-contain" />
+                          <Image
+                            src="/images/bitcoin-logo.png"
+                            alt="Bitcoin"
+                            width={12}
+                            height={12}
+                            className="object-contain"
+                          />
                         </div>
                         {formatSatsValue(sats)}
                       </Badge>
@@ -1621,53 +1893,93 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
                 {activity.type === "donation" && (
                   <div className="flex items-center mt-1 text-sm text-muted-foreground">
                     {sats && (
-              <Badge
-                variant="outline"
+                      <Badge
+                        variant="outline"
                         className="mr-1.5 flex items-center gap-1 bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-800/30"
-              >
-                <div className="w-3 h-3 relative">
-                          <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={12} height={12} className="object-contain" />
-                </div>
+                      >
+                        <div className="w-3 h-3 relative">
+                          <Image
+                            src="/images/bitcoin-logo.png"
+                            alt="Bitcoin"
+                            width={12}
+                            height={12}
+                            className="object-contain"
+                          />
+                        </div>
                         {formatSatsValue(sats)}
-              </Badge>
-            )}
+                      </Badge>
+                    )}
                     <span className="mr-1.5">to</span>
                     <MapPin className="w-3 h-3 mr-1" />
                     <span>{location}</span>
-              </div>
-            )}
+                  </div>
+                )}
+                {activity.type === "withdrawal" && (
+                  <div className="flex items-center mt-1 text-sm text-muted-foreground">
+                    {sats && (
+                      <Badge
+                        variant="outline"
+                        className="mr-1.5 flex items-center gap-1 bg-red-50 text-red-800 border-red-200 dark:bg-red-950/50 dark:text-red-200 dark:border-red-800/30"
+                      >
+                        <div className="w-3 h-3 relative">
+                          <Image
+                            src="/images/bitcoin-logo.png"
+                            alt="Bitcoin"
+                            width={12}
+                            height={12}
+                            className="object-contain"
+                          />
+                        </div>
+                        {formatSatsValue(sats)}
+                      </Badge>
+                    )}
+                  </div>
+                )}
                 {/* For post/fix, show description */}
-                {(activity.type === "post" || activity.type === "fix") && description && (
-                  <p className="text-sm text-muted-foreground">{description}</p>
-            )}
+                {(activity.type === "post" || activity.type === "fix") &&
+                  description && (
+                    <p className="text-sm text-muted-foreground">
+                      {description}
+                    </p>
+                  )}
               </div>
-              <div className="text-xs text-muted-foreground">{formatDate()}</div>
+              <div className="text-xs text-muted-foreground">
+                {formatDate()}
+              </div>
             </div>
           </div>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function ActivityTitle({ activity }: { activity: ActivityItem }) {
   switch (activity.type) {
     case "post":
-      return <p className="font-medium">You posted a new issue</p>
+      return <p className="font-medium">You posted a new issue</p>;
     case "fix":
-      return <p className="font-medium">You fixed an issue</p>
+      return <p className="font-medium">You fixed an issue</p>;
     case "reward":
-      return <p className="font-medium">You received a reward</p>
+      return <p className="font-medium">You received a reward</p>;
     case "fix_submitted":
-      return <p className="font-medium">You submitted a fix for review</p>
+      return <p className="font-medium">You submitted a fix for review</p>;
     case "fix_review_needed":
-      return <p className="font-medium">{activity.submitterName || "Someone"} submitted a fix</p>
+      return (
+        <p className="font-medium">
+          {activity.submitterName || "Someone"} submitted a fix
+        </p>
+      );
     case "donation": {
-      const donorFirstName = activity.donorName ? activity.donorName.split(" ")[0] : "Someone"
-      return <p className="font-medium">{donorFirstName} donated Bitcoin</p>
+      const donorFirstName = activity.donorName
+        ? activity.donorName.split(" ")[0]
+        : "Someone";
+      return <p className="font-medium">{donorFirstName} donated Bitcoin</p>;
     }
+    case "withdrawal":
+      return <p className="font-medium">You withdrew Bitcoin</p>;
     default:
-      return null
+      return null;
   }
 }
 
@@ -1692,7 +2004,7 @@ function ActivityIcon({ type }: { type: string }) {
             <circle cx="12" cy="13" r="3" />
           </svg>
         </div>
-      )
+      );
     case "fix":
       return (
         <div className="p-2 bg-emerald-100 rounded-full dark:bg-emerald-950/50">
@@ -1711,15 +2023,21 @@ function ActivityIcon({ type }: { type: string }) {
             <path d="M20 6 9 17l-5-5" />
           </svg>
         </div>
-      )
+      );
     case "reward":
       return (
         <div className="p-2 bg-amber-100 rounded-full dark:bg-amber-950/50">
           <div className="w-4 h-4 relative">
-            <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="object-contain" />
+            <Image
+              src="/images/bitcoin-logo.png"
+              alt="Bitcoin"
+              width={16}
+              height={16}
+              className="object-contain"
+            />
           </div>
         </div>
-      )
+      );
     case "fix_submitted":
       return (
         <div className="p-2 bg-purple-100 rounded-full dark:bg-purple-950/50">
@@ -1740,7 +2058,7 @@ function ActivityIcon({ type }: { type: string }) {
             <line x1="12" y1="6" x2="12" y2="18" />
           </svg>
         </div>
-      )
+      );
     case "fix_review_needed":
       return (
         <div className="p-2 bg-orange-100 rounded-full dark:bg-orange-950/50">
@@ -1760,15 +2078,42 @@ function ActivityIcon({ type }: { type: string }) {
             <circle cx="12" cy="13" r="3" />
           </svg>
         </div>
-      )
+      );
     case "donation":
       return (
         <div className="p-2 bg-orange-100 rounded-full dark:bg-orange-950/50">
           <div className="w-4 h-4 relative">
-            <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="object-contain" />
+            <Image
+              src="/images/bitcoin-logo.png"
+              alt="Bitcoin"
+              width={16}
+              height={16}
+              className="object-contain"
+            />
           </div>
         </div>
-      )
+      );
+    case "withdrawal":
+      return (
+        <div className="p-2 bg-red-100 rounded-full dark:bg-red-950/50">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-red-600 dark:text-red-400"
+          >
+            <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+            <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+            <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+          </svg>
+        </div>
+      );
     default:
       return (
         <div className="p-2 bg-gray-100 rounded-full dark:bg-gray-800/50">
@@ -1787,6 +2132,6 @@ function ActivityIcon({ type }: { type: string }) {
             <circle cx="12" cy="12" r="10" />
           </svg>
         </div>
-      )
+      );
   }
 }

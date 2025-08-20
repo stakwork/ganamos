@@ -216,8 +216,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true;
     setLoading(true);
     setSessionLoaded(false);
+    
+    // Add timeout to prevent infinite loading
+    const sessionTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.log("Session check timeout, falling back to no session");
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        setSessionLoaded(true);
+        setProfile(null);
+      }
+    }, 2000); // 2 second timeout for session check
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!isMounted) return;
+      clearTimeout(sessionTimeout);
       setSession(session);
       setUser(session?.user || null);
       setLoading(false);
@@ -229,6 +243,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
       }
+    }).catch((error) => {
+      if (!isMounted) return;
+      console.error("Error getting session:", error);
+      clearTimeout(sessionTimeout);
+      setSession(null);
+      setUser(null);
+      setLoading(false);
+      setSessionLoaded(true);
+      setProfile(null);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
@@ -246,6 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     return () => {
       isMounted = false;
+      clearTimeout(sessionTimeout);
       subscription.unsubscribe();
     };
   }, [supabase, fetchProfile]);
