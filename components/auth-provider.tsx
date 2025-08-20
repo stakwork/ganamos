@@ -173,11 +173,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setActiveUserId(userId)
       setIsConnectedAccount(true)
       setProfile(profileData)
-
-      toast({
-        title: "Account Switched",
-        description: `Now using ${profileData.name}'s account`,
-      })
     } catch (error) {
       toast({
         title: "Error",
@@ -202,11 +197,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setActiveUserId(null)
       setIsConnectedAccount(false)
       setProfile(profileData)
-
-      toast({
-        title: "Account Reset",
-        description: "Returned to your main account",
-      })
     } catch (error) {
     }
   }
