@@ -51,7 +51,8 @@ type ActivityItem = {
     | "fix_submitted"
     | "fix_review_needed"
     | "donation"
-    | "withdrawal";
+    | "withdrawal"
+    | "deposit";
   postId?: string;
   postTitle?: string;
   timestamp: Date;
@@ -1935,6 +1936,27 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
                     )}
                   </div>
                 )}
+                {activity.type === "deposit" && (
+                  <div className="flex items-center mt-1 text-sm text-muted-foreground">
+                    {sats && (
+                      <Badge
+                        variant="outline"
+                        className="mr-1.5 flex items-center gap-1 bg-green-50 text-green-800 border-green-200 dark:bg-green-950/50 dark:text-green-200 dark:border-green-800/30"
+                      >
+                        <div className="w-3 h-3 relative">
+                          <Image
+                            src="/images/bitcoin-logo.png"
+                            alt="Bitcoin"
+                            width={12}
+                            height={12}
+                            className="object-contain"
+                          />
+                        </div>
+                        {formatSatsValue(sats)}
+                      </Badge>
+                    )}
+                  </div>
+                )}
                 {/* For post/fix, show description */}
                 {(activity.type === "post" || activity.type === "fix") &&
                   description && (
@@ -1978,6 +2000,8 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
     }
     case "withdrawal":
       return <p className="font-medium">You withdrew Bitcoin</p>;
+    case "deposit":
+      return <p className="font-medium">You deposited Bitcoin</p>;
     default:
       return null;
   }
@@ -2107,6 +2131,27 @@ function ActivityIcon({ type }: { type: string }) {
             strokeLinecap="round"
             strokeLinejoin="round"
             className="text-red-600 dark:text-red-400"
+          >
+            <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+            <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+            <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+          </svg>
+        </div>
+      );
+    case "deposit":
+      return (
+        <div className="p-2 bg-green-100 rounded-full dark:bg-green-950/50">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-green-600 dark:text-green-400"
           >
             <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
             <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
