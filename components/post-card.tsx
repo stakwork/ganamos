@@ -293,17 +293,17 @@ export function PostCard({ post }: { post: Post }) {
           )}
         </div>
 
-        <CardFooter className="p-4 pt-4 h-[104px]">
-          <div className="flex items-start justify-between w-full relative">
-            {/* Left side: Description, Location, Travel Times, Poster info */}
-            <div className="flex flex-col space-y-2 flex-1">
-              {/* Description */}
-              <div>
+        <CardFooter className="p-4 pt-4 h-[104px] relative">
+          <div className="flex items-start justify-between w-full h-full">
+            {/* Left side: Fixed positioned content to prevent shifting */}
+            <div className="flex-1 relative h-full">
+              {/* Description - fixed position */}
+              <div className="absolute top-0 left-0 right-0">
                 <p className="text-base truncate">{post.description}</p>
               </div>
 
-              {/* Location and Travel Times row */}
-              <div className="flex items-center space-x-2">
+              {/* Location and Travel Times row - fixed position */}
+              <div className="absolute top-7 left-0 right-0 flex items-center space-x-2">
                 {locationName && (
                   <div
                     className="flex items-center cursor-pointer hover:text-blue-600 transition-colors"
@@ -370,8 +370,8 @@ export function PostCard({ post }: { post: Post }) {
                 })()}
               </div>
 
-              {/* Poster info and timestamp row */}
-              <div className="flex items-center space-x-2">
+              {/* Poster info and timestamp row - fixed position */}
+              <div className="absolute bottom-0 left-0 right-0 flex items-center space-x-2">
                 <div className="flex items-center cursor-pointer hover:opacity-80" onClick={handleProfileClick}>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
