@@ -40,17 +40,32 @@ export interface DailySummaryData {
 }
 
 export async function getDailySummaryData(): Promise<DailySummaryData> {
+  console.log('[DATA DEBUG] Starting getDailySummaryData function')
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
   const yesterdayIso = yesterday.toISOString()
+  console.log('[DATA DEBUG] Yesterday ISO:', yesterdayIso)
 
   // Get node balance
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3457'
-  const nodeBalanceResponse = await fetch(`${appUrl}/api/admin/node-balance`)
+  console.log('[DATA DEBUG] App URL:', appUrl)
+  console.log('[DATA DEBUG] About to fetch node balance from:', `${appUrl}/api/admin/node-balance`)
   
-  const nodeBalanceData = nodeBalanceResponse.ok 
-    ? await nodeBalanceResponse.json()
-    : { balances: { channel_balance: 0, pending_balance: 0, onchain_balance: 0, total_balance: 0 } }
+  let nodeBalanceData
+  try {
+    const nodeBalanceResponse = await fetch(`${appUrl}/api/admin/node-balance`)
+    console.log('[DATA DEBUG] Node balance response status:', nodeBalanceResponse.status)
+    console.log('[DATA DEBUG] Node balance response ok:', nodeBalanceResponse.ok)
+    
+    nodeBalanceData = nodeBalanceResponse.ok 
+      ? await nodeBalanceResponse.json()
+      : { balances: { channel_balance: 0, pending_balance: 0, onchain_balance: 0, total_balance: 0 } }
+    
+    console.log('[DATA DEBUG] Node balance data:', JSON.stringify(nodeBalanceData, null, 2))
+  } catch (fetchError) {
+    console.error('[DATA DEBUG] Error fetching node balance:', fetchError)
+    nodeBalanceData = { balances: { channel_balance: 0, pending_balance: 0, onchain_balance: 0, total_balance: 0 } }
+  }
 
   // Get app total balance (sum of all user balances)
   const { data: profiles } = await supabase
@@ -167,29 +182,36 @@ export function generateEmailHTML(data: DailySummaryData): string {
 }
 
 export async function sendDailySummaryEmail(toEmail: string = 'brianmurray03@gmail.com') {
+  console.log('[DAILY SUMMARY DEBUG] Starting sendDailySummaryEmail function')
+  console.log('[DAILY SUMMARY DEBUG] toEmail:', toEmail)
+  
   try {
-    console.log('Generating daily summary data...')
+    console.log('[DAILY SUMMARY DEBUG] Generating daily summary data...')
     const data = await getDailySummaryData()
+    console.log('[DAILY SUMMARY DEBUG] Data generated successfully:', JSON.stringify(data, null, 2))
     
-    console.log('Generating email content...')
+    console.log('[DAILY SUMMARY DEBUG] Generating email content...')
     const emailHTML = generateEmailHTML(data)
+    console.log('[DAILY SUMMARY DEBUG] Email HTML generated, length:', emailHTML.length)
     
-    console.log('Sending email...')
+    console.log('[DAILY SUMMARY DEBUG] About to call sendEmail...')
     const result = await sendEmail(
       toEmail,
       `Ganamos Daily Summary - ${new Date().toLocaleDateString()}`,
       emailHTML
     )
+    console.log('[DAILY SUMMARY DEBUG] sendEmail result:', JSON.stringify(result, null, 2))
 
     if (result.success) {
-      console.log('Daily summary email sent successfully')
+      console.log('[DAILY SUMMARY DEBUG] Daily summary email sent successfully')
       return { success: true, messageId: result.messageId }
     } else {
-      console.error('Failed to send daily summary email:', result.error)
+      console.error('[DAILY SUMMARY DEBUG] Failed to send daily summary email:', result.error)
       return { success: false, error: result.error }
     }
   } catch (error) {
-    console.error('Error in sendDailySummaryEmail:', error)
+    console.error('[DAILY SUMMARY DEBUG] Exception in sendDailySummaryEmail:', error)
+    console.error('[DAILY SUMMARY DEBUG] Exception stack:', error instanceof Error ? error.stack : 'No stack')
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
