@@ -247,12 +247,20 @@ export default function NewPostPage() {
     async function fetchBitcoinPrice() {
       try {
         const response = await fetch("/api/bitcoin-price")
-        const data = await response.json()
-        if (data.price) {
-          setBitcoinPrice(data.price)
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.price && typeof data.price === 'number') {
+            setBitcoinPrice(data.price)
+          } else {
+            setBitcoinPrice(null)
+          }
+        } else {
+          setBitcoinPrice(null)
         }
       } catch (error) {
-        setBitcoinPrice(65000)
+        console.warn("Failed to fetch Bitcoin price:", error)
+        setBitcoinPrice(null)
       } finally {
         setIsPriceLoading(false)
       }
@@ -261,7 +269,7 @@ export default function NewPostPage() {
   }, [])
 
   const calculateUsdValue = (sats: number) => {
-    if (!bitcoinPrice) return "0.00"
+    if (!bitcoinPrice) return null
     const btcAmount = sats / 100000000
     const usdValue = btcAmount * bitcoinPrice
     return usdValue.toFixed(2)
@@ -896,7 +904,7 @@ export default function NewPostPage() {
                     <span>sats reward</span>
                   </div>
 
-                  {bitcoinPrice && (
+                  {bitcoinPrice && calculateUsdValue(reward) && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       ${calculateUsdValue(reward)} USD
                     </p>

@@ -77,14 +77,20 @@ export default function DonatePage() {
     async function fetchBitcoinPrice() {
       try {
         const response = await fetch("/api/bitcoin-price")
-        const data = await response.json()
-        if (data.price) {
-          setBitcoinPrice(data.price)
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.price && typeof data.price === 'number') {
+            setBitcoinPrice(data.price)
+          } else {
+            setBitcoinPrice(null)
+          }
+        } else {
+          setBitcoinPrice(null)
         }
       } catch (error) {
-        console.error("Failed to fetch bitcoin price", error)
-        // Use a fallback price
-        setBitcoinPrice(65000)
+        console.warn("Failed to fetch Bitcoin price:", error)
+        setBitcoinPrice(null)
       } finally {
         setIsPriceLoading(false)
       }
@@ -358,7 +364,7 @@ export default function DonatePage() {
   const canDonate = selectedAmount && selectedAmount > 0 && (selectedLocation || customLocation)
 
   const calculateUsdValue = (sats: number) => {
-    if (!bitcoinPrice) return "0.00"
+    if (!bitcoinPrice) return null
     const btcAmount = sats / 100000000
     const usdValue = btcAmount * bitcoinPrice
     return usdValue.toFixed(2)
@@ -444,8 +450,8 @@ export default function DonatePage() {
 
           {/* Reserve space for USD conversion to prevent layout shift */}
           <div className="h-4 flex items-center justify-center">
-            <p className={`text-xs text-gray-500 dark:text-gray-400 transition-opacity duration-300 ${bitcoinPrice ? 'opacity-100' : 'opacity-0'}`}>
-              ${calculateUsdValue(selectedAmount)} USD
+            <p className={`text-xs text-gray-500 dark:text-gray-400 transition-opacity duration-300 ${bitcoinPrice && calculateUsdValue(selectedAmount) ? 'opacity-100' : 'opacity-0'}`}>
+              {bitcoinPrice && calculateUsdValue(selectedAmount) && `$${calculateUsdValue(selectedAmount)} USD`}
             </p>
           </div>
 

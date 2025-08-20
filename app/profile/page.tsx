@@ -92,7 +92,7 @@ export default function ProfilePage() {
   const [fixedIssues, setFixedIssues] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isActivityLoading, setIsActivityLoading] = useState(false);
-  const [bitcoinPrice, setBitcoinPrice] = useState(64000);
+  const [bitcoinPrice, setBitcoinPrice] = useState<number | null>(null);
   const [isPriceLoading, setIsPriceLoading] = useState(true);
   const supabase = createBrowserSupabaseClient();
   const { toast } = useToast();
@@ -167,14 +167,23 @@ export default function ProfilePage() {
       setIsPriceLoading(true);
 
       const response = await fetch("/api/bitcoin-price");
-      const data = await response.json();
-
-      if (data.price) {
-        setBitcoinPrice(data.price);
-        bitcoinPriceFetched.current = true;
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.price && typeof data.price === 'number') {
+          setBitcoinPrice(data.price);
+          bitcoinPriceFetched.current = true;
+        } else {
+          console.warn("Bitcoin price API returned invalid price data");
+          setBitcoinPrice(null);
+        }
       } else {
+        console.warn("Bitcoin price API request failed");
+        setBitcoinPrice(null);
       }
     } catch (error) {
+      console.warn("Failed to fetch Bitcoin price:", error);
+      setBitcoinPrice(null);
     } finally {
       setIsPriceLoading(false);
     }
@@ -182,6 +191,7 @@ export default function ProfilePage() {
 
   // Calculate USD value from satoshis
   const calculateUsdValue = (sats: number) => {
+    if (!bitcoinPrice) return null;
     const btcAmount = sats / 100000000;
     const usdValue = btcAmount * bitcoinPrice;
     return usdValue.toFixed(2);
@@ -788,9 +798,12 @@ export default function ProfilePage() {
         throw new Error(data.message || "Failed to delete child account");
       }
 
-      // If currently viewing the deleted account, switch back to main
-      if (isConnectedAccount && profile?.id === accountToManage.id) {
-        resetToMainAccount();
+      // If currently viewing the deleted account, switch back to main account first
+      const wasCurrentlyViewingDeletedAccount = isConnectedAccount && profile?.id === accountToManage.id;
+      
+      if (wasCurrentlyViewingDeletedAccount) {
+        console.log("Switching back to main account after deleting currently active child account");
+        await resetToMainAccount();
       }
 
       // Refresh the connected accounts list
@@ -798,8 +811,10 @@ export default function ProfilePage() {
 
       toast({
         title: "Account deleted",
-        description: `${accountToManage.name}'s account has been permanently deleted.`,
-        duration: 2000,
+        description: `${accountToManage.name}'s account has been permanently deleted.${
+          wasCurrentlyViewingDeletedAccount ? " Switched back to main account." : ""
+        }`,
+        duration: 3000,
       });
 
       setShowDeleteDialog(false);
@@ -1407,11 +1422,11 @@ export default function ProfilePage() {
                     </p>
                     <p
                       className={`text-xs text-muted-foreground mt-0.5 transition-opacity duration-500 ${
-                        isPriceLoading ? "opacity-0" : "opacity-100"
+                        isPriceLoading || !bitcoinPrice ? "opacity-0" : "opacity-100"
                       }`}
                       style={{ minHeight: "1.25rem" }} // Reserve space to prevent layout shift
                     >
-                      {!isPriceLoading &&
+                      {!isPriceLoading && bitcoinPrice && calculateUsdValue(profile.balance) &&
                         `$${calculateUsdValue(profile.balance)} USD`}
                     </p>
                   </div>

@@ -30,7 +30,7 @@ export async function GET() {
     return NextResponse.json({ price: btcPrice })
   } catch (error) {
     console.error("Error fetching Bitcoin price:", error)
-    // Return a fallback price if the API call fails
-    return NextResponse.json({ price: 64000, error: "Failed to fetch current price" }, { status: 200 })
+    // Return an error response instead of a fallback price
+    return NextResponse.json({ error: "Failed to fetch current price" }, { status: 500 })
   }
 }
