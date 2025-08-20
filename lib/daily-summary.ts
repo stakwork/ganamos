@@ -47,8 +47,12 @@ export async function getDailySummaryData(): Promise<DailySummaryData> {
   console.log('[DATA DEBUG] Yesterday ISO:', yesterdayIso)
 
   // Get node balance
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3457'
+  // In production, use the production domain; in development, use localhost
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                 (process.env.NODE_ENV === 'production' ? 'https://www.ganamos.earth' : 'http://localhost:3457')
   console.log('[DATA DEBUG] App URL:', appUrl)
+  console.log('[DATA DEBUG] NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL)
+  console.log('[DATA DEBUG] VERCEL_URL:', process.env.VERCEL_URL)
   console.log('[DATA DEBUG] About to fetch node balance from:', `${appUrl}/api/admin/node-balance`)
   
   let nodeBalanceData
