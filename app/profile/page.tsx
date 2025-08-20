@@ -941,11 +941,11 @@ export default function ProfilePage() {
                             <div className="w-6 h-6 mr-2 overflow-hidden rounded-full">
                               <Image
                                 src={
-                                  user?.user_metadata?.avatar_url ||
+                                  profile?.avatar_url ||
                                   "/placeholder.svg?height=24&width=24"
                                 }
                                 alt={
-                                  user?.user_metadata?.full_name ||
+                                  profile?.name ||
                                   "Main Account"
                                 }
                                 width={24}
@@ -954,7 +954,7 @@ export default function ProfilePage() {
                               />
                             </div>
                             <span>
-                              {user?.user_metadata?.full_name || "Main Account"}{" "}
+                              {profile?.name || "Main Account"}{" "}
                               (You)
                             </span>
                           </div>
