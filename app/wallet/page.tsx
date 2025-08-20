@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
@@ -132,6 +132,47 @@ export default function WalletPage() {
   const { user, profile, loading } = useAuth()
   const [balance, setBalance] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [bitcoinPrice, setBitcoinPrice] = useState<number | null>(null)
+  const [isPriceLoading, setIsPriceLoading] = useState(false)
+  const bitcoinPriceFetched = useRef(false)
+
+  // Fetch the current Bitcoin price
+  const fetchBitcoinPrice = useCallback(async () => {
+    if (bitcoinPriceFetched.current) return;
+
+    try {
+      setIsPriceLoading(true);
+
+      const response = await fetch("/api/bitcoin-price");
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.price && typeof data.price === 'number') {
+          setBitcoinPrice(data.price);
+          bitcoinPriceFetched.current = true;
+        } else {
+          console.warn("Bitcoin price API returned invalid price data");
+          setBitcoinPrice(null);
+        }
+      } else {
+        console.warn("Bitcoin price API request failed");
+        setBitcoinPrice(null);
+      }
+    } catch (error) {
+      console.warn("Failed to fetch Bitcoin price:", error);
+      setBitcoinPrice(null);
+    } finally {
+      setIsPriceLoading(false);
+    }
+  }, []);
+
+  // Calculate USD value from satoshis
+  const calculateUsdValue = (sats: number) => {
+    if (!bitcoinPrice) return null;
+    const btcAmount = sats / 100000000;
+    const usdValue = btcAmount * bitcoinPrice;
+    return usdValue.toFixed(2);
+  };
 
   useEffect(() => {
     // Check if user is authenticated
@@ -143,10 +184,12 @@ export default function WalletPage() {
     if (profile) {
       setBalance(profile.balance)
       setIsLoading(false)
+      // Fetch Bitcoin price when profile is loaded
+      fetchBitcoinPrice()
     } else if (!loading) {
       setIsLoading(false)
     }
-  }, [profile, loading, user, router])
+  }, [profile, loading, user, router, fetchBitcoinPrice])
 
   if (isLoading) {
     return <LoadingSpinner message="Loading wallet..." />
@@ -183,6 +226,11 @@ export default function WalletPage() {
             </div>
             <p className="text-sm text-muted-foreground mb-1">Current Balance</p>
             <p className="text-3xl font-bold">{formatSatsValue(balance || 0)}</p>
+            {!isPriceLoading && bitcoinPrice && calculateUsdValue(balance || 0) && (
+              <p className="text-sm text-muted-foreground mt-1">
+                ${calculateUsdValue(balance || 0)} USD
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -208,25 +256,13 @@ export default function WalletPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>About Bitcoin Lightning</CardTitle>
-          <CardDescription>Fast, low-cost Bitcoin transactions</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            The Lightning Network is a "Layer 2" payment protocol that operates on top of Bitcoin. It enables instant
-            transactions with nearly zero fees.
-          </p>
+        <CardContent className="p-6">
+          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+            <HistoryIcon className="h-4 w-4" />
+            Transaction History
+          </h3>
+          <TransactionHistory />
         </CardContent>
-        <CardFooter className="flex flex-col items-start p-0">
-          <div className="w-full p-6 border-t border-gray-200 dark:border-gray-800">
-            <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-              <HistoryIcon className="h-4 w-4" />
-              Transaction History
-            </h3>
-            <TransactionHistory />
-          </div>
-        </CardFooter>
       </Card>
     </div>
   )

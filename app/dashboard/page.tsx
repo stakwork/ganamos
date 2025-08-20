@@ -428,32 +428,61 @@ export default function DashboardPage() {
                 </button>
               )}
             </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                onClick={handleSatsClick}
-                className="flex items-center h-9 px-3 text-sm font-medium bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
-              >
-                <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={16} height={16} className="mr-1" />
-                {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
-              </Button>
-              {/* Connected Accounts Dropdown - only show if user has connected accounts */}
-              {connectedAccounts.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-9 w-9 rounded-full p-0" aria-label="Switch connected account">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage
-                          src={profile?.avatar_url ?? undefined}
-                          alt={profile?.name ?? "Connected Account"}
-                        />
-                        <AvatarFallback>
-                          <User className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
+            {/* Combined Account Button */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  className="flex items-center gap-2 h-10 px-3 bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900 transition-all focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 data-[state=open]:outline-none data-[state=open]:ring-0"
+                  aria-label="Account menu"
+                >
+                  <Avatar className="h-7 w-7">
+                    <AvatarImage
+                      src={profile?.avatar_url ?? undefined}
+                      alt={profile?.name ?? "User"}
+                    />
+                    <AvatarFallback>
+                      <User className="h-3.5 w-3.5" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex items-center gap-1.5">
+                    <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={14} height={14} />
+                    <span className="text-sm font-medium">
+                      {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
+                    </span>
+                  </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72 p-2">
+                {/* Current Balance Header */}
+                <div className="px-3 py-3 border-b border-gray-200 dark:border-gray-700 mb-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Current Balance</p>
+                      <p className="text-lg font-semibold">
+                        {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSatsClick}
+                      className="text-xs"
+                    >
+                      View Wallet
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-64 p-2">
+                  </div>
+                </div>
+
+                {/* Account Switcher Section */}
+                {connectedAccounts.length > 0 && (
+                  <>
+                    <div className="px-3 py-1 mb-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Switch Account
+                      </p>
+                    </div>
+
                     {/* Main Account */}
                     <DropdownMenuItem
                       onClick={resetToMainAccount}
@@ -461,7 +490,7 @@ export default function DashboardPage() {
                     >
                       <Avatar className="h-8 w-8">
                         <AvatarImage 
-                          src={user?.user_metadata?.avatar_url ?? "/placeholder.svg"} 
+                          src={!isConnectedAccount ? profile?.avatar_url : user?.user_metadata?.avatar_url ?? undefined} 
                           alt={user?.user_metadata?.full_name ?? "User"} 
                         />
                         <AvatarFallback>
@@ -489,10 +518,34 @@ export default function DashboardPage() {
                         {activeUserId === account.id && <span className="text-blue-600">✓</span>}
                       </DropdownMenuItem>
                     ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
+                  </>
+                )}
+
+                {/* If no connected accounts, still show main account info */}
+                {connectedAccounts.length === 0 && (
+                  <>
+                    <div className="px-3 py-1 mb-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Account
+                      </p>
+                    </div>
+                    <DropdownMenuItem className="flex items-center gap-3 py-3 px-3 text-base bg-blue-50 dark:bg-blue-950">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage 
+                          src={profile?.avatar_url ?? undefined} 
+                          alt={user?.user_metadata?.full_name ?? "User"} 
+                        />
+                        <AvatarFallback>
+                          <User className="h-4 w-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="flex-1 font-medium">{user?.user_metadata?.full_name || "Account"}</span>
+                      <span className="text-blue-600">✓</span>
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>

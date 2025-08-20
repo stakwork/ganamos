@@ -53,6 +53,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "This is not a child account and cannot be deleted" }, { status: 400 })
     }
 
+    // Check if we have the service role key for admin operations
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("SUPABASE_SERVICE_ROLE_KEY is not configured - cannot delete user from auth")
+      return NextResponse.json({ error: "Server configuration error: Cannot delete auth user" }, { status: 500 })
+    }
+
     // Create admin client for auth operations
     const adminSupabase = createServerSupabaseClient()
 
@@ -80,7 +86,10 @@ export async function POST(request: Request) {
 
     if (deleteUserError) {
       console.error("Error deleting auth user:", deleteUserError)
-      return NextResponse.json({ error: "Failed to delete auth user" }, { status: 500 })
+      return NextResponse.json({ 
+        error: "Failed to delete auth user", 
+        details: deleteUserError.message 
+      }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, message: "Child account deleted successfully" })
