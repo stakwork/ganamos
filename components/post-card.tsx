@@ -302,9 +302,9 @@ export function PostCard({ post }: { post: Post }) {
                 <p className="text-base truncate">{post.description}</p>
               </div>
 
-              {/* Location and Travel Times row */}
-              <div className="flex items-center space-x-2">
-                {locationName && (
+              {/* Location and Travel Times row - always reserve space */}
+              <div className="flex items-center space-x-2" style={{ minHeight: "20px" }}>
+                {locationName ? (
                   <div
                     className="flex items-center cursor-pointer hover:text-blue-600 transition-colors"
                     onClick={handleLocationClick}
@@ -327,6 +327,12 @@ export function PostCard({ post }: { post: Post }) {
                     <span className="text-xs text-muted-foreground hover:text-blue-600 transition-colors">
                       {abbreviateLocation(locationName)}
                     </span>
+                  </div>
+                ) : (
+                  <div className="opacity-0 pointer-events-none">
+                    {/* Invisible placeholder to reserve space */}
+                    <svg width="14" height="14" className="mr-1" />
+                    <span className="text-xs">Loading...</span>
                   </div>
                 )}
                 {/* Travel Times (no loading state) */}
