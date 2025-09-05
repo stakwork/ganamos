@@ -48,6 +48,7 @@ export default function RootLayout({
         />
         <link rel="icon" href="/favicon.png" type="image/png" sizes="48x48" />
         <link rel="apple-touch-icon" href="/icon-512x512.png" />
+        <script src="https://hive.sphinx.chat/js/staktrak.js" async></script>
       </head>
       <body className={inter.className}>
         <AuthProvider>
