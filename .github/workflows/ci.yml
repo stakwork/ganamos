@@ -36,6 +36,7 @@ jobs:
         NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'placeholder-maps-key' }}
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || 'placeholder-groq-key' }}
         RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 'placeholder-resend-key' }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role-key' }}
 
     - name: Install Playwright browsers
       run: npx playwright install --with-deps
@@ -48,6 +49,7 @@ jobs:
         NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'placeholder-maps-key' }}
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || 'placeholder-groq-key' }}
         RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 'placeholder-resend-key' }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role-key' }}
         CI: true
 
     - name: Upload test results
@@ -106,6 +108,7 @@ jobs:
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || 'placeholder-groq-key' }}
         RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 'placeholder-resend-key' }}
         SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY || 'placeholder-service-key' }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role-key' }}
         SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY || 'placeholder-sendgrid-key' }}
 
     - name: Upload build artifacts
