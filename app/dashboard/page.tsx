@@ -61,7 +61,7 @@ export default function DashboardPage() {
   const initialDataLoaded = useRef(false)
 
   // Add a ref to track the last fetched page
-  const lastFetchedPage = useRef(currentPage)
+  const lastFetchedPage = useRef(1)
 
   // Add session guard with useEffect
   useEffect(() => {
@@ -356,18 +356,26 @@ export default function DashboardPage() {
 
     const observer = new window.IntersectionObserver(
       (entries) => {
+        console.log('Infinite scroll triggered:', {
+          isIntersecting: entries[0].isIntersecting,
+          hasMore,
+          isLoading,
+          currentPage,
+          lastFetchedPage: lastFetchedPage.current
+        })
         if (
           entries[0].isIntersecting &&
           hasMore &&
           !isLoading &&
-          currentPage > lastFetchedPage.current
+          currentPage === lastFetchedPage.current
         ) {
-          // Only fetch if we haven't already fetched this page
-          lastFetchedPage.current = currentPage
+          console.log('Fetching next page:', currentPage + 1)
+          // Only fetch if we haven't already fetched the next page
+          lastFetchedPage.current = currentPage + 1
           fetchPosts(currentPage + 1)
         }
       },
-      { root: null, rootMargin: "0px", threshold: 1.0 }
+      { root: null, rootMargin: "100px", threshold: 0.1 }
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
