@@ -243,10 +243,22 @@ export default function DashboardPage() {
         }
 
         if (data && !error) {
+          console.log(`fetchPosts page ${page} success:`, {
+            dataLength: data.length,
+            isFirstPage: page === 1,
+            totalCount: count,
+            from,
+            to
+          })
           if (page === 1) {
+            console.log('Setting posts to new data (page 1)')
             setPosts(data)
           } else {
-            setPosts((prev) => [...prev, ...data])
+            console.log('Appending posts to existing data (page > 1)')
+            setPosts((prev) => {
+              console.log('Previous posts count:', prev.length, 'Adding:', data.length)
+              return [...prev, ...data]
+            })
           }
           setCurrentPage(page) // Only update after successful fetch
           setHasMore(count ? from + data.length < count : false)
@@ -327,12 +339,12 @@ export default function DashboardPage() {
 
   // Initial data loading effect
   useEffect(() => {
-    if (!loading && user && session && activeFilters) {
+    if (!loading && user && session && activeFilters && !initialDataLoaded.current) {
       console.log("Dashboard - Initial data fetch triggered")
       fetchPosts(1, activeFilters)
       initialDataLoaded.current = true
     }
-  }, [loading, user, session, activeFilters, fetchPosts])
+  }, [loading, user, session, activeFilters])
 
   // Handle page visibility changes
   useEffect(() => {
@@ -340,13 +352,15 @@ export default function DashboardPage() {
       if (!document.hidden && posts.length === 0 && !isLoading && user && initialDataLoaded.current) {
         // Tab became visible and we have no posts, reload them
         console.log("Dashboard - Tab became visible, reloading posts")
+        setCurrentPage(1) // Reset to page 1
+        lastFetchedPage.current = 1 // Reset tracking
         fetchPosts(1, activeFilters)
       }
     }
 
     document.addEventListener("visibilitychange", handleVisibilityChange)
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
-  }, [posts.length, isLoading, user, activeFilters, fetchPosts])
+  }, [posts.length, isLoading, user, activeFilters])
 
   // Infinite scroll effect
   useEffect(() => {
@@ -379,7 +393,7 @@ export default function DashboardPage() {
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [hasMore, isLoading, currentPage, fetchPosts])
+  }, [hasMore, isLoading, currentPage])
 
   const handleSatsClick = () => {
     router.push("/wallet")
