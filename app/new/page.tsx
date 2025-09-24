@@ -239,17 +239,27 @@ export default function NewJobPage() {
 
     // Handle image upload
     const imageFile = formData.get('image') as File
+    console.log('Image file from form:', imageFile, 'Size:', imageFile?.size, 'Type:', imageFile?.type)
+    
     if (imageFile && imageFile.size > 0) {
       try {
+        console.log('Converting uploaded image to base64...')
         const base64Image = await fileToBase64(imageFile)
         jobData.image_url = base64Image
+        console.log('Image converted to base64, length:', base64Image.length, 'Preview:', base64Image.substring(0, 50) + '...')
       } catch (error) {
         console.error('Error converting image:', error)
         jobData.image_url = null
       }
     } else {
+      console.log('No image uploaded or file size is 0')
       jobData.image_url = null
     }
+    
+    console.log('Final jobData being sent:', { 
+      ...jobData, 
+      image_url: jobData.image_url ? `BASE64_DATA_${jobData.image_url.length}_CHARS` : null 
+    })
 
     try {
       await createJobPosting(jobData)
