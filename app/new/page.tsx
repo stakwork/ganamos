@@ -317,6 +317,7 @@ export default function NewJobPage() {
   // Check if payment has been made
   const checkPaymentStatus = async (jobData: any) => {
     if (!currentMacaroon || !currentInvoice) {
+      console.log('Missing L402 credentials for payment check')
       return
     }
 
@@ -324,15 +325,23 @@ export default function NewJobPage() {
       const macaroonData = JSON.parse(atob(currentMacaroon))
       const paymentHash = macaroonData.identifier
       
+      console.log('Checking payment status for hash:', paymentHash)
+      
       const statusResponse = await fetch(`/api/invoice-status?r_hash=${paymentHash}`)
       
+      console.log('Invoice status response:', statusResponse.status, statusResponse.ok)
+      
       if (!statusResponse.ok) {
+        console.log('Invoice status API not available or returned error')
         return
       }
       
       const statusData = await statusResponse.json()
+      console.log('Invoice status data:', statusData)
       
       if (statusData.success && statusData.settled) {
+        console.log('Payment confirmed! Preimage available:', !!statusData.preimage)
+        
         // Stop checking
         if (paymentCheckInterval) {
           clearInterval(paymentCheckInterval)
@@ -340,9 +349,14 @@ export default function NewJobPage() {
         }
         
         if (statusData.preimage) {
+          console.log('Completing job creation with preimage...')
           // Complete job creation with real L402 token
           await completeJobCreationWithPreimage(jobData, statusData.preimage)
+        } else {
+          console.log('No preimage available in response')
         }
+      } else {
+        console.log('Payment not yet settled, continuing to check...')
       }
     } catch (error) {
       console.error('Error checking payment status:', error)
