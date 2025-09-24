@@ -117,22 +117,16 @@ export default function NewJobPage() {
           setBitcoinPriceState(data.price)
           bitcoinPrice = data.price
           console.log('Bitcoin price fetched successfully:', data.price)
+        } else {
+          console.warn('Bitcoin price API returned invalid data:', data)
         }
       } else {
         console.warn('Bitcoin price API returned error:', response.status)
-        // Use fallback price if API fails
-        const fallbackPrice = 100000 // $100k fallback
-        setBitcoinPriceState(fallbackPrice)
-        bitcoinPrice = fallbackPrice
-        console.log('Using fallback Bitcoin price:', fallbackPrice)
+        const errorData = await response.json().catch(() => ({}))
+        console.warn('Bitcoin price API error details:', errorData)
       }
     } catch (error) {
       console.warn('Failed to fetch Bitcoin price:', error)
-      // Use fallback price if fetch fails
-      const fallbackPrice = 100000 // $100k fallback
-      setBitcoinPriceState(fallbackPrice)
-      bitcoinPrice = fallbackPrice
-      console.log('Using fallback Bitcoin price due to error:', fallbackPrice)
     } finally {
       isPriceLoading = false
     }
