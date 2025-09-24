@@ -209,6 +209,7 @@ export async function checkInvoice(rHash: string) {
       state: result.data.state,
       creationDate: result.data.creation_date,
       settleDate: result.data.settle_date,
+      preimage: result.data.r_preimage ? Buffer.from(result.data.r_preimage, 'base64').toString('hex') : null,
     }
   } catch (error) {
     console.error("Check invoice error:", error)

@@ -10,6 +10,9 @@ export async function GET() {
         status: 200,
         headers: {
           "Content-Type": "application/javascript",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
         },
       })
     }
@@ -36,6 +39,11 @@ export async function GET() {
       headers: {
         "Content-Type": "application/javascript",
         "Cache-Control": "public, max-age=3600",
+        ...(process.env.NODE_ENV === 'development' ? {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        } : {}),
       },
     })
   } catch (error) {
@@ -44,7 +52,22 @@ export async function GET() {
       status: 200,
       headers: {
         "Content-Type": "application/javascript",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
       },
     })
   }
+}
+
+// Handle CORS preflight requests
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  })
 }

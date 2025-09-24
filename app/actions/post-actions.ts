@@ -310,7 +310,7 @@ export async function createFundedAnonymousPostAction(postDetails: {
         created_by_avatar: null,
         title: postDetails.description.substring(0, 50),
         description: postDetails.description,
-        image_url: postDetails.image_url,
+        image_url: postDetails.image_url || "/placeholder.jpg", // Use placeholder only if no image provided
         location: postDetails.location,
         latitude: postDetails.latitude,
         longitude: postDetails.longitude,
