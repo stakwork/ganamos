@@ -278,9 +278,9 @@ export default function NewJobPage() {
         setCopyButtonText('Copy Invoice') // Reset copy button text
         setShowPaymentModal(true)
         
-        // Start checking for payment
+        // Start checking for payment with credentials directly
         console.log('Starting payment check...')
-        startPaymentCheck(jobData, paymentData.total_amount)
+        startPaymentCheckWithCredentials(jobData, paymentData.total_amount, challenge.macaroon, challenge.invoice)
         
       } else if (response.ok) {
         const result = await response.json()
@@ -310,20 +310,19 @@ export default function NewJobPage() {
     }
   }
 
-  // Start checking for payment completion
-  const startPaymentCheck = (jobData: any, totalAmount: number) => {
-    console.log('startPaymentCheck called with:', { jobData, totalAmount })
-    console.log('Current L402 state:', { 
-      hasInvoice: !!currentInvoice, 
-      hasMacaroon: !!currentMacaroon,
-      invoiceLength: currentInvoice?.length,
-      macaroonLength: currentMacaroon?.length
+  // Start checking for payment completion with credentials passed directly
+  const startPaymentCheckWithCredentials = (jobData: any, totalAmount: number, macaroon: string, invoice: string) => {
+    console.log('startPaymentCheckWithCredentials called with:', { 
+      jobData, 
+      totalAmount, 
+      hasMacaroon: !!macaroon, 
+      hasInvoice: !!invoice 
     })
     
     const checkInterval = setInterval(async () => {
       try {
-        console.log('Payment check interval running...')
-        await checkPaymentStatus(jobData)
+        console.log('Payment check interval running with direct credentials...')
+        await checkPaymentStatusWithCredentials(jobData, macaroon, invoice)
       } catch (error) {
         console.error('Payment check error:', error)
       }
@@ -340,15 +339,15 @@ export default function NewJobPage() {
     }, 600000)
   }
 
-  // Check if payment has been made
-  const checkPaymentStatus = async (jobData: any) => {
-    if (!currentMacaroon || !currentInvoice) {
+  // Check if payment has been made using passed credentials
+  const checkPaymentStatusWithCredentials = async (jobData: any, macaroon: string, invoice: string) => {
+    if (!macaroon || !invoice) {
       console.log('Missing L402 credentials for payment check')
       return
     }
 
     try {
-      const macaroonData = JSON.parse(atob(currentMacaroon))
+      const macaroonData = JSON.parse(atob(macaroon))
       const paymentHash = macaroonData.identifier
       
       console.log('Checking payment status for hash:', paymentHash)
@@ -377,7 +376,7 @@ export default function NewJobPage() {
         if (statusData.preimage) {
           console.log('Completing job creation with preimage...')
           // Complete job creation with real L402 token
-          await completeJobCreationWithPreimage(jobData, statusData.preimage)
+          await completeJobCreationWithPreimageAndCredentials(jobData, statusData.preimage, macaroon)
         } else {
           console.log('No preimage available in response')
         }
@@ -389,14 +388,15 @@ export default function NewJobPage() {
     }
   }
 
-  // Complete job creation with real preimage
-  const completeJobCreationWithPreimage = async (jobData: any, preimage: string) => {
-    if (!currentMacaroon) {
+  // Complete job creation with real preimage using passed credentials
+  const completeJobCreationWithPreimageAndCredentials = async (jobData: any, preimage: string, macaroon: string) => {
+    if (!macaroon) {
       throw new Error('Missing L402 macaroon')
     }
 
     try {
-      const l402Token = `${currentMacaroon}:${preimage}`
+      console.log('Creating L402 token with preimage and macaroon...')
+      const l402Token = `${macaroon}:${preimage}`
       
       const response = await fetch('/api/posts', {
         method: 'POST',
@@ -407,8 +407,11 @@ export default function NewJobPage() {
         body: JSON.stringify(jobData)
       })
 
+      console.log('Job creation response:', response.status, response.ok)
+
       if (response.ok) {
         const result = await response.json()
+        console.log('Job created successfully:', result)
         setShowPaymentModal(false)
         showSuccess(result.post_id, result)
       } else {
