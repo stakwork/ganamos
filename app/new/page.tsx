@@ -254,8 +254,12 @@ export default function NewJobPage() {
 
       if (response.status === 402) {
         // Handle 402 Payment Required
+        console.log('Received 402 Payment Required response')
         const paymentData = await response.json()
+        console.log('Payment data:', paymentData)
+        
         const authHeader = response.headers.get('WWW-Authenticate')
+        console.log('WWW-Authenticate header:', authHeader)
         
         if (!authHeader) {
           throw new Error('No WWW-Authenticate header in 402 response')
@@ -263,14 +267,19 @@ export default function NewJobPage() {
 
         // Parse the L402 challenge
         const challenge = parseL402Challenge(authHeader)
+        console.log('Parsed L402 challenge:', challenge)
+        
         setCurrentInvoice(challenge.invoice)
         setCurrentMacaroon(challenge.macaroon)
+        
+        console.log('Set L402 credentials - Invoice:', !!challenge.invoice, 'Macaroon:', !!challenge.macaroon)
 
         // Show payment modal
         setCopyButtonText('Copy Invoice') // Reset copy button text
         setShowPaymentModal(true)
         
         // Start checking for payment
+        console.log('Starting payment check...')
         startPaymentCheck(jobData, paymentData.total_amount)
         
       } else if (response.ok) {
@@ -303,8 +312,17 @@ export default function NewJobPage() {
 
   // Start checking for payment completion
   const startPaymentCheck = (jobData: any, totalAmount: number) => {
+    console.log('startPaymentCheck called with:', { jobData, totalAmount })
+    console.log('Current L402 state:', { 
+      hasInvoice: !!currentInvoice, 
+      hasMacaroon: !!currentMacaroon,
+      invoiceLength: currentInvoice?.length,
+      macaroonLength: currentMacaroon?.length
+    })
+    
     const checkInterval = setInterval(async () => {
       try {
+        console.log('Payment check interval running...')
         await checkPaymentStatus(jobData)
       } catch (error) {
         console.error('Payment check error:', error)
