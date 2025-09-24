@@ -3,6 +3,13 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 
+// Global window type for Google Maps
+declare global {
+  interface Window {
+    google?: any
+  }
+}
+
 // State management
 let bitcoinPrice: number | null = null
 let isPriceLoading = true
@@ -27,11 +34,59 @@ export default function NewJobPage() {
   const [selectedLocationState, setSelectedLocationState] = useState<{ name: string; lat: number; lng: number } | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [successData, setSuccessData] = useState<any>(null)
+  const [locationQuery, setLocationQuery] = useState('')
+  const [locationResults, setLocationResults] = useState<any[]>([])
+  const [showLocationResults, setShowLocationResults] = useState(false)
+  const [autocompleteService, setAutocompleteService] = useState<any>(null)
+  const [copyButtonText, setCopyButtonText] = useState('Copy Invoice')
 
-  // Fetch Bitcoin price on mount
+  // Fetch Bitcoin price and initialize Google Maps on mount
   useEffect(() => {
     fetchBitcoinPrice()
+    loadGoogleMaps()
   }, [])
+
+  // Load Google Maps for location autocomplete
+  const loadGoogleMaps = async () => {
+    if (typeof window === 'undefined') return
+    
+    if (window.google?.maps?.places) {
+      initializeGoogleServices()
+      return
+    }
+    
+    try {
+      const response = await fetch('/api/maps')
+      const scriptContent = await response.text()
+      const script = document.createElement('script')
+      script.text = scriptContent
+      document.head.appendChild(script)
+      
+      // Wait for Google Maps to load
+      const checkInterval = setInterval(() => {
+        if (window.google?.maps?.places) {
+          clearInterval(checkInterval)
+          initializeGoogleServices()
+        }
+      }, 100)
+      
+      setTimeout(() => clearInterval(checkInterval), 10000)
+    } catch (error) {
+      console.error('Failed to load Google Maps:', error)
+    }
+  }
+
+  const initializeGoogleServices = () => {
+    if (!window.google?.maps?.places) return
+    
+    try {
+      const service = new window.google.maps.places.AutocompleteService()
+      setAutocompleteService(service)
+      console.log('Google Places autocomplete service initialized')
+    } catch (error) {
+      console.error('Error initializing Google services:', error)
+    }
+  }
 
   // Fetch Bitcoin price
   const fetchBitcoinPrice = async () => {
@@ -62,6 +117,52 @@ export default function NewJobPage() {
   // Handle reward adjustment
   const adjustReward = (delta: number) => {
     setRewardAmount(prev => Math.max(MIN_REWARD, prev + delta))
+  }
+
+  // Handle location input
+  const handleLocationInput = (query: string) => {
+    setLocationQuery(query)
+    
+    if (!query.trim() || !autocompleteService) {
+      setLocationResults([])
+      setShowLocationResults(false)
+      return
+    }
+    
+    autocompleteService.getPlacePredictions({
+      input: query,
+      types: ['establishment', 'geocode']
+    }, (predictions: any, status: any) => {
+      if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+        setLocationResults(predictions.slice(0, 5))
+        setShowLocationResults(true)
+      } else {
+        setLocationResults([])
+        setShowLocationResults(false)
+      }
+    })
+  }
+
+  // Handle location selection
+  const selectLocation = (prediction: any) => {
+    setLocationQuery(prediction.description)
+    setShowLocationResults(false)
+    
+    // Get place details for coordinates
+    if (window.google?.maps?.places) {
+      const service = new window.google.maps.places.PlacesService(document.createElement('div'))
+      service.getDetails({
+        placeId: prediction.place_id
+      }, (place: any, status: any) => {
+        if (status === window.google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
+          setSelectedLocationState({
+            name: prediction.description,
+            lat: place.geometry.location.lat(),
+            lng: place.geometry.location.lng()
+          })
+        }
+      })
+    }
   }
 
   // Handle image upload
@@ -158,6 +259,7 @@ export default function NewJobPage() {
         setCurrentMacaroon(challenge.macaroon)
 
         // Show payment modal
+        setCopyButtonText('Copy Invoice') // Reset copy button text
         setShowPaymentModal(true)
         
         // Start checking for payment
@@ -278,6 +380,29 @@ export default function NewJobPage() {
     }
   }
 
+  // Copy invoice to clipboard with feedback
+  const copyInvoice = async () => {
+    if (!currentInvoice) return
+    
+    try {
+      await navigator.clipboard.writeText(currentInvoice)
+      setCopyButtonText('✅ Copied!')
+      
+      // Reset button text after 2 seconds
+      setTimeout(() => {
+        setCopyButtonText('Copy Invoice')
+      }, 2000)
+    } catch (error) {
+      console.error('Failed to copy invoice:', error)
+      setCopyButtonText('❌ Copy Failed')
+      
+      // Reset button text after 2 seconds
+      setTimeout(() => {
+        setCopyButtonText('Copy Invoice')
+      }, 2000)
+    }
+  }
+
   // Show success modal
   const showSuccess = (postId: string, result: any) => {
     setSuccessData({ postId, ...result })
@@ -370,15 +495,40 @@ export default function NewJobPage() {
             </div>
 
             {/* Location */}
-            <div>
+            <div className="relative">
               <input 
                 type="text" 
                 id="location" 
                 name="location"
+                value={locationQuery}
+                onChange={(e) => handleLocationInput(e.target.value)}
+                onFocus={() => {
+                  if (locationResults.length > 0) setShowLocationResults(true)
+                  loadGoogleMaps() // Ensure Google Maps is loaded
+                }}
+                onBlur={() => {
+                  // Delay hiding results to allow for clicks
+                  setTimeout(() => setShowLocationResults(false), 150)
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 placeholder="Add location"
                 autoComplete="off"
               />
+              
+              {/* Location Results Dropdown */}
+              {showLocationResults && locationResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto z-50 shadow-lg">
+                  {locationResults.map((prediction, index) => (
+                    <div
+                      key={prediction.place_id || index}
+                      onClick={() => selectLocation(prediction)}
+                      className="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 text-sm"
+                    >
+                      {prediction.description}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Reward Picker */}
@@ -501,10 +651,10 @@ export default function NewJobPage() {
                 
                 <div className="flex space-x-3">
                   <button 
-                    onClick={() => currentInvoice && navigator.clipboard.writeText(currentInvoice)}
+                    onClick={copyInvoice}
                     className="flex-1 bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-700 transition-colors"
                   >
-                    Copy Invoice
+                    {copyButtonText}
                   </button>
                   <button 
                     onClick={() => setShowPaymentModal(false)}
