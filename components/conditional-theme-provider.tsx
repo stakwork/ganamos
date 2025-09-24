@@ -10,8 +10,8 @@ export function ConditionalThemeProvider({
 }: { children: React.ReactNode } & ThemeProviderProps) {
   const pathname = usePathname()
 
-  // Force light mode on home and login pages
-  const isLightModePage = pathname === "/" || pathname.startsWith("/auth")
+  // Force light mode on home, login, and public job posting pages
+  const isLightModePage = pathname === "/" || pathname.startsWith("/auth") || pathname === "/new"
 
   if (isLightModePage) {
     return (

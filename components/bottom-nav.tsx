@@ -6,14 +6,21 @@ import { Home, User, Map, Sprout, Plus, SquarePlus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useNotifications } from "@/components/notifications-provider"
 import { getCurrentLocationWithName } from "@/lib/geocoding"
+import { useAuth } from "@/components/auth-provider"
 
 export function BottomNav() {
   const pathname = usePathname()
   const router = useRouter()
   const { hasPendingRequests } = useNotifications()
+  const { user, loading } = useAuth()
 
-  // Don't show bottom nav on home page or auth pages
-  if (pathname === "/" || pathname.startsWith("/auth")) {
+  // Don't show bottom nav on home page, auth pages, or public job posting page
+  if (pathname === "/" || pathname.startsWith("/auth") || pathname === "/new") {
+    return null
+  }
+
+  // Don't show bottom nav for unauthenticated users (except on specific public pages)
+  if (!loading && !user) {
     return null
   }
 
