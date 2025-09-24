@@ -56,6 +56,15 @@ export default function NewJobPage() {
     }
   }, [mounted])
 
+  // Cleanup intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (paymentCheckInterval) {
+        clearInterval(paymentCheckInterval)
+      }
+    }
+  }, [paymentCheckInterval])
+
   // Load Google Maps for location autocomplete
   const loadGoogleMaps = async () => {
     if (typeof window === 'undefined') return
@@ -107,10 +116,23 @@ export default function NewJobPage() {
         if (data.price && typeof data.price === 'number') {
           setBitcoinPriceState(data.price)
           bitcoinPrice = data.price
+          console.log('Bitcoin price fetched successfully:', data.price)
         }
+      } else {
+        console.warn('Bitcoin price API returned error:', response.status)
+        // Use fallback price if API fails
+        const fallbackPrice = 100000 // $100k fallback
+        setBitcoinPriceState(fallbackPrice)
+        bitcoinPrice = fallbackPrice
+        console.log('Using fallback Bitcoin price:', fallbackPrice)
       }
     } catch (error) {
       console.warn('Failed to fetch Bitcoin price:', error)
+      // Use fallback price if fetch fails
+      const fallbackPrice = 100000 // $100k fallback
+      setBitcoinPriceState(fallbackPrice)
+      bitcoinPrice = fallbackPrice
+      console.log('Using fallback Bitcoin price due to error:', fallbackPrice)
     } finally {
       isPriceLoading = false
     }
