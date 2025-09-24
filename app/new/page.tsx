@@ -40,6 +40,8 @@ export default function NewJobPage() {
   const [showLocationResults, setShowLocationResults] = useState(false)
   const [autocompleteService, setAutocompleteService] = useState<any>(null)
   const [copyButtonText, setCopyButtonText] = useState('Copy Invoice')
+  const [invoiceTruncated, setInvoiceTruncated] = useState(true)
+  const [jobCreationInProgress, setJobCreationInProgress] = useState(false)
 
   // Handle hydration
   useEffect(() => {
@@ -116,7 +118,7 @@ export default function NewJobPage() {
 
   // Calculate USD value
   const calculateUsdValue = (sats: number) => {
-    if (!bitcoinPriceState) return null
+    if (!bitcoinPriceState || isPriceLoading) return null
     const btcAmount = sats / 100000000
     const usdValue = btcAmount * bitcoinPriceState
     return usdValue.toFixed(2)
@@ -276,6 +278,8 @@ export default function NewJobPage() {
 
         // Show payment modal
         setCopyButtonText('Copy Invoice') // Reset copy button text
+        setInvoiceTruncated(true) // Reset invoice display
+        setJobCreationInProgress(false) // Reset job creation flag
         setShowPaymentModal(true)
         
         // Start checking for payment with credentials directly
@@ -367,19 +371,26 @@ export default function NewJobPage() {
       if (statusData.success && statusData.settled) {
         console.log('Payment confirmed! Preimage available:', !!statusData.preimage)
         
-        // Stop checking
+        // CRITICAL: Stop checking IMMEDIATELY to prevent duplicate jobs
         if (paymentCheckInterval) {
+          console.log('Clearing payment check interval to prevent duplicates')
           clearInterval(paymentCheckInterval)
           setPaymentCheckInterval(null)
         }
         
-        if (statusData.preimage) {
+        if (statusData.preimage && !jobCreationInProgress) {
           console.log('Completing job creation with preimage...')
+          setJobCreationInProgress(true) // Prevent duplicate creation
           // Complete job creation with real L402 token
           await completeJobCreationWithPreimageAndCredentials(jobData, statusData.preimage, macaroon)
+        } else if (jobCreationInProgress) {
+          console.log('Job creation already in progress, skipping...')
         } else {
           console.log('No preimage available in response')
         }
+        
+        // Return early to prevent further processing
+        return
       } else {
         console.log('Payment not yet settled, continuing to check...')
       }
@@ -392,6 +403,12 @@ export default function NewJobPage() {
   const completeJobCreationWithPreimageAndCredentials = async (jobData: any, preimage: string, macaroon: string) => {
     if (!macaroon) {
       throw new Error('Missing L402 macaroon')
+    }
+
+    // Prevent duplicate job creation
+    if (jobCreationInProgress) {
+      console.log('Job creation already in progress, aborting duplicate attempt')
+      return
     }
 
     try {
@@ -413,13 +430,16 @@ export default function NewJobPage() {
         const result = await response.json()
         console.log('Job created successfully:', result)
         setShowPaymentModal(false)
+        setJobCreationInProgress(false) // Reset flag
         showSuccess(result.post_id, result)
       } else {
         const error = await response.json()
         console.error('Failed to create job:', error)
+        setJobCreationInProgress(false) // Reset flag on error
       }
     } catch (error) {
       console.error('Error completing job creation with preimage:', error)
+      setJobCreationInProgress(false) // Reset flag on error
     }
   }
 
@@ -646,11 +666,9 @@ export default function NewJobPage() {
               <div className="text-center">
                 <p className="text-xs text-gray-600 mb-1">+10 sat API fee</p>
                 <div className="h-4 flex items-center justify-center">
-                  {totalUsd && (
-                    <p className="text-xs text-gray-500">
-                      ${totalUsd} USD
-                    </p>
-                  )}
+                  <p className={`text-xs text-gray-500 transition-opacity duration-300 ${totalUsd ? 'opacity-100' : 'opacity-0'}`}>
+                    {totalUsd ? `$${totalUsd} USD` : '$0.00 USD'}
+                  </p>
                 </div>
               </div>
 
@@ -692,10 +710,7 @@ export default function NewJobPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
             <div className="text-center">
-              <h3 className="text-lg font-semibold mb-4">Pay {totalCost} sats to Post Job</h3>
-              <p className="text-gray-600 mb-6">
-                Scan this QR code to pay {totalCost} sats ({rewardAmount} reward + {API_FEE} API fee)
-              </p>
+              <h3 className="text-lg font-semibold mb-6">Pay {totalCost} sats to Post Job</h3>
               
               <div className="flex justify-center mb-6">
                 {currentInvoice && (
@@ -714,9 +729,14 @@ export default function NewJobPage() {
                   <div className="mb-2">
                     <strong>Amount:</strong> {totalCost.toLocaleString()} sats ({totalUsd && `$${totalUsd} USD`})
                   </div>
-                  <div className="break-all">
+                  <div>
                     <strong>Invoice:</strong>
-                    <div className="mt-1 font-mono text-xs">{currentInvoice}</div>
+                    <div className="mt-1 font-mono text-xs cursor-pointer" onClick={() => setInvoiceTruncated(!invoiceTruncated)}>
+                      {invoiceTruncated && currentInvoice ? 
+                        `${currentInvoice.slice(0, 20)}...${currentInvoice.slice(-20)}` : 
+                        currentInvoice
+                      }
+                    </div>
                   </div>
                 </div>
                 
@@ -742,9 +762,6 @@ export default function NewJobPage() {
                     <div className="w-4 h-4 bg-blue-500 rounded-full mx-auto mb-2"></div>
                     <p className="text-sm text-blue-600">Waiting for Lightning payment...</p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Pay the invoice above with your Lightning wallet
-                  </p>
                 </div>
               </div>
             </div>
