@@ -237,22 +237,14 @@ export default function NewJobPage() {
       reward: rewardAmount
     }
 
-    // Handle image upload
-    const imageFile = formData.get('image') as File
-    console.log('Image file from form:', imageFile, 'Size:', imageFile?.size, 'Type:', imageFile?.type)
+    // Handle image upload - use the preview state instead of FormData
+    console.log('Image preview state:', imagePreview ? 'PRESENT' : 'NULL')
     
-    if (imageFile && imageFile.size > 0) {
-      try {
-        console.log('Converting uploaded image to base64...')
-        const base64Image = await fileToBase64(imageFile)
-        jobData.image_url = base64Image
-        console.log('Image converted to base64, length:', base64Image.length, 'Preview:', base64Image.substring(0, 50) + '...')
-      } catch (error) {
-        console.error('Error converting image:', error)
-        jobData.image_url = null
-      }
+    if (imagePreview) {
+      console.log('Using image from preview state, length:', imagePreview.length)
+      jobData.image_url = imagePreview
     } else {
-      console.log('No image uploaded or file size is 0')
+      console.log('No image in preview state')
       jobData.image_url = null
     }
     
