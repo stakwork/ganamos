@@ -23,6 +23,7 @@ const REWARD_INCREMENT = 500 // Same as main app
 const API_BASE_URL = typeof window !== 'undefined' ? window.location.origin : ''
 
 export default function NewJobPage() {
+  const [mounted, setMounted] = useState(false)
   const [rewardAmount, setRewardAmount] = useState(2000)
   const [currentInvoice, setCurrentInvoice] = useState<string | null>(null)
   const [currentMacaroon, setCurrentMacaroon] = useState<string | null>(null)
@@ -40,11 +41,18 @@ export default function NewJobPage() {
   const [autocompleteService, setAutocompleteService] = useState<any>(null)
   const [copyButtonText, setCopyButtonText] = useState('Copy Invoice')
 
+  // Handle hydration
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   // Fetch Bitcoin price and initialize Google Maps on mount
   useEffect(() => {
-    fetchBitcoinPrice()
-    loadGoogleMaps()
-  }, [])
+    if (mounted) {
+      fetchBitcoinPrice()
+      loadGoogleMaps()
+    }
+  }, [mounted])
 
   // Load Google Maps for location autocomplete
   const loadGoogleMaps = async () => {
@@ -425,6 +433,34 @@ export default function NewJobPage() {
 
   const totalCost = rewardAmount + API_FEE
   const totalUsd = calculateUsdValue(totalCost)
+
+  // Prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="relative min-h-screen">
+        <div className="fixed inset-0 z-0">
+          <Image
+            src="/images/community-fixing.jpg"
+            alt="Community background"
+            fill
+            className="object-cover"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-transparent to-transparent" />
+        </div>
+        <div className="container mx-auto px-4 py-8 max-w-2xl relative z-10">
+          <div className="bg-white/90 backdrop-blur rounded-lg shadow-lg p-6">
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-gray-900 mb-4">Post a Job on Ganamos</h1>
+              <div className="animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative min-h-screen">
