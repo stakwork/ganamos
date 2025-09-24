@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { lndRequest } from "../../../../lib/lightning"
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 /**
  * Get the total node balance from Voltage
  * Admin only endpoint for daily email summaries

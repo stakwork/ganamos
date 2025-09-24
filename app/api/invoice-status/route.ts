@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkInvoice } from '@/lib/lightning'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/invoice-status?r_hash=<payment_hash>
  * Check if a Lightning invoice has been paid

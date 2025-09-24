@@ -3,6 +3,9 @@ import { createL402Challenge, verifyL402Token, parseL402Header, createL402Header
 import { createFundedAnonymousPostAction } from '@/app/actions/post-actions'
 import { v4 as uuidv4 } from '@/lib/uuid'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 // Configuration
 const API_ACCESS_FEE = 10 // Fixed 10 sats fee for API access
 const MIN_JOB_REWARD = 0 // Minimum job reward in sats
