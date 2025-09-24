@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 
 // Global window type for Google Maps
@@ -28,6 +28,8 @@ export default function NewJobPage() {
   const [currentInvoice, setCurrentInvoice] = useState<string | null>(null)
   const [currentMacaroon, setCurrentMacaroon] = useState<string | null>(null)
   const [paymentCheckInterval, setPaymentCheckInterval] = useState<NodeJS.Timeout | null>(null)
+  const paymentCheckRef = useRef<NodeJS.Timeout | null>(null)
+  const jobCreationRef = useRef<boolean>(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [bitcoinPriceState, setBitcoinPriceState] = useState<number | null>(null)
@@ -295,7 +297,7 @@ export default function NewJobPage() {
         // Show payment modal
         setCopyButtonText('Copy Invoice') // Reset copy button text
         setInvoiceTruncated(true) // Reset invoice display
-        setJobCreationInProgress(false) // Reset job creation flag
+        jobCreationRef.current = false // Reset job creation flag using ref
         setShowPaymentModal(true)
         
         // Start checking for payment with credentials directly
@@ -339,6 +341,15 @@ export default function NewJobPage() {
       hasInvoice: !!invoice 
     })
     
+    // Clear any existing interval first
+    if (paymentCheckRef.current) {
+      clearInterval(paymentCheckRef.current)
+      paymentCheckRef.current = null
+    }
+    
+    // Reset job creation flag
+    jobCreationRef.current = false
+    
     const checkInterval = setInterval(async () => {
       try {
         console.log('Payment check interval running with direct credentials...')
@@ -348,12 +359,14 @@ export default function NewJobPage() {
       }
     }, 2000)
     
+    paymentCheckRef.current = checkInterval
     setPaymentCheckInterval(checkInterval)
     
     // Stop checking after 10 minutes
     setTimeout(() => {
-      if (checkInterval) {
-        clearInterval(checkInterval)
+      if (paymentCheckRef.current) {
+        clearInterval(paymentCheckRef.current)
+        paymentCheckRef.current = null
         setPaymentCheckInterval(null)
       }
     }, 600000)
@@ -387,19 +400,46 @@ export default function NewJobPage() {
       if (statusData.success && statusData.settled) {
         console.log('Payment confirmed! Preimage available:', !!statusData.preimage)
         
-        // CRITICAL: Stop checking IMMEDIATELY to prevent duplicate jobs
-        if (paymentCheckInterval) {
+        // CRITICAL: Stop checking IMMEDIATELY using refs to prevent duplicates
+        if (paymentCheckRef.current) {
           console.log('Clearing payment check interval to prevent duplicates')
-          clearInterval(paymentCheckInterval)
+          clearInterval(paymentCheckRef.current)
+          paymentCheckRef.current = null
           setPaymentCheckInterval(null)
         }
         
-        if (statusData.preimage && !jobCreationInProgress) {
+        if (statusData.preimage && !jobCreationRef.current) {
           console.log('Completing job creation with preimage...')
-          setJobCreationInProgress(true) // Prevent duplicate creation
+          jobCreationRef.current = true // Prevent duplicate creation using ref
+          
           // Complete job creation with real L402 token
-          await completeJobCreationWithPreimageAndCredentials(jobData, statusData.preimage, macaroon)
-        } else if (jobCreationInProgress) {
+          try {
+            const l402Token = `${macaroon}:${statusData.preimage}`
+            
+            const response = await fetch('/api/posts', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `L402 ${l402Token}`
+              },
+              body: JSON.stringify(jobData)
+            })
+
+            if (response.ok) {
+              const result = await response.json()
+              console.log('Job created successfully:', result)
+              setShowPaymentModal(false)
+              showSuccess(result.post_id, result)
+            } else {
+              const error = await response.json()
+              console.error('Failed to create job:', error)
+              jobCreationRef.current = false // Reset on error
+            }
+          } catch (error) {
+            console.error('Error completing job creation:', error)
+            jobCreationRef.current = false // Reset on error
+          }
+        } else if (jobCreationRef.current) {
           console.log('Job creation already in progress, skipping...')
         } else {
           console.log('No preimage available in response')
@@ -415,49 +455,6 @@ export default function NewJobPage() {
     }
   }
 
-  // Complete job creation with real preimage using passed credentials
-  const completeJobCreationWithPreimageAndCredentials = async (jobData: any, preimage: string, macaroon: string) => {
-    if (!macaroon) {
-      throw new Error('Missing L402 macaroon')
-    }
-
-    // Prevent duplicate job creation
-    if (jobCreationInProgress) {
-      console.log('Job creation already in progress, aborting duplicate attempt')
-      return
-    }
-
-    try {
-      console.log('Creating L402 token with preimage and macaroon...')
-      const l402Token = `${macaroon}:${preimage}`
-      
-      const response = await fetch('/api/posts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `L402 ${l402Token}`
-        },
-        body: JSON.stringify(jobData)
-      })
-
-      console.log('Job creation response:', response.status, response.ok)
-
-      if (response.ok) {
-        const result = await response.json()
-        console.log('Job created successfully:', result)
-        setShowPaymentModal(false)
-        setJobCreationInProgress(false) // Reset flag
-        showSuccess(result.post_id, result)
-      } else {
-        const error = await response.json()
-        console.error('Failed to create job:', error)
-        setJobCreationInProgress(false) // Reset flag on error
-      }
-    } catch (error) {
-      console.error('Error completing job creation with preimage:', error)
-      setJobCreationInProgress(false) // Reset flag on error
-    }
-  }
 
   // Copy invoice to clipboard with feedback
   const copyInvoice = async () => {
