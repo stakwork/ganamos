@@ -64,61 +64,77 @@ export function FamilySection({ onAddAccount }: FamilySectionProps) {
   return (
     <div className="mt-4">
       <p className="text-sm text-muted-foreground mb-3">Family</p>
-      <div className="grid grid-cols-4 gap-4">
-        {sortedAccounts.map((account) => (
-          <button
-            key={account.id}
-            onClick={() => handleChildAccountTap(account)}
-            className="flex flex-col items-center space-y-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            {/* Avatar */}
-            <div className="relative w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
-              <Image
-                src={account.avatar_url || "/placeholder.svg?height=48&width=48"}
-                alt={account.name || "Family member"}
-                fill
-                className="object-cover"
-              />
-            </div>
-            
-            {/* Name */}
-            <div className="text-sm font-medium text-center truncate w-full">
-              {account.name?.split(' ')[0] || 'Child'}
-            </div>
-            
-            {/* Balance */}
-            <div className="flex items-center space-x-1 text-xs text-gray-600 dark:text-gray-400">
-              <div className="w-3 h-3 relative">
+      <div className="relative overflow-hidden">
+        {/* Horizontal scrolling container */}
+        <div 
+          className="flex space-x-4 overflow-x-auto scrollbar-hide pb-2" 
+          style={{ 
+            scrollbarWidth: 'none', 
+            msOverflowStyle: 'none'
+          }}
+        >
+          {sortedAccounts.map((account) => (
+            <button
+              key={account.id}
+              onClick={() => handleChildAccountTap(account)}
+              className="flex flex-col items-center space-y-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none flex-shrink-0 min-w-[68px]"
+            >
+              {/* Avatar */}
+              <div className="relative w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
                 <Image
-                  src="/images/bitcoin-logo.png"
-                  alt="Bitcoin"
+                  src={account.avatar_url || "/placeholder.svg?height=48&width=48"}
+                  alt={account.name || "Family member"}
                   fill
-                  className="object-contain"
+                  className="object-cover"
                 />
               </div>
-              <span>{formatBalance(account.balance || 0)}</span>
+              
+              {/* Name */}
+              <div className="text-sm font-medium text-center truncate w-full max-w-[60px]">
+                {account.name?.split(' ')[0] || 'Child'}
+              </div>
+              
+              {/* Balance */}
+              <div className="flex items-center space-x-1 text-xs text-gray-600 dark:text-gray-400">
+                <div className="w-3 h-3 relative">
+                  <Image
+                    src="/images/bitcoin-logo.png"
+                    alt="Bitcoin"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+                <span>{formatBalance(account.balance || 0)}</span>
+              </div>
+            </button>
+          ))}
+          
+          {/* Add Family Member Button */}
+          <button
+            onClick={onAddAccount}
+            className="flex flex-col items-center space-y-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none flex-shrink-0 min-w-[68px]"
+          >
+            {/* Dotted Circle with Plus */}
+            <div className="relative w-12 h-12 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
+              <Plus className="h-5 w-5 text-gray-400 dark:text-gray-500" />
             </div>
+            
+            {/* Add text */}
+            <div className="text-sm font-medium text-center text-gray-500 dark:text-gray-400">
+              Add
+            </div>
+            
+            {/* Empty space for balance alignment */}
+            <div className="h-4"></div>
           </button>
-        ))}
+        </div>
         
-        {/* Add Family Member Button */}
-        <button
-          onClick={onAddAccount}
-          className="flex flex-col items-center space-y-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          {/* Dotted Circle with Plus */}
-          <div className="relative w-12 h-12 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
-            <Plus className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+        {/* Fade overlay positioned absolutely over the content */}
+        {sortedAccounts.length >= 4 && (
+          <div className="absolute top-0 right-0 bottom-0 w-12 pointer-events-none z-10">
+            <div className="w-full h-full bg-gradient-to-l from-white via-white/40 to-transparent dark:from-gray-950 dark:via-gray-950/40 dark:to-transparent" />
           </div>
-          
-          {/* Add text */}
-          <div className="text-sm font-medium text-center text-gray-500 dark:text-gray-400">
-            Add
-          </div>
-          
-          {/* Empty space for balance alignment */}
-          <div className="h-4"></div>
-        </button>
+        )}
       </div>
     </div>
   )

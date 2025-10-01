@@ -7,6 +7,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -29,6 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AvatarSelector } from "@/components/avatar-selector";
 import { GroupsList } from "@/components/groups-list";
 import { FamilySection } from "@/components/family-section";
+import { UserQRModal } from "@/components/user-qr-modal";
 import type { Post } from "@/lib/types";
 import {
   DropdownMenu,
@@ -41,7 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AddConnectedAccountDialog } from "@/components/add-connected-account-dialog";
 import { CreateGroupDialog } from "@/components/create-group-dialog";
-import { Check, X, MapPin, Cat } from "lucide-react";
+import { Check, X, MapPin, Cat, QrCode, User, Edit } from "lucide-react";
 
 type ActivityItem = {
   id: string;
@@ -83,6 +86,7 @@ export default function ProfilePage() {
     connectedAccounts,
     fetchConnectedAccounts,
     activeUserId,
+    updateProfile,
   } = useAuth();
   const { hasPendingRequests } = useNotifications();
   const router = useRouter();
@@ -109,6 +113,8 @@ export default function ProfilePage() {
   const ACTIVITIES_PER_PAGE = 10;
   const [showAddAccountDialog, setShowAddAccountDialog] = useState(false);
   const [showCreateGroupDialog, setShowCreateGroupDialog] = useState(false);
+  const [showEditUsername, setShowEditUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
 
   // New state for account management
   const [accountToManage, setAccountToManage] = useState<any>(null);
@@ -1237,6 +1243,31 @@ export default function ProfilePage() {
 
                   <DropdownMenuSeparator />
 
+                  <DropdownMenuItem
+                    onSelect={() => setShowQrDialog(true)}
+                    className="p-4 cursor-pointer"
+                  >
+                    <div className="flex items-center">
+                      <QrCode className="mr-2 h-4 w-4" />
+                      <span>My QR Code</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      setNewUsername(profile?.username || "")
+                      setShowEditUsername(true)
+                    }}
+                    className="p-4 cursor-pointer"
+                  >
+                    <div className="flex items-center">
+                      <Edit className="mr-2 h-4 w-4" />
+                      <span>Edit Username</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger className="p-4">
                       <svg
@@ -1420,42 +1451,38 @@ export default function ProfilePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4 mt-4">
-            <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="p-3 text-center border rounded-lg w-full h-auto dark:border-gray-800"
-                  onClick={() => router.push("/wallet")}
-                >
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-center mb-1">
-                      <div className="w-4 h-4 mr-1.5 relative">
-                        <Image
-                          src="/images/bitcoin-logo.png"
-                          alt="Bitcoin"
-                          width={16}
-                          height={16}
-                          className="object-contain"
-                        />
-                      </div>
-                      <p className="text-sm text-muted-foreground">Balance</p>
-                    </div>
-                    <p className="text-xl font-bold">
-                      {formatSatsValue(profile.balance)}
-                    </p>
-                    <p
-                      className={`text-xs text-muted-foreground mt-0.5 transition-opacity duration-500 ${
-                        isPriceLoading || !bitcoinPrice ? "opacity-0" : "opacity-100"
-                      }`}
-                      style={{ minHeight: "1.25rem" }} // Reserve space to prevent layout shift
-                    >
-                      {!isPriceLoading && bitcoinPrice && calculateUsdValue(profile.balance) &&
-                        `$${calculateUsdValue(profile.balance)} USD`}
-                    </p>
+            <Button
+              variant="outline"
+              className="p-3 text-center border rounded-lg w-full h-auto dark:border-gray-800"
+              onClick={() => router.push("/wallet")}
+            >
+              <div className="flex flex-col items-center">
+                <div className="flex items-center mb-1">
+                  <div className="w-4 h-4 mr-1.5 relative">
+                    <Image
+                      src="/images/bitcoin-logo.png"
+                      alt="Bitcoin"
+                      width={16}
+                      height={16}
+                      className="object-contain"
+                    />
                   </div>
-                </Button>
-              </DialogTrigger>
-            </Dialog>
+                  <p className="text-sm text-muted-foreground">Balance</p>
+                </div>
+                <p className="text-xl font-bold">
+                  {formatSatsValue(profile.balance)}
+                </p>
+                <p
+                  className={`text-xs text-muted-foreground mt-0.5 transition-opacity duration-500 ${
+                    isPriceLoading || !bitcoinPrice ? "opacity-0" : "opacity-100"
+                  }`}
+                  style={{ minHeight: "1.25rem" }} // Reserve space to prevent layout shift
+                >
+                  {!isPriceLoading && bitcoinPrice && calculateUsdValue(profile.balance) &&
+                    `$${calculateUsdValue(profile.balance)} USD`}
+                </p>
+              </div>
+            </Button>
             <div className="p-3 text-center border rounded-lg dark:border-gray-800">
               <p className="text-sm text-muted-foreground">Issues Fixed</p>
               <p className="text-xl font-bold">
@@ -1849,6 +1876,79 @@ export default function ProfilePage() {
               ) : (
                 "Disconnect Account"
               )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* User QR Code Modal */}
+      <UserQRModal 
+        open={showQrDialog} 
+        onOpenChange={setShowQrDialog} 
+      />
+
+      {/* Edit Username Dialog */}
+      <Dialog open={showEditUsername} onOpenChange={setShowEditUsername}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Username</DialogTitle>
+            <DialogDescription>
+              Choose a unique username that others can use to connect with you.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                placeholder="your-username"
+                maxLength={30}
+              />
+              <p className="text-xs text-gray-500">
+                Only lowercase letters, numbers, and hyphens allowed. Must be unique.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowEditUsername(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!newUsername.trim() || newUsername.length < 3) {
+                  toast({
+                    title: "Invalid Username",
+                    description: "Username must be at least 3 characters long.",
+                    variant: "destructive",
+                  })
+                  return
+                }
+                
+                try {
+                  await updateProfile({ username: newUsername.trim() })
+                  toast({
+                    title: "Username Updated",
+                    description: `Your username is now: ${newUsername}`,
+                    variant: "success",
+                    duration: 2000,
+                  })
+                  setShowEditUsername(false)
+                } catch (error: any) {
+                  toast({
+                    title: "Update Failed",
+                    description: error.message?.includes('duplicate') ? "Username already taken. Please choose another." : "Failed to update username.",
+                    variant: "destructive",
+                  })
+                }
+              }}
+              disabled={!newUsername.trim() || newUsername.length < 3}
+            >
+              Save Username
             </Button>
           </div>
         </DialogContent>

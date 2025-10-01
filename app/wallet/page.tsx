@@ -18,19 +18,22 @@ import { Skeleton } from "@/components/ui/skeleton"
 function TransactionHistory() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
-  const { profile } = useAuth()
+  const { user, profile, activeUserId } = useAuth()
 
   useEffect(() => {
     async function fetchTransactions() {
-      if (!profile) return
+      if (!user || !profile) return
 
       const supabase = createBrowserSupabaseClient()
+      
+      // Fetch transactions for the current wallet owner (could be main user or active child account)
+      const walletUserId = activeUserId || user.id
 
       try {
         const { data, error } = await supabase
           .from("transactions")
           .select("*")
-          .eq("user_id", profile.id)
+          .eq("user_id", walletUserId)
           .order("created_at", { ascending: false })
           .limit(10)
 
@@ -47,7 +50,7 @@ function TransactionHistory() {
     }
 
     fetchTransactions()
-  }, [profile])
+  }, [user, profile, activeUserId])
 
   if (loading) {
     return (
@@ -92,30 +95,35 @@ function TransactionHistory() {
           <div className="flex items-center gap-3">
             <div
               className={`p-2 rounded-full ${
-                tx.type === "deposit" ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30"
+                tx.amount > 0 ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30"
               }`}
             >
-              {tx.type === "deposit" ? (
+              {tx.amount > 0 ? (
                 <ArrowDownIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
               ) : (
                 <ArrowUpIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
               )}
             </div>
             <div>
-              <p className="font-medium">{tx.type === "deposit" ? "Deposit" : "Withdrawal"}</p>
+              <p className="font-medium">
+                {tx.type === "internal" 
+                  ? (tx.amount > 0 ? "Received" : "Sent")
+                  : (tx.type === "deposit" ? "Deposit" : "Withdrawal")
+                }
+              </p>
               <p className="text-xs text-muted-foreground">
-                {tx.created_at && formatDistanceToNow(new Date(tx.created_at), { addSuffix: true })}
+                {tx.memo || (tx.created_at && formatDistanceToNow(new Date(tx.created_at), { addSuffix: true }))}
               </p>
             </div>
           </div>
           <div className="text-right">
             <p
               className={`font-medium ${
-                tx.type === "deposit" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                tx.amount > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
               }`}
             >
-              {tx.type === "deposit" ? "+" : "-"}
-              {formatSatsValue(tx.amount)}
+              {tx.amount > 0 ? "+" : ""}
+              {formatSatsValue(Math.abs(tx.amount))}
             </p>
             <p className="text-xs text-muted-foreground">
               {tx.status === "completed" ? "Completed" : tx.status === "pending" ? "Pending" : "Failed"}
@@ -226,11 +234,13 @@ export default function WalletPage() {
             </div>
             <p className="text-sm text-muted-foreground mb-1">Current Balance</p>
             <p className="text-3xl font-bold">{formatSatsValue(balance || 0)}</p>
-            {!isPriceLoading && bitcoinPrice && calculateUsdValue(balance || 0) && (
-              <p className="text-sm text-muted-foreground mt-1">
-                ${calculateUsdValue(balance || 0)} USD
-              </p>
-            )}
+            <p className="text-sm text-muted-foreground mt-1 h-5">
+              {!isPriceLoading && bitcoinPrice && calculateUsdValue(balance || 0) ? (
+                `$${calculateUsdValue(balance || 0)} USD`
+              ) : (
+                <span className="opacity-0">$0.00 USD</span>
+              )}
+            </p>
           </div>
         </CardContent>
       </Card>

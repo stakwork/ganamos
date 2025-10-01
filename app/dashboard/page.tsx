@@ -440,29 +440,42 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               {/* Family Avatars */}
-              {connectedAccounts && connectedAccounts.length > 0 && (
-                <div className="flex items-center space-x-1">
-                  {connectedAccounts
+              <div className="flex items-center space-x-1">
+                {connectedAccounts && connectedAccounts.length > 0 ? (
+                  connectedAccounts
                     .filter(account => account !== null) // Filter out null accounts
                     .sort((a, b) => (b.balance || 0) - (a.balance || 0)) // Sort by balance high to low
                     .slice(0, 4) // Show max 4 avatars
                     .map((account) => (
-                    <button
-                      key={account.id}
-                      onClick={() => router.push(`/send-sats/${account.id}`)}
-                      className="relative h-10 w-10 rounded-full overflow-hidden hover:ring-2 hover:ring-blue-500 hover:ring-offset-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                      title={`Send sats to ${account.name?.split(' ')[0]}`}
-                    >
-                      <Image
-                        src={account.avatar_url || "/placeholder.svg?height=40&width=40"}
-                        alt={account.name || "Family member"}
-                        fill
-                        className="object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
+                      <button
+                        key={account.id}
+                        onClick={() => router.push(`/send-sats/${account.id}`)}
+                        className="relative h-10 w-10 rounded-full overflow-hidden hover:ring-2 hover:ring-white hover:ring-offset-2 transition-all focus:outline-none"
+                        title={`Send sats to ${account.name?.split(' ')[0]}`}
+                      >
+                        <Image
+                          src={account.avatar_url || "/placeholder.svg?height=40&width=40"}
+                          alt={account.name || "Family member"}
+                          fill
+                          className="object-cover"
+                          priority={true} // Prioritize loading family avatars
+                        />
+                      </button>
+                    ))
+                ) : (
+                  // Show skeleton loading avatars while connected accounts load
+                  user && !loading && (
+                    <>
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse"
+                        />
+                      ))}
+                    </>
+                  )
+                )}
+              </div>
               
               {activeFilters && activeFilters.count > 0 && (
                 <button

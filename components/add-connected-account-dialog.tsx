@@ -11,6 +11,8 @@ import { useAuth } from "@/components/auth-provider"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import Image from "next/image"
+import { QrCode } from "lucide-react"
+import { QRScanner } from "@/components/qr-scanner"
 
 interface AddConnectedAccountDialogProps {
   open: boolean
@@ -24,6 +26,7 @@ export function AddConnectedAccountDialog({ open, onOpenChange, onAccountAdded }
   const [isLoading, setIsLoading] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
   const [showChildAccountForm, setShowChildAccountForm] = useState(false)
+  const [showQRScanner, setShowQRScanner] = useState(false)
   const [childUsername, setChildUsername] = useState("")
   const [selectedAvatar, setSelectedAvatar] = useState("")
   const { user } = useAuth()
@@ -36,7 +39,7 @@ export function AddConnectedAccountDialog({ open, onOpenChange, onAccountAdded }
     if (open && typeof window !== "undefined") {
       try {
         ghibliAvatars.forEach((src) => {
-          const img = new Image()
+          const img = document.createElement('img')
           img.src = src
         })
       } catch (error) {
@@ -83,23 +86,7 @@ export function AddConnectedAccountDialog({ open, onOpenChange, onAccountAdded }
 
     setIsLoading(true)
     try {
-      // First, try to sign in with the provided credentials to verify they're valid
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (authError) {
-        toast({
-          title: "Invalid Credentials",
-          description: "The email or password is incorrect.",
-          variant: "destructive",
-        })
-        setIsLoading(false)
-        return
-      }
-
-      // Get the user profile for the connected account
+      // Get the user profile for the email (no password verification for now)
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
@@ -146,6 +133,7 @@ export function AddConnectedAccountDialog({ open, onOpenChange, onAccountAdded }
       toast({
         title: "Account Connected",
         description: `Successfully connected ${profileData.name}'s account.`,
+        duration: 2000,
       })
 
       // Reset form and close dialog
@@ -153,6 +141,8 @@ export function AddConnectedAccountDialog({ open, onOpenChange, onAccountAdded }
       setPassword("")
       setShowEmailForm(false)
       onOpenChange(false)
+      
+      // Refresh connected accounts without changing current session
       onAccountAdded()
     } catch (error) {
       console.error("Error connecting account:", error)
@@ -161,6 +151,86 @@ export function AddConnectedAccountDialog({ open, onOpenChange, onAccountAdded }
         description: "Failed to connect the account. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleQRScan = async (scannedData: string) => {
+    if (!user) return
+
+    setIsLoading(true)
+    try {
+      // Check if scanned data is a UUID or username
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      const isUUID = uuidRegex.test(scannedData)
+      
+      // Get the profile by username or user ID
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq(isUUID ? "id" : "username", scannedData)
+        .single()
+
+      if (profileError || !profileData) {
+        toast({
+          title: "Account Not Found",
+          description: "No account found for this QR code.",
+          variant: "destructive",
+        })
+        setShowQRScanner(false)
+        setIsLoading(false)
+        return
+      }
+
+      // Check if this account is already connected
+      const { data: existingConnection } = await supabase
+        .from("connected_accounts")
+        .select("id")
+        .eq("primary_user_id", user.id)
+        .eq("connected_user_id", profileData.id)
+        .single()
+
+      if (existingConnection) {
+        toast({
+          title: "Already Connected",
+          description: "This account is already connected to your profile.",
+        })
+        setShowQRScanner(false)
+        setIsLoading(false)
+        return
+      }
+
+      // Create the connection
+      const { error: connectionError } = await supabase.from("connected_accounts").insert({
+        primary_user_id: user.id,
+        connected_user_id: profileData.id,
+      })
+
+      if (connectionError) {
+        throw connectionError
+      }
+
+      toast({
+        title: "Account Connected",
+        description: `Successfully connected ${profileData.name}'s account via QR code.`,
+        variant: "success",
+        duration: 2000,
+      })
+
+      // Close scanner and dialog
+      setShowQRScanner(false)
+      onOpenChange(false)
+      onAccountAdded()
+
+    } catch (error) {
+      console.error("Error connecting account via QR:", error)
+      toast({
+        title: "Connection Failed",
+        description: "Failed to connect the account. Please try again.",
+        variant: "destructive",
+      })
+      setShowQRScanner(false)
     } finally {
       setIsLoading(false)
     }
@@ -433,6 +503,16 @@ export function AddConnectedAccountDialog({ open, onOpenChange, onAccountAdded }
               </Button>
 
               <Button
+                className="w-full flex items-center justify-center gap-2"
+                variant="secondary"
+                onClick={() => setShowQRScanner(true)}
+                disabled={isLoading}
+              >
+                <QrCode className="h-4 w-4" />
+                Scan QR Code
+              </Button>
+
+              <Button
                 className="w-full"
                 variant="outline"
                 onClick={() => setShowChildAccountForm(true)}
@@ -444,6 +524,13 @@ export function AddConnectedAccountDialog({ open, onOpenChange, onAccountAdded }
           )}
         </div>
       </DialogContent>
+      
+      {/* QR Scanner */}
+      <QRScanner
+        isOpen={showQRScanner}
+        onScan={handleQRScan}
+        onClose={() => setShowQRScanner(false)}
+      />
     </Dialog>
   )
 }

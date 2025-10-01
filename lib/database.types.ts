@@ -8,6 +8,7 @@ export interface Database {
           id: string
           email: string
           name: string | null
+          username: string | null
           avatar_url: string | null
           balance: number
           created_at: string
@@ -18,6 +19,7 @@ export interface Database {
           id: string
           email: string
           name?: string | null
+          username?: string | null
           avatar_url?: string | null
           balance?: number
           created_at?: string
@@ -28,6 +30,7 @@ export interface Database {
           id?: string
           email?: string
           name?: string | null
+          username?: string | null
           avatar_url?: string | null
           balance?: number
           created_at?: string

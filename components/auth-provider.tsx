@@ -154,18 +154,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userIds = connections.map(conn => conn.connected_user_id)
         console.log('Connected user IDs:', userIds)
         
-        // Fetch profiles separately for each connected user
-        const profilePromises = userIds.map(userId => 
-          supabase.from("profiles").select("*").eq("id", userId).single()
-        )
+        // Fetch all profiles in a single query using IN clause (much faster)
+        const { data: profiles, error: profilesError } = await supabase
+          .from("profiles")
+          .select("*")
+          .in("id", userIds)
         
-        const profileResults = await Promise.all(profilePromises)
-        console.log('Profile fetch results:', profileResults)
+        console.log('Bulk profile fetch results:', profiles, profilesError)
         
-        // Extract successful profile data
-        const accounts = profileResults
-          .filter(result => !result.error && result.data)
-          .map(result => result.data as Profile)
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError)
+          setConnectedAccounts([])
+          return
+        }
+        
+        // Filter out any null results and sort by the original connection order
+        const accounts = (profiles || [])
+          .filter(profile => profile !== null)
+          .sort((a, b) => {
+            // Maintain the order from connections array
+            const aIndex = userIds.indexOf(a.id)
+            const bIndex = userIds.indexOf(b.id)
+            return aIndex - bIndex
+          })
         
         console.log('Final extracted profiles:', accounts)
         setConnectedAccounts(accounts)

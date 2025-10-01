@@ -14,8 +14,8 @@ export function BottomNav() {
   const { hasPendingRequests } = useNotifications()
   const { user, loading } = useAuth()
 
-  // Don't show bottom nav on home page, auth pages, public job posting page, or send-sats page
-  if (pathname === "/" || pathname.startsWith("/auth") || pathname === "/new" || pathname.startsWith("/send-sats")) {
+  // Don't show bottom nav on home page, auth pages, public job posting page, send-sats page, or withdraw page
+  if (pathname === "/" || pathname.startsWith("/auth") || pathname === "/new" || pathname.startsWith("/send-sats") || pathname.startsWith("/wallet/withdraw")) {
     return null
   }
 
