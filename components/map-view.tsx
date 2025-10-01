@@ -82,6 +82,7 @@ export function MapView({
   const [selectedPost, setSelectedPost] = useState<Post | null>(centerPost || null)
   const markersRef = useRef<{ [key: string]: any }>({})
   const PostMarkerClassRef = useRef<any>(null)
+  const userLocationMarkerRef = useRef<google.maps.Marker | null>(null)
 
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
   const [searchResults, setSearchResults] = useState<google.maps.places.AutocompletePrediction[]>([])
@@ -255,6 +256,8 @@ export function MapView({
     if (mapInstance && mapInitialized && PostMarkerClassRef.current && postsWithLocation.length > 0) {
       console.log("Posts changed, updating markers...")
       addPostMarkers(mapInstance)
+      // Also update user location marker when posts change
+      addUserLocationMarker(mapInstance)
     }
   }, [allPosts, mapInstance, mapInitialized])
 
@@ -719,12 +722,132 @@ export function MapView({
       // Skip user location and go straight to adding post markers
       console.log("About to add post markers...")
       addPostMarkers(map)
+      
+      // Add user location marker with pulsing dot
+      addUserLocationMarker(map)
+      
       setIsLoading(false)
     } catch (error) {
       console.error("Error initializing map:", error)
       setLocationError(`Failed to create map: ${error instanceof Error ? error.message : "Unknown error"}`)
       setIsLoading(false)
     }
+  }
+
+  // Create user location marker with pulsing dot
+  const addUserLocationMarker = (map: google.maps.Map) => {
+    if (!userLocation || !map || !window.google) {
+      return
+    }
+
+    // Remove existing user location marker
+    if (userLocationMarkerRef.current) {
+      userLocationMarkerRef.current.setMap(null)
+    }
+
+    // Create custom pulsing dot icon
+    const pulsingDotIcon = {
+      path: window.google.maps.SymbolPath.CIRCLE,
+      scale: 8,
+      fillColor: '#4285F4',
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2,
+      strokeOpacity: 1,
+    }
+
+    // Create the user location marker
+    const userMarker = new window.google.maps.Marker({
+      position: { lat: userLocation.latitude, lng: userLocation.longitude },
+      map: map,
+      icon: pulsingDotIcon,
+      title: 'Your Location',
+      zIndex: 1000, // Ensure it appears above other markers
+    })
+
+    // Add pulsing animation using CSS
+    const markerElement = userMarker.getIcon()
+    
+    // Create a custom overlay for the pulsing effect
+    class PulsingDot extends window.google.maps.OverlayView {
+      private position: google.maps.LatLng
+      private div: HTMLElement | null = null
+
+      constructor(position: google.maps.LatLng) {
+        super()
+        this.position = position
+      }
+
+      onAdd() {
+        const div = document.createElement('div')
+        div.style.cssText = `
+          position: absolute;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background-color: #4285F4;
+          border: 3px solid white;
+          box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.7);
+          animation: map-location-pulse 2s infinite;
+          transform: translate(-50%, -50%);
+          z-index: 1000;
+        `
+        
+        // Add CSS animation if not already added
+        if (!document.getElementById('map-location-pulse-animation')) {
+          const style = document.createElement('style')
+          style.id = 'map-location-pulse-animation'
+          style.textContent = `
+            @keyframes map-location-pulse {
+              0% {
+                box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.7);
+              }
+              70% {
+                box-shadow: 0 0 0 10px rgba(66, 133, 244, 0);
+              }
+              100% {
+                box-shadow: 0 0 0 0 rgba(66, 133, 244, 0);
+              }
+            }
+          `
+          document.head.appendChild(style)
+        }
+
+        this.div = div
+        const panes = this.getPanes()
+        if (panes) {
+          panes.overlayMouseTarget.appendChild(div)
+        }
+      }
+
+      draw() {
+        if (this.div) {
+          const overlayProjection = this.getProjection()
+          const position = overlayProjection.fromLatLngToDivPixel(this.position)
+          if (position) {
+            this.div.style.left = position.x + 'px'
+            this.div.style.top = position.y + 'px'
+          }
+        }
+      }
+
+      onRemove() {
+        if (this.div && this.div.parentNode) {
+          this.div.parentNode.removeChild(this.div)
+          this.div = null
+        }
+      }
+    }
+
+    // Create and add the pulsing dot overlay
+    const pulsingDot = new PulsingDot(
+      new window.google.maps.LatLng(userLocation.latitude, userLocation.longitude)
+    )
+    pulsingDot.setMap(map)
+
+    userLocationMarkerRef.current = userMarker
+
+    console.log('Added user location marker with pulsing dot')
   }
 
   // Add markers for posts with location data

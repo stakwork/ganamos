@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardFooter } from "@/components/ui/card"
 import type { Post } from "@/lib/types"
 import { formatTimeAgo } from "@/lib/utils"
-import { reverseGeocode, getTravelTimes, type TravelTimes } from "@/lib/geocoding"
+import { reverseGeocode, getTravelTimes, getCurrentLocationWithName, type TravelTimes } from "@/lib/geocoding"
 import { Car, Footprints } from "lucide-react"
 
 // State abbreviation mapping
@@ -101,19 +101,18 @@ export function PostCard({ post }: { post: Post }) {
 
   // Get user location on mount
   useEffect(() => {
-    const getUserLocation = () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            setUserLocation({
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            })
-          },
-          (error) => {
-            console.error("Error getting user location:", error)
-          }
-        )
+    const getUserLocation = async () => {
+      try {
+        const locationData = await getCurrentLocationWithName({ useCache: true })
+        if (locationData) {
+          setUserLocation({
+            lat: locationData.latitude,
+            lng: locationData.longitude,
+          })
+        }
+      } catch (error) {
+        console.error("Error getting user location:", error)
+        // Silently fail for post cards - travel times just won't show
       }
     }
 

@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 type AuthContextType = {
   user: User | null
   profile: Profile | null
+  mainAccountProfile: Profile | null
   session: Session | null
   loading: boolean
   sessionLoaded: boolean
@@ -50,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [activeUserId, setActiveUserId] = useState<string | null>(null)
   const [isConnectedAccount, setIsConnectedAccount] = useState(false)
   const [connectedAccounts, setConnectedAccounts] = useState<Profile[]>([])
+  const [mainAccountProfile, setMainAccountProfile] = useState<Profile | null>(null)
 
   // Fetch user profile
   const fetchProfile = useCallback(async (userId: string) => {
@@ -112,9 +114,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // If we're using a connected account, fetch that profile instead
-    const profileId = activeUserId || user.id
+    // Always fetch and store the main account profile first
+    const mainProfileData = await fetchProfile(user.id)
+    if (mainProfileData) {
+      setMainAccountProfile(mainProfileData)
+    }
 
+    // If we're using a connected account, fetch that profile for the current profile state
+    // Otherwise, use the main account profile
+    const profileId = activeUserId || user.id
     const profileData = await fetchProfile(profileId)
     if (profileData) {
       setProfile(profileData)
@@ -126,24 +134,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return
 
     try {
-      // Get accounts where the current user is the primary user
-      const { data, error } = await supabase
+      console.log('fetchConnectedAccounts called for user:', user.id)
+      
+      // First, get the connected account relationships
+      const { data: connections, error: connectionsError } = await supabase
         .from("connected_accounts")
-        .select("connected_user_id, profiles:connected_user_id(*)")
+        .select("connected_user_id")
         .eq("primary_user_id", user.id)
 
-      if (error) {
+      console.log('Connected accounts relationships:', connections, connectionsError)
+
+      if (connectionsError) {
+        console.error('Error fetching connected accounts:', connectionsError)
         return
       }
 
-      if (data && data.length > 0) {
-        // Extract the profile data from the joined query
-        const accounts = data.map((item) => item.profiles as unknown as Profile)
+      if (connections && connections.length > 0) {
+        // Extract the user IDs
+        const userIds = connections.map(conn => conn.connected_user_id)
+        console.log('Connected user IDs:', userIds)
+        
+        // Fetch profiles separately for each connected user
+        const profilePromises = userIds.map(userId => 
+          supabase.from("profiles").select("*").eq("id", userId).single()
+        )
+        
+        const profileResults = await Promise.all(profilePromises)
+        console.log('Profile fetch results:', profileResults)
+        
+        // Extract successful profile data
+        const accounts = profileResults
+          .filter(result => !result.error && result.data)
+          .map(result => result.data as Profile)
+        
+        console.log('Final extracted profiles:', accounts)
         setConnectedAccounts(accounts)
       } else {
+        console.log('No connected accounts found')
         setConnectedAccounts([])
       }
     } catch (error) {
+      console.error('fetchConnectedAccounts catch:', error)
     }
   }, [user, supabase])
 
@@ -230,6 +261,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         setSessionLoaded(true);
         setProfile(null);
+        setMainAccountProfile(null);
       }
     }, 2000); // 2 second timeout for session check
 
@@ -242,10 +274,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSessionLoaded(true);
       if (session?.user) {
         fetchProfile(session.user.id).then((profileData) => {
-          if (isMounted) setProfile(profileData);
+          if (isMounted) {
+            setProfile(profileData);
+            setMainAccountProfile(profileData); // Also set main account profile
+          }
         });
       } else {
         setProfile(null);
+        setMainAccountProfile(null);
       }
     }).catch((error) => {
       if (!isMounted) return;
@@ -256,6 +292,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       setSessionLoaded(true);
       setProfile(null);
+      setMainAccountProfile(null);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
@@ -265,10 +302,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       if (session?.user) {
         fetchProfile(session.user.id).then((profileData) => {
-          if (isMounted) setProfile(profileData);
+          if (isMounted) {
+            setProfile(profileData);
+            setMainAccountProfile(profileData); // Also set main account profile
+          }
         });
       } else {
         setProfile(null);
+        setMainAccountProfile(null);
       }
     });
     return () => {
@@ -429,12 +470,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const profileId = activeUserId || user.id
-      const { error } = await supabase.from("profiles").update(updates).eq("id", profileId)
+      console.log('updateProfile called with:', updates)
+      console.log('Current user ID:', user.id)
+      console.log('Active user ID:', activeUserId)
+      console.log('Target profile ID:', profileId)
+      console.log('Is connected account:', isConnectedAccount)
+      
+      // Debug: Check if the connected_accounts relationship exists
+      const { data: connectionCheck, error: connectionError } = await supabase
+        .from("connected_accounts")
+        .select("*")
+        .eq("primary_user_id", user.id)
+        .eq("connected_user_id", profileId)
+      
+      console.log('Connection check result:', connectionCheck, connectionError)
+      
+      // Debug: Test if we can select the profile first
+      const { data: selectTest, error: selectError } = await supabase
+        .from("profiles")
+        .select("id, name, avatar_url")
+        .eq("id", profileId)
+      
+      console.log('Profile select test:', selectTest, selectError)
+      
+      const { data, error } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", profileId)
+        .select()
 
-      if (error) throw error
+      console.log('Profile update result:', data, error)
 
+      if (error) {
+        console.error('Profile update error:', error)
+        throw error
+      }
+
+      console.log('Profile updated successfully, refreshing...')
       await refreshProfile()
+      
+      // Also refresh connected accounts to update family section immediately
+      await fetchConnectedAccounts()
     } catch (error) {
+      console.error('updateProfile catch block:', error)
       throw error
     }
   }
@@ -476,6 +554,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         profile,
+        mainAccountProfile,
         session,
         loading,
         sessionLoaded,

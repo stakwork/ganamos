@@ -58,17 +58,27 @@ export default function GroupPage({ params }: { params: { id: string } }) {
 
       setLoading(true)
       try {
-        // Fetch group details
-        const { data: groupData, error: groupError } = await supabase
-          .from("groups")
-          .select("*")
-          .eq("id", groupId)
-          .single()
+        // Parallel fetch: group details and user membership
+        const [groupResult, memberResult] = await Promise.all([
+          supabase
+            .from("groups")
+            .select("*")
+            .eq("id", groupId)
+            .single(),
+          supabase
+            .from("group_members")
+            .select("*")
+            .eq("group_id", groupId)
+            .eq("user_id", user!.id)
+            .single()
+        ])
+
+        const { data: groupData, error: groupError } = groupResult
+        const { data: memberData, error: memberError } = memberResult
 
         if (groupError) {
           console.error("Error fetching group:", groupError)
           if (groupError.code === "PGRST116") {
-            // Group not found
             toast({
               title: "Group not found",
               description: "The group you're looking for doesn't exist or has been deleted.",
@@ -82,14 +92,7 @@ export default function GroupPage({ params }: { params: { id: string } }) {
 
         setGroup(groupData)
 
-        // Check user membership and role
-        const { data: memberData, error: memberError } = await supabase
-          .from("group_members")
-          .select("*")
-          .eq("group_id", groupId)
-          .eq("user_id", user.id)
-          .single()
-
+        // Handle member data (error is expected if user is not a member)
         if (memberError && memberError.code !== "PGRST116") {
           console.error("Error checking membership:", memberError)
           throw memberError
@@ -100,34 +103,11 @@ export default function GroupPage({ params }: { params: { id: string } }) {
           setUserStatus(memberData.status)
         }
 
-        // If user is approved member, fetch other data
+        // If user is approved member, fetch additional data in parallel
         if (memberData && memberData.status === "approved") {
-          // Fetch approved members
-          const { data: approvedMembers, error: approvedError } = await supabase
-            .from("group_members")
-            .select(`
-              id,
-              group_id,
-              user_id,
-              role,
-              status,
-              created_at,
-              updated_at,
-              profile:user_id(name, avatar_url, email)
-            `)
-            .eq("group_id", groupId)
-            .eq("status", "approved")
-
-          if (approvedError) {
-            console.error("Error fetching members:", approvedError)
-            throw approvedError
-          }
-
-          setMembers(approvedMembers)
-
-          // If user is admin, fetch pending members
-          if (memberData.role === "admin") {
-            const { data: pendingData, error: pendingError } = await supabase
+          const queries = [
+            // Always fetch approved members
+            supabase
               .from("group_members")
               .select(`
                 id,
@@ -137,38 +117,74 @@ export default function GroupPage({ params }: { params: { id: string } }) {
                 status,
                 created_at,
                 updated_at,
-                profile:user_id(name, avatar_url, email)
+                profile:user_id(name, avatar_url)
               `)
               .eq("group_id", groupId)
-              .eq("status", "pending")
+              .eq("status", "approved"),
+            
+            // Always fetch posts
+            supabase
+              .from("posts")
+              .select("*")
+              .eq("group_id", groupId)
+              .order("created_at", { ascending: false })
+              .limit(20) // Limit posts for better performance
+          ]
 
-            if (pendingError) {
-              console.error("Error fetching pending members:", pendingError)
-              throw pendingError
-            }
-
-            setPendingMembers(pendingData)
-
-            // If there are pending members and we're viewing the members tab,
-            // clear the notification for this group
-            if (pendingData.length > 0 && activeTab === "members") {
-              clearPendingForGroup(groupId)
-            }
+          // Only fetch pending members if user is admin
+          if (memberData.role === "admin") {
+            queries.push(
+              supabase
+                .from("group_members")
+                .select(`
+                  id,
+                  group_id,
+                  user_id,
+                  role,
+                  status,
+                  created_at,
+                  updated_at,
+                  profile:user_id(name, avatar_url)
+                `)
+                .eq("group_id", groupId)
+                .eq("status", "pending")
+            )
           }
 
-          // Fetch group posts
-          const { data: postsData, error: postsError } = await supabase
-            .from("posts")
-            .select("*")
-            .eq("group_id", groupId)
-            .order("created_at", { ascending: false })
+          const results = await Promise.all(queries)
+          
+          const { data: approvedMembers, error: approvedError } = results[0]
+          const { data: postsData, error: postsError } = results[1]
+          const pendingResult = results[2] // Only exists if user is admin
+
+          if (approvedError) {
+            console.error("Error fetching members:", approvedError)
+            throw approvedError
+          }
 
           if (postsError) {
             console.error("Error fetching posts:", postsError)
             throw postsError
           }
 
-          setPosts(postsData)
+          setMembers(approvedMembers as GroupMember[] || [])
+          setPosts(postsData as Post[] || [])
+
+          // Handle pending members if user is admin
+          if (pendingResult) {
+            const { data: pendingData, error: pendingError } = pendingResult
+            if (pendingError) {
+              console.error("Error fetching pending members:", pendingError)
+              throw pendingError
+            }
+
+            setPendingMembers(pendingData as GroupMember[] || [])
+
+            // Clear notification if viewing members tab with pending requests
+            if (pendingData && pendingData.length > 0 && activeTab === "members") {
+              clearPendingForGroup(groupId)
+            }
+          }
         }
 
         // Generate invite URL
@@ -285,8 +301,8 @@ export default function GroupPage({ params }: { params: { id: string } }) {
   }
 
   const copyGroupCode = () => {
-    if (group?.group_code) {
-      navigator.clipboard.writeText(group.group_code)
+    if (group?.invite_code) {
+      navigator.clipboard.writeText(group.invite_code)
       setCopiedGroupCode(true)
       setTimeout(() => setCopiedGroupCode(false), 2000)
     }
@@ -440,14 +456,14 @@ export default function GroupPage({ params }: { params: { id: string } }) {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold truncate">{group.name}</h1>
-          {userRole === "admin" && group.group_code && (
+          {userRole === "admin" && group.invite_code && (
             <div className="flex items-center gap-2 mt-1">
               <span className="text-sm text-muted-foreground">Code:</span>
               <button
                 onClick={copyGroupCode}
                 className="font-mono text-sm font-bold bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
-                {group.group_code}
+                {group.invite_code}
               </button>
               {copiedGroupCode && <span className="text-xs text-green-600 dark:text-green-400">Copied!</span>}
             </div>
@@ -476,6 +492,17 @@ export default function GroupPage({ params }: { params: { id: string } }) {
       </div>
 
       <Tabs defaultValue="members" className="w-full" onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="members">
+            Members ({members.length})
+            {userRole === "admin" && pendingMembers.length > 0 && (
+              <Badge className="ml-2 bg-orange-100 text-orange-800 text-xs">
+                {pendingMembers.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="posts">Posts ({posts.length})</TabsTrigger>
+        </TabsList>
 
 
 
@@ -566,6 +593,50 @@ export default function GroupPage({ params }: { params: { id: string } }) {
             </>
           )}
         </TabsContent>
+
+        <TabsContent value="posts" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-medium">Posts ({posts.length})</h2>
+            <Button size="sm" onClick={handleCreatePost}>
+              Create Post
+            </Button>
+          </div>
+
+          {posts.length > 0 ? (
+            <div className="space-y-4">
+              {posts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center p-8 border rounded-lg border-dashed">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="40"
+                height="40"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mx-auto mb-4 text-muted-foreground"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14,2 14,8 20,8" />
+                <line x1="16" x2="8" y1="13" y2="13" />
+                <line x1="16" x2="8" y1="17" y2="17" />
+                <polyline points="10,9 9,9 8,9" />
+              </svg>
+              <p className="text-muted-foreground mb-4">
+                No posts in this group yet
+              </p>
+              <Button onClick={handleCreatePost}>
+                Create First Post
+              </Button>
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
 
       <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
@@ -581,7 +652,7 @@ export default function GroupPage({ params }: { params: { id: string } }) {
               </p>
               <div className="flex items-center space-x-2">
                 <div className="flex-1 p-3 bg-gray-50 dark:bg-gray-800 rounded-md text-center">
-                  <span className="font-mono text-2xl font-bold tracking-widest">{group?.group_code}</span>
+                  <span className="font-mono text-2xl font-bold tracking-widest">{group?.invite_code}</span>
                 </div>
                 <Button size="sm" onClick={copyGroupCode}>
                   {copiedGroupCode ? "Copied!" : "Copy"}

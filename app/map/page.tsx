@@ -32,8 +32,8 @@ export default function MapPage() {
       setIsLoading(true)
 
       try {
-        // First get user location
-        const location = await getCurrentLocationWithName()
+        // Always get fresh user location for map page
+        const location = await getCurrentLocationWithName({ forceRefresh: true, useCache: false })
         if (location) {
           setUserLocation({
             latitude: location.latitude,
@@ -67,9 +67,28 @@ export default function MapPage() {
             })
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error getting user location:", error)
-        setLocationError("Could not get your location")
+        
+        // Handle different types of location errors
+        let errorMessage = "Could not get your location"
+        if (error && error.code !== undefined) {
+          switch (error.code) {
+            case 1: // PERMISSION_DENIED
+              errorMessage = "Location permission denied. Please enable location access in your browser settings to see nearby posts."
+              break
+            case 2: // POSITION_UNAVAILABLE
+              errorMessage = "Location unavailable. Please check your device's location settings."
+              break
+            case 3: // TIMEOUT
+              errorMessage = "Location request timed out. Please try again."
+              break
+            default:
+              errorMessage = "Location access failed. The map will show all posts without location filtering."
+          }
+        }
+        
+        setLocationError(errorMessage)
       }
 
       // Then fetch posts

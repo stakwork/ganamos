@@ -23,6 +23,100 @@ export interface TravelTimes {
   driving: string | null
 }
 
+// Location permission state management
+export interface LocationPermissionState {
+  status: 'granted' | 'denied' | 'prompt' | 'unknown'
+  lastChecked: number
+  cachedLocation?: LocationData
+}
+
+const LOCATION_PERMISSION_KEY = 'ganamos_location_permission'
+const CACHED_LOCATION_KEY = 'ganamos_cached_location'
+const PERMISSION_CACHE_DURATION = 72 * 60 * 60 * 1000 // 72 hours
+
+// Get stored location permission state
+export function getLocationPermissionState(): LocationPermissionState {
+  if (typeof window === 'undefined') {
+    return { status: 'unknown', lastChecked: 0 }
+  }
+
+  try {
+    const stored = localStorage.getItem(LOCATION_PERMISSION_KEY)
+    if (stored) {
+      const state = JSON.parse(stored) as LocationPermissionState
+      // Check if cache is still valid (24 hours)
+      if (Date.now() - state.lastChecked < PERMISSION_CACHE_DURATION) {
+        return state
+      }
+    }
+  } catch (error) {
+    console.error('Error reading location permission state:', error)
+  }
+
+  return { status: 'unknown', lastChecked: 0 }
+}
+
+// Save location permission state
+export function saveLocationPermissionState(state: LocationPermissionState): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    localStorage.setItem(LOCATION_PERMISSION_KEY, JSON.stringify({
+      ...state,
+      lastChecked: Date.now()
+    }))
+  } catch (error) {
+    console.error('Error saving location permission state:', error)
+  }
+}
+
+// Get cached location data
+export function getCachedLocation(): LocationData | null {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const stored = localStorage.getItem(CACHED_LOCATION_KEY)
+    if (stored) {
+      const cached = JSON.parse(stored)
+      // Check if cache is still valid (24 hours)
+      if (Date.now() - cached.timestamp < PERMISSION_CACHE_DURATION) {
+        return cached.location
+      }
+    }
+  } catch (error) {
+    console.error('Error reading cached location:', error)
+  }
+
+  return null
+}
+
+// Save location data to cache
+export function saveCachedLocation(location: LocationData): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    localStorage.setItem(CACHED_LOCATION_KEY, JSON.stringify({
+      location,
+      timestamp: Date.now()
+    }))
+  } catch (error) {
+    console.error('Error saving cached location:', error)
+  }
+}
+
+// Clear location permission and cached data (for settings/reset)
+export function clearLocationData(): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    localStorage.removeItem(LOCATION_PERMISSION_KEY)
+    localStorage.removeItem(CACHED_LOCATION_KEY)
+    console.log('Location permission and cached data cleared')
+  } catch (error) {
+    console.error('Error clearing location data:', error)
+  }
+}
+
 export async function reverseGeocode(latitude: number, longitude: number): Promise<string> {
   try {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
@@ -131,11 +225,38 @@ export async function getStandardizedLocation(
   }
 }
 
-export async function getCurrentLocationWithName(): Promise<LocationData | null> {
+export async function getCurrentLocationWithName(options?: { 
+  forceRefresh?: boolean 
+  useCache?: boolean 
+}): Promise<LocationData | null> {
+  const { forceRefresh = false, useCache = true } = options || {}
+
+  // Check permission state first
+  const permissionState = getLocationPermissionState()
+  
+  // If user previously denied permission, don't ask again
+  if (permissionState.status === 'denied' && !forceRefresh) {
+    const error: GeolocationPositionError = {
+      code: 1, // PERMISSION_DENIED
+      message: "Location permission was previously denied.",
+      PERMISSION_DENIED: 1,
+      POSITION_UNAVAILABLE: 2,
+      TIMEOUT: 3,
+    }
+    throw error
+  }
+
+  // If we have cached location and user granted permission, use it
+  if (useCache && permissionState.status === 'granted' && !forceRefresh) {
+    const cachedLocation = getCachedLocation()
+    if (cachedLocation) {
+      console.log('Using cached location data')
+      return cachedLocation
+    }
+  }
+
   return new Promise((resolve, reject) => {
-    // Changed to reject for better error propagation
     if (!navigator.geolocation) {
-      // Create a GeolocationPositionError-like object for consistency
       const error: GeolocationPositionError = {
         code: 0, // Custom code for "not supported"
         message: "Geolocation is not supported by your browser.",
@@ -143,7 +264,9 @@ export async function getCurrentLocationWithName(): Promise<LocationData | null>
         POSITION_UNAVAILABLE: 2,
         TIMEOUT: 3,
       }
-      reject(error) // Reject with the error object
+      // Save denied state
+      saveLocationPermissionState({ status: 'denied', lastChecked: Date.now() })
+      reject(error)
       return
     }
 
@@ -154,28 +277,48 @@ export async function getCurrentLocationWithName(): Promise<LocationData | null>
           const name = await reverseGeocode(latitude, longitude)
           const standardized = await getStandardizedLocation(latitude, longitude)
 
-          resolve({
+          const locationData: LocationData = {
             name,
             latitude,
             longitude,
             ...standardized,
-          })
+          }
+
+          // Save successful permission state and cache location
+          saveLocationPermissionState({ status: 'granted', lastChecked: Date.now() })
+          saveCachedLocation(locationData)
+
+          resolve(locationData)
         } catch (error) {
           console.error("Error getting location name:", error)
           // Resolve with coordinates if reverse geocoding fails
-          resolve({
+          const locationData: LocationData = {
             name: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
             latitude,
             longitude,
-          })
+          }
+          
+          // Still save permission state and cache even with geocoding failure
+          saveLocationPermissionState({ status: 'granted', lastChecked: Date.now() })
+          saveCachedLocation(locationData)
+          
+          resolve(locationData)
         }
       },
       (error) => {
-        // This is a GeolocationPositionError
         console.error("Geolocation error in getCurrentLocationWithName:", error.code, error.message)
-        reject(error) // Reject with the actual GeolocationPositionError
+        
+        // Save permission state based on error type
+        if (error.code === 1) { // PERMISSION_DENIED
+          saveLocationPermissionState({ status: 'denied', lastChecked: Date.now() })
+        } else {
+          // For other errors, don't change permission state
+          console.log('Geolocation failed but not due to permission denial')
+        }
+        
+        reject(error)
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }, // Use 5-minute cache for position
     )
   })
 }

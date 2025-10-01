@@ -28,6 +28,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { AvatarSelector } from "@/components/avatar-selector";
 import { GroupsList } from "@/components/groups-list";
+import { FamilySection } from "@/components/family-section";
 import type { Post } from "@/lib/types";
 import {
   DropdownMenu,
@@ -71,6 +72,7 @@ export default function ProfilePage() {
   const {
     user,
     profile,
+    mainAccountProfile,
     loading,
     session,
     sessionLoaded,
@@ -503,6 +505,27 @@ export default function ProfilePage() {
   useEffect(() => {
     fetchConnectedAccounts();
   }, [user?.id]);
+
+  // Refresh connected accounts when page becomes visible (after returning from send-sats)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('Profile page focused, refreshing connected accounts')
+      fetchConnectedAccounts();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        console.log('Profile page visible, refreshing connected accounts')
+        fetchConnectedAccounts();
+      }
+    });
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
+  }, [fetchConnectedAccounts]);
 
   // Handle page visibility changes
   useEffect(() => {
@@ -941,11 +964,11 @@ export default function ProfilePage() {
                             <div className="w-6 h-6 mr-2 overflow-hidden rounded-full">
                               <Image
                                 src={
-                                  profile?.avatar_url ||
+                                  mainAccountProfile?.avatar_url ||
                                   "/placeholder.svg?height=24&width=24"
                                 }
                                 alt={
-                                  profile?.name ||
+                                  mainAccountProfile?.name ||
                                   "Main Account"
                                 }
                                 width={24}
@@ -954,7 +977,7 @@ export default function ProfilePage() {
                               />
                             </div>
                             <span>
-                              {profile?.name || "Main Account"}{" "}
+                              {mainAccountProfile?.name?.split(' ')[0] || "Main Account"}{" "}
                               (You)
                             </span>
                           </div>
@@ -977,7 +1000,7 @@ export default function ProfilePage() {
                       </DropdownMenuItem>
 
                       {/* Connected Accounts */}
-                      {connectedAccounts.map((account) => (
+                      {connectedAccounts.filter(account => account !== null).map((account) => (
                         <DropdownMenuItem
                           key={account.id}
                           onClick={() =>
@@ -1440,6 +1463,9 @@ export default function ProfilePage() {
               </p>
             </div>
           </div>
+
+          {/* Family Section */}
+          <FamilySection onAddAccount={() => setShowAddAccountDialog(true)} />
         </CardContent>
       </Card>
 

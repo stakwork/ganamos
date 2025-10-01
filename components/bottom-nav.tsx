@@ -14,8 +14,8 @@ export function BottomNav() {
   const { hasPendingRequests } = useNotifications()
   const { user, loading } = useAuth()
 
-  // Don't show bottom nav on home page, auth pages, or public job posting page
-  if (pathname === "/" || pathname.startsWith("/auth") || pathname === "/new") {
+  // Don't show bottom nav on home page, auth pages, public job posting page, or send-sats page
+  if (pathname === "/" || pathname.startsWith("/auth") || pathname === "/new" || pathname.startsWith("/send-sats")) {
     return null
   }
 
@@ -32,7 +32,7 @@ export function BottomNav() {
 
   const handleMapClick = async () => {
     try {
-      const locationData = await getCurrentLocationWithName()
+      const locationData = await getCurrentLocationWithName({ useCache: true })
       if (locationData) {
         // Pass location data to map page to zoom to city bounds
         router.push(`/map?lat=${locationData.latitude}&lng=${locationData.longitude}&zoom=city`)

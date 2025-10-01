@@ -439,6 +439,31 @@ export default function DashboardPage() {
         <div className="w-full max-w-md pt-6 px-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
+              {/* Family Avatars */}
+              {connectedAccounts && connectedAccounts.length > 0 && (
+                <div className="flex items-center space-x-1">
+                  {connectedAccounts
+                    .filter(account => account !== null) // Filter out null accounts
+                    .sort((a, b) => (b.balance || 0) - (a.balance || 0)) // Sort by balance high to low
+                    .slice(0, 4) // Show max 4 avatars
+                    .map((account) => (
+                    <button
+                      key={account.id}
+                      onClick={() => router.push(`/send-sats/${account.id}`)}
+                      className="relative h-10 w-10 rounded-full overflow-hidden hover:ring-2 hover:ring-blue-500 hover:ring-offset-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      title={`Send sats to ${account.name?.split(' ')[0]}`}
+                    >
+                      <Image
+                        src={account.avatar_url || "/placeholder.svg?height=40&width=40"}
+                        alt={account.name || "Family member"}
+                        fill
+                        className="object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+              
               {activeFilters && activeFilters.count > 0 && (
                 <button
                   onClick={clearFilters}
@@ -458,15 +483,18 @@ export default function DashboardPage() {
                   className="flex items-center gap-2 h-10 px-3 bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900 transition-all focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 data-[state=open]:outline-none data-[state=open]:ring-0"
                   aria-label="Account menu"
                 >
-                  <Avatar className="h-7 w-7">
-                    <AvatarImage
-                      src={profile?.avatar_url ?? undefined}
-                      alt={profile?.name ?? "User"}
-                    />
-                    <AvatarFallback>
-                      <User className="h-3.5 w-3.5" />
-                    </AvatarFallback>
-                  </Avatar>
+                  {/* Only show avatar if viewing from a child account */}
+                  {isConnectedAccount && (
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage
+                        src={profile?.avatar_url ?? undefined}
+                        alt={profile?.name ?? "User"}
+                      />
+                      <AvatarFallback>
+                        <User className="h-3.5 w-3.5" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
                   <div className="flex items-center gap-1.5">
                     <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={14} height={14} />
                     <span className="text-sm font-medium">
