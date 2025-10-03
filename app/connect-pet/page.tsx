@@ -10,10 +10,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Wifi, Bluetooth, Zap, Heart, Cat, Dog, Rabbit, Squirrel, Turtle, Package } from "lucide-react"
 import Image from "next/image"
+import { useToast } from "@/hooks/use-toast"
 
 export default function ConnectPetPage() {
   const router = useRouter()
   const { profile, activeUserId, user, isConnectedAccount } = useAuth()
+  const { toast } = useToast()
   const [isConnecting, setIsConnecting] = useState(false)
   const [deviceCode, setDeviceCode] = useState("")
   const [selectedPet, setSelectedPet] = useState<'cat' | 'dog' | 'rabbit' | 'squirrel' | 'turtle'>('cat')
@@ -22,18 +24,55 @@ export default function ConnectPetPage() {
   const [showCodeEntry, setShowCodeEntry] = useState(false)
 
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     if (!deviceCode || !petName) {
       alert("Please enter a device code and pet name")
       return
     }
+    
     setIsConnecting(true)
-    // Simulate connection process
-    setTimeout(() => {
+    
+    try {
+      const response = await fetch('/api/device/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          deviceCode: deviceCode.toUpperCase(),
+          petName,
+          petType: selectedPet,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast({
+          title: "Pet Connected!",
+          description: result.message,
+          variant: "success",
+          duration: 2000,
+        })
+        // Redirect to profile page to see the new pet
+        router.push('/profile')
+      } else {
+        toast({
+          title: "Connection Failed",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Connection error:', error)
+      toast({
+        title: "Connection Error",
+        description: "Failed to connect device. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
       setIsConnecting(false)
-      // TODO: Implement actual device pairing logic
-      alert(`${petName} the ${selectedPet} is now connected! Your pet will sync with your balance automatically.`)
-    }, 2000)
+    }
   }
 
   const getPetIcon = (petType: string, size: number = 80) => {

@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AddConnectedAccountDialog } from "@/components/add-connected-account-dialog";
 import { CreateGroupDialog } from "@/components/create-group-dialog";
-import { Check, X, MapPin, Cat, QrCode, User, Edit } from "lucide-react";
+import { Check, X, MapPin, Cat, QrCode, User, Edit, Dog, Rabbit, Squirrel, Turtle } from "lucide-react";
 
 type ActivityItem = {
   id: string;
@@ -121,7 +121,30 @@ export default function ProfilePage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Connected devices state
+  const [connectedDevices, setConnectedDevices] = useState<any[]>([]);
   const [isRemoveMode, setIsRemoveMode] = useState(false);
+
+  // Helper function to get pet icon
+  const getPetIcon = (petType: string, size: number = 24) => {
+    const iconProps = { size, className: "text-white" }
+    switch (petType) {
+      case 'dog': return <Dog {...iconProps} />
+      case 'rabbit': return <Rabbit {...iconProps} />
+      case 'squirrel': return <Squirrel {...iconProps} />
+      case 'turtle': return <Turtle {...iconProps} />
+      default: return <Cat {...iconProps} />
+    }
+  };
+
+  // Helper function to format balance with k notation
+  const formatBalanceWithK = (balance: number) => {
+    if (balance > 999) {
+      return (balance / 1000).toFixed(1) + 'k';
+    }
+    return balance.toString();
+  };
   const [currentSort, setCurrentSort] = useState<
     "Recent" | "Nearby" | "Reward"
   >("Recent");
@@ -166,6 +189,30 @@ export default function ProfilePage() {
       currentActiveUser.current = newActiveUser;
     }
   }, [activeUserId, user?.id]);
+
+  // Fetch connected devices
+  const fetchConnectedDevices = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const response = await fetch("/api/device/list");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setConnectedDevices(data.devices || []);
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to fetch connected devices:", error);
+    }
+  }, [user]);
+
+  // Fetch connected devices when user changes
+  useEffect(() => {
+    if (user) {
+      fetchConnectedDevices();
+    }
+  }, [user, fetchConnectedDevices]);
 
   // Fetch the current Bitcoin price - memoized to prevent unnecessary re-creation
   const fetchBitcoinPrice = useCallback(async () => {
@@ -1452,14 +1499,15 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="grid grid-cols-3 gap-4 mt-4">
             <Button
               variant="outline"
               className="p-3 text-center border rounded-lg w-full h-auto dark:border-gray-800"
               onClick={() => router.push("/wallet")}
             >
               <div className="flex flex-col items-center">
-                <div className="flex items-center mb-1">
+                <p className="text-sm text-muted-foreground mb-2">Balance</p>
+                <div className="flex items-center justify-center" style={{ height: "32px" }}>
                   <div className="w-4 h-4 mr-1.5 relative">
                     <Image
                       src="/images/bitcoin-logo.png"
@@ -1469,11 +1517,10 @@ export default function ProfilePage() {
                       className="object-contain"
                     />
                   </div>
-                  <p className="text-sm text-muted-foreground">Balance</p>
+                  <p className="text-xl font-bold">
+                    {formatBalanceWithK(profile.balance)}
+                  </p>
                 </div>
-                <p className="text-xl font-bold">
-                  {formatSatsValue(profile.balance)}
-                </p>
                 <p
                   className={`text-xs text-muted-foreground mt-0.5 transition-opacity duration-500 ${
                     isPriceLoading || !bitcoinPrice ? "opacity-0" : "opacity-100"
@@ -1486,10 +1533,45 @@ export default function ProfilePage() {
               </div>
             </Button>
             <div className="p-3 text-center border rounded-lg dark:border-gray-800">
-              <p className="text-sm text-muted-foreground">Issues Fixed</p>
-              <p className="text-xl font-bold">
-                {profile.fixed_issues_count || 0}
-              </p>
+              <p className="text-sm text-muted-foreground mb-2">Fixes</p>
+              <div className="flex items-center justify-center" style={{ height: "32px" }}>
+                <p className="text-xl font-bold">
+                  {profile.fixed_issues_count || 0}
+                </p>
+              </div>
+              <div style={{ minHeight: "1.25rem" }}></div> {/* Spacer to align with USD value */}
+            </div>
+            <div className="p-3 text-center border rounded-lg dark:border-gray-800">
+              <p className="text-sm text-muted-foreground mb-2">Pet</p>
+              {connectedDevices.length > 0 ? (
+                <>
+                  <div className="flex items-center justify-center mb-1">
+                    <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-blue-500 rounded-full flex items-center justify-center">
+                      {getPetIcon(connectedDevices[0].pet_type, 16)}
+                    </div>
+                  </div>
+                  <p
+                    className="text-xs text-muted-foreground mt-0.5"
+                    style={{ minHeight: "1.25rem" }}
+                  >
+                    {connectedDevices[0].pet_name}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-center mb-1">
+                    <div className="w-8 h-8 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center">
+                      <Cat size={16} className="text-white" />
+                    </div>
+                  </div>
+                  <p
+                    className="text-xs text-muted-foreground mt-0.5"
+                    style={{ minHeight: "1.25rem" }}
+                  >
+                    Not Connected
+                  </p>
+                </>
+              )}
             </div>
           </div>
 
