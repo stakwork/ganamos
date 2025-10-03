@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     // Get current Bitcoin price
     let btcPrice = null
     try {
-      const priceResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3457'}/api/bitcoin-price`)
+      const priceResponse = await fetch(`https://www.ganamos.earth/api/bitcoin-price`)
       if (priceResponse.ok) {
         const priceData = await priceResponse.json()
         btcPrice = priceData.price
