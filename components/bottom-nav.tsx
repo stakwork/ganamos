@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Home, User, Map, Sprout, Plus, SquarePlus } from "lucide-react"
+import { Home, User, Map, Sprout, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useNotifications } from "@/components/notifications-provider"
 import { getCurrentLocationWithName } from "@/lib/geocoding"
@@ -82,21 +82,20 @@ export function BottomNav() {
           </button>
 
           {/* New Post button - Center */}
-          <button
-            onClick={() => router.push("/post/new")}
-            className={cn(
-              "flex items-center justify-center rounded-xl transition-colors",
-              pathname === "/post/new" && "text-primary dark:text-primary",
-            )}
-            aria-label="New Post"
-          >
-            <SquarePlus
+          <div className="flex items-center justify-center">
+            <button
+              onClick={() => router.push("/post/new")}
               className={cn(
-                "w-11 h-11 text-gray-500 dark:text-gray-400 transition-colors hover:stroke-emerald-500",
-                pathname === "/post/new" && "text-primary dark:text-primary",
+                "flex items-center justify-center w-14 h-14 rounded-full bg-primary hover:bg-primary/90 transition-all duration-200 transform hover:scale-105 shadow-lg",
+                pathname === "/post/new" && "bg-primary/90 scale-105",
               )}
-            />
-          </button>
+              aria-label="New Post"
+            >
+              <Plus
+                className="w-6 h-6 text-white stroke-[2.5]"
+              />
+            </button>
+          </div>
 
           {/* Donate icon */}
           <Link

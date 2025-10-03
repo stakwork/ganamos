@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
+import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 
 interface AvatarSelectorProps {
@@ -63,14 +64,65 @@ export function AvatarSelector({ isOpen, onOpenChange }: AvatarSelectorProps) {
     const file = event.target.files?.[0]
     if (!file) return
 
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 5MB",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       setIsUploading(true)
 
-      // In a real app, you would upload the file to storage
-      // For now, we'll use a URL.createObjectURL as a placeholder
-      const avatarUrl = URL.createObjectURL(file)
+      // Get current user and profile info
+      const supabase = createBrowserSupabaseClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        throw new Error("User not authenticated")
+      }
 
-      await updateProfile({ avatar_url: avatarUrl })
+      // Use the profile ID being updated (could be main user or connected account)
+      // This comes from the auth context via updateProfile
+      const profileId = profile?.id || user.id
+
+      // Create unique filename using the profile being updated
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${profileId}-${Date.now()}.${fileExt}`
+      const filePath = fileName // Don't add 'avatars/' prefix - bucket name is already specified
+
+      // Upload file to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
+
+      // Update profile with the storage URL
+      await updateProfile({ avatar_url: publicUrl })
 
       toast({
         title: "Profile updated",
@@ -84,7 +136,7 @@ export function AvatarSelector({ isOpen, onOpenChange }: AvatarSelectorProps) {
       console.error("Error uploading avatar:", error)
       toast({
         title: "Error",
-        description: "Failed to update avatar",
+        description: "Failed to update avatar. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -112,27 +164,29 @@ export function AvatarSelector({ isOpen, onOpenChange }: AvatarSelectorProps) {
           </TabsList>
 
           <TabsContent value="gallery" className="mt-4">
-            <div className="grid grid-cols-4 gap-2">
-              {ghibliAvatars.map((avatar, index) => (
-                <div
-                  key={index}
-                  className="relative w-16 h-16 overflow-hidden rounded-full cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => handleSelectAvatar(avatar)}
-                >
-                  <Image
-                    src={avatar || "/placeholder.svg"}
-                    alt={`Studio Ghibli animal avatar ${index + 1}`}
-                    fill
-                    className="object-cover"
-                    sizes="64px"
-                  />
-                </div>
-              ))}
+            <div className="h-40 overflow-y-auto">
+              <div className="grid grid-cols-4 gap-2">
+                {ghibliAvatars.map((avatar, index) => (
+                  <div
+                    key={index}
+                    className="relative w-16 h-16 overflow-hidden rounded-full cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => handleSelectAvatar(avatar)}
+                  >
+                    <Image
+                      src={avatar || "/placeholder.svg"}
+                      alt={`Studio Ghibli animal avatar ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      sizes="64px"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </TabsContent>
 
           <TabsContent value="camera" className="mt-4">
-            <div className="flex flex-col items-center justify-center p-4">
+            <div className="h-40 flex flex-col items-center justify-center p-4">
               <div className="mb-4 text-center">
                 <p>Take a new photo for your profile</p>
               </div>
@@ -143,9 +197,9 @@ export function AvatarSelector({ isOpen, onOpenChange }: AvatarSelectorProps) {
           </TabsContent>
 
           <TabsContent value="upload" className="mt-4">
-            {isUploading ? (
-              // Loading state - spinner + "Uploading..." text
-              <div className="flex flex-col items-center justify-center p-4">
+            <div className="h-40 flex flex-col items-center justify-center p-4">
+              {isUploading ? (
+                // Loading state - spinner + "Uploading..." text
                 <div className="flex items-center gap-2">
                   <svg
                     className="animate-spin h-5 w-5 text-primary"
@@ -162,28 +216,28 @@ export function AvatarSelector({ isOpen, onOpenChange }: AvatarSelectorProps) {
                   </svg>
                   <span className="text-sm font-medium">Uploading...</span>
                 </div>
-              </div>
-            ) : (
-              // Normal state - instruction text + choose file button
-              <div className="flex flex-col items-center justify-center p-4">
-                <div className="mb-4 text-center">
-                  <p>Upload a photo from your device</p>
-                </div>
-                <label htmlFor="avatar-upload" className="cursor-pointer">
-                  <div className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
-                    Choose File
+              ) : (
+                // Normal state - instruction text + choose file button
+                <>
+                  <div className="mb-4 text-center">
+                    <p>Upload a photo from your device</p>
                   </div>
-                  <input
-                    id="avatar-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                    disabled={isUploading}
-                  />
-                </label>
-              </div>
-            )}
+                  <label htmlFor="avatar-upload" className="cursor-pointer">
+                    <div className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
+                      Choose File
+                    </div>
+                    <input
+                      id="avatar-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      disabled={isUploading}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>

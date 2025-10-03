@@ -62,6 +62,9 @@ export default function DashboardPage() {
 
   // Add a ref to track the last fetched page
   const lastFetchedPage = useRef(1)
+  
+  // Add a ref to prevent concurrent fetches
+  const fetchingPosts = useRef(false)
 
   // Add session guard with useEffect
   useEffect(() => {
@@ -160,6 +163,14 @@ export default function DashboardPage() {
   }
 
   const fetchPosts = useCallback(async (page = currentPage, filters = activeFilters) => {
+    // Prevent concurrent fetches
+    if (fetchingPosts.current) {
+      console.log("Skipping fetch - already in progress")
+      return
+    }
+    
+    fetchingPosts.current = true
+    
     console.log("Fetching posts with filters:", filters)
     // Enhanced logging before API call
     console.log("Session before API call:", !!session)
@@ -334,8 +345,9 @@ export default function DashboardPage() {
       // setHasMore(page * pageSize < filteredPosts.length)
     } finally {
       setIsLoading(false)
+      fetchingPosts.current = false
     }
-  }, [currentPage, activeFilters, supabase, session, currentLocation, pageSize])
+  }, [currentPage, supabase, session, currentLocation, pageSize])
 
   // Initial data loading effect
   useEffect(() => {
@@ -435,8 +447,8 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="sticky top-0 z-10 bg-gradient-to-b from-background via-background to-transparent pb-4 w-full flex justify-center">
-        <div className="w-full max-w-md pt-6 px-4">
+      <div className="sticky top-0 z-10 bg-gradient-to-b from-background via-background to-transparent pb-4 w-full flex justify-center will-change-transform" style={{ contain: 'layout style paint', transform: 'translate3d(0,0,0)' }}>
+        <div className="w-full max-w-md pt-6 px-4 relative">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               {/* Family Avatars */}
@@ -453,13 +465,16 @@ export default function DashboardPage() {
                         className="relative h-10 w-10 rounded-full overflow-hidden hover:ring-2 hover:ring-white hover:ring-offset-2 transition-all focus:outline-none"
                         title={`Send sats to ${account.name?.split(' ')[0]}`}
                       >
-                        <Image
-                          src={account.avatar_url || "/placeholder.svg?height=40&width=40"}
-                          alt={account.name || "Family member"}
-                          fill
-                          className="object-cover"
-                          priority={true} // Prioritize loading family avatars
-                        />
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage 
+                            src={account.avatar_url ?? undefined} 
+                            alt={account.name || "Family member"}
+                            className="object-cover"
+                          />
+                          <AvatarFallback>
+                            <User className="h-4 w-4" />
+                          </AvatarFallback>
+                        </Avatar>
                       </button>
                     ))
                 ) : (

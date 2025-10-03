@@ -3,9 +3,10 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Plus } from "lucide-react"
+import { Plus, User } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { formatSatsValue } from "@/lib/utils"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { Profile } from "@/lib/database.types"
 
 interface FamilySectionProps {
@@ -80,14 +81,16 @@ export function FamilySection({ onAddAccount }: FamilySectionProps) {
               className="flex flex-col items-center space-y-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none flex-shrink-0 min-w-[68px]"
             >
               {/* Avatar */}
-              <div className="relative w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
-                <Image
-                  src={account.avatar_url || "/placeholder.svg?height=48&width=48"}
+              <Avatar className="w-12 h-12">
+                <AvatarImage 
+                  src={account.avatar_url ?? undefined} 
                   alt={account.name || "Family member"}
-                  fill
                   className="object-cover"
                 />
-              </div>
+                <AvatarFallback>
+                  <User className="h-5 w-5" />
+                </AvatarFallback>
+              </Avatar>
               
               {/* Name */}
               <div className="text-sm font-medium text-center truncate w-full max-w-[60px]">

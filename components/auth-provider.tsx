@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import type { User, Session } from "@supabase/supabase-js"
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true) // Start with true
   const [sessionLoaded, setSessionLoaded] = useState(false) // Start with false
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const { toast } = useToast()
 
   // New state for account switching
@@ -129,9 +129,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, activeUserId, fetchProfile])
 
+  // Add a ref to prevent concurrent fetches
+  const fetchingConnectedAccounts = useRef(false)
+
   // Fetch connected accounts
   const fetchConnectedAccounts = useCallback(async () => {
-    if (!user) return
+    if (!user || fetchingConnectedAccounts.current) return
+
+    fetchingConnectedAccounts.current = true
 
     try {
       console.log('fetchConnectedAccounts called for user:', user.id)
@@ -186,8 +191,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('fetchConnectedAccounts catch:', error)
+    } finally {
+      fetchingConnectedAccounts.current = false
     }
-  }, [user, supabase])
+  }, [user])
 
   // Switch to a connected account
   const switchToAccount = async (userId: string) => {
@@ -335,7 +342,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) {
       fetchConnectedAccounts()
     }
-  }, [user, fetchConnectedAccounts])
+  }, [user])
 
   // Set up a real-time subscription to the profile table
   useEffect(() => {

@@ -509,7 +509,9 @@ export default function ProfilePage() {
   ]);
 
   useEffect(() => {
-    fetchConnectedAccounts();
+    if (user?.id) {
+      fetchConnectedAccounts();
+    }
   }, [user?.id]);
 
   // Refresh connected accounts when page becomes visible (after returning from send-sats)
