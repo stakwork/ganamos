@@ -184,14 +184,12 @@ export default function ProfilePage() {
       setHasMorePosts(false);
       postsCache.current = [];
       initialDataLoaded.current = false;
+      setConnectedDevices([]); // Clear devices immediately
 
       // Update the tracked user
       currentActiveUser.current = newActiveUser;
-      
-      // Fetch devices for the new active user
-      fetchConnectedDevices();
     }
-  }, [activeUserId, user?.id, fetchConnectedDevices]);
+  }, [activeUserId, user?.id]);
 
   // Fetch connected devices
   const fetchConnectedDevices = useCallback(async () => {
@@ -210,12 +208,12 @@ export default function ProfilePage() {
     }
   }, [user]);
 
-  // Fetch connected devices when user changes
+  // Fetch connected devices when user or activeUserId changes
   useEffect(() => {
     if (user) {
       fetchConnectedDevices();
     }
-  }, [user, fetchConnectedDevices]);
+  }, [user, activeUserId, fetchConnectedDevices]);
 
   // Fetch the current Bitcoin price - memoized to prevent unnecessary re-creation
   const fetchBitcoinPrice = useCallback(async () => {
