@@ -187,8 +187,11 @@ export default function ProfilePage() {
 
       // Update the tracked user
       currentActiveUser.current = newActiveUser;
+      
+      // Fetch devices for the new active user
+      fetchConnectedDevices();
     }
-  }, [activeUserId, user?.id]);
+  }, [activeUserId, user?.id, fetchConnectedDevices]);
 
   // Fetch connected devices
   const fetchConnectedDevices = useCallback(async () => {
