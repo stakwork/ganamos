@@ -283,6 +283,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }, 2000); // 2 second timeout for session check
 
+    // Helper function to load profile with support for connected accounts
+    const loadProfileWithActiveAccount = async (userId: string) => {
+      // Check if there's a saved active user ID in localStorage
+      const savedActiveUserId = localStorage.getItem(ACTIVE_USER_KEY);
+      
+      // Always fetch and set the main account profile
+      const mainProfile = await fetchProfile(userId);
+      if (isMounted) {
+        setMainAccountProfile(mainProfile);
+      }
+      
+      // If there's a saved active user ID, fetch and set that profile instead
+      if (savedActiveUserId && savedActiveUserId !== userId) {
+        console.log("Restoring active account from localStorage:", savedActiveUserId);
+        const activeProfile = await fetchProfile(savedActiveUserId);
+        if (isMounted && activeProfile) {
+          setProfile(activeProfile);
+          setActiveUserId(savedActiveUserId);
+          setIsConnectedAccount(true);
+        } else if (isMounted) {
+          // If the saved active user doesn't exist anymore, fall back to main account
+          console.log("Saved active account not found, falling back to main account");
+          localStorage.removeItem(ACTIVE_USER_KEY);
+          setProfile(mainProfile);
+          setActiveUserId(null);
+          setIsConnectedAccount(false);
+        }
+      } else {
+        // No active account, use the main account
+        if (isMounted) {
+          setProfile(mainProfile);
+          setActiveUserId(null);
+          setIsConnectedAccount(false);
+        }
+      }
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!isMounted) return;
       clearTimeout(sessionTimeout);
@@ -291,12 +328,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       setSessionLoaded(true);
       if (session?.user) {
-        fetchProfile(session.user.id).then((profileData) => {
-          if (isMounted) {
-            setProfile(profileData);
-            setMainAccountProfile(profileData); // Also set main account profile
-          }
-        });
+        loadProfileWithActiveAccount(session.user.id);
       } else {
         setProfile(null);
         setMainAccountProfile(null);
@@ -319,12 +351,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSessionLoaded(true);
       setLoading(false);
       if (session?.user) {
-        fetchProfile(session.user.id).then((profileData) => {
-          if (isMounted) {
-            setProfile(profileData);
-            setMainAccountProfile(profileData); // Also set main account profile
-          }
-        });
+        loadProfileWithActiveAccount(session.user.id);
       } else {
         setProfile(null);
         setMainAccountProfile(null);

@@ -31,15 +31,15 @@ export interface Post {
   under_review?: boolean
   submitted_at?: string
   submitted_fix_by_id?: string | null
-  submitted_fix_at?: string
+  submitted_fix_at?: string | null
   submitted_fix_by_name?: string | null
   submitted_fix_by_avatar?: string | null
-  submitted_fix_image_url?: string
-  fixed_image_url?: string
+  submitted_fix_image_url?: string | null
+  fixed_image_url?: string | null
   submitted_fix_note?: string | null
   city?: string | null
-  ai_confidence_score?: number
-  ai_analysis?: string
+  ai_confidence_score?: number | null
+  ai_analysis?: string | null
 }
 
 export interface User {

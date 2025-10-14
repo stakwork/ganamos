@@ -292,17 +292,18 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           )
 
           if (actionResult.success) {
+            const nowIso = new Date().toISOString()
             setPost((prevPost) =>
               prevPost
                 ? {
                     ...prevPost,
                     under_review: true,
-                    submitted_fix_by_id: "",
-                    submitted_fix_by_name: "",
-                    submitted_fix_by_avatar: "",
-                    submitted_fix_at: "",
-                    submitted_fix_image_url: "",
-                    submitted_fix_note: "",
+                    submitted_fix_by_id: null,
+                    submitted_fix_by_name: "Anonymous Fixer (Pending Review)",
+                    submitted_fix_by_avatar: null,
+                    submitted_fix_at: nowIso,
+                    submitted_fix_image_url: fixImage || "",
+                    submitted_fix_note: fixerNote || "",
                     ai_confidence_score: verificationResult.confidence,
                     ai_analysis: verificationResult.reasoning,
                     fixed: false, // Ensure fixed is false as it's under review
@@ -442,7 +443,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               submitted_fix_by_id: activeUserId || user?.id,
               submitted_fix_by_name: profile?.name || user?.email?.split("@")[0] || "Unknown User",
               submitted_fix_by_avatar: profile?.avatar_url,
-              submitted_fix_at: "",
+              submitted_fix_at: nowIso,
               submitted_fix_image_url: fixImage || "",
               submitted_fix_note: "",
               ai_confidence_score: verificationResult.confidence,
@@ -463,7 +464,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                   submitted_fix_by_id: activeUserId || user?.id,
                   submitted_fix_by_name: profile?.name || user?.email?.split("@")[0] || "Unknown User",
                   submitted_fix_by_avatar: profile?.avatar_url,
-                  submitted_fix_at: "",
+                  submitted_fix_at: nowIso,
                   submitted_fix_image_url: fixImage || "",
                   submitted_fix_note: "",
                   ai_confidence_score: verificationResult.confidence,
@@ -583,12 +584,12 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           .from("posts")
           .update({
             under_review: false,
-            submitted_fix_by_id: "",
-            submitted_fix_by_name: "",
-            submitted_fix_by_avatar: "",
-            submitted_fix_at: "",
-            submitted_fix_image_url: "",
-            submitted_fix_note: "",
+            submitted_fix_by_id: null,
+            submitted_fix_by_name: null,
+            submitted_fix_by_avatar: null,
+            submitted_fix_at: null,
+            submitted_fix_image_url: null,
+            submitted_fix_note: null,
           })
           .eq("id", post.id)
         if (error) {
@@ -600,12 +601,12 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             ? {
                 ...prevPost,
                 under_review: false,
-                submitted_fix_by_id: "",
-                submitted_fix_by_name: "",
-                submitted_fix_by_avatar: "",
-                submitted_fix_at: "",
-                submitted_fix_image_url: "",
-                submitted_fix_note: "",
+                submitted_fix_by_id: null,
+                submitted_fix_by_name: null,
+                submitted_fix_by_avatar: null,
+                submitted_fix_at: null,
+                submitted_fix_image_url: null,
+                submitted_fix_note: null,
               }
             : null,
         )
