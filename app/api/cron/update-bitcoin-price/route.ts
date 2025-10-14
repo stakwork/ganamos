@@ -12,23 +12,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if CoinMarketCap API key is configured
-    const apiKey = process.env.COINMARKETCAP_API_KEY
-    if (!apiKey) {
-      console.error("COINMARKETCAP_API_KEY not configured")
-      return NextResponse.json(
-        { error: "API key not configured" },
-        { status: 500 }
-      )
-    }
-
-    // Fetch current Bitcoin price from CoinMarketCap
-    console.log("Fetching Bitcoin price from CoinMarketCap...")
+    // Fetch current Bitcoin price from DIA Data (free, no API key required)
+    console.log("Fetching Bitcoin price from DIA Data...")
     const response = await fetch(
-      "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=BTC&convert=USD",
+      "https://api.diadata.org/v1/assetQuotation/Bitcoin/0x0000000000000000000000000000000000000000",
       {
         headers: {
-          "X-CMC_PRO_API_KEY": apiKey,
           Accept: "application/json",
         },
         cache: "no-store",
@@ -36,11 +25,15 @@ export async function GET(request: NextRequest) {
     )
 
     if (!response.ok) {
-      throw new Error(`CoinMarketCap API request failed with status ${response.status}`)
+      throw new Error(`DIA Data API request failed with status ${response.status}`)
     }
 
     const data = await response.json()
-    const btcPrice = data.data.BTC.quote.USD.price
+    const btcPrice = data.Price
+
+    if (!btcPrice || typeof btcPrice !== 'number') {
+      throw new Error(`Invalid price data received: ${btcPrice}`)
+    }
 
     console.log(`Fetched BTC price: $${btcPrice.toFixed(2)}`)
 
@@ -69,7 +62,7 @@ export async function GET(request: NextRequest) {
       .insert({
         price: btcPrice,
         currency: "USD",
-        source: "coinmarketcap",
+        source: "diadata.org",
       })
       .select()
       .single()
