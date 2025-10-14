@@ -1,9 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/update-bitcoin-price",
-      "schedule": "*/30 * * * *"
-    }
-  ]
-}
-

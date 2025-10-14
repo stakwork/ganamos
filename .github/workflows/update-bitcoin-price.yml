@@ -1,0 +1,22 @@
+name: Update Bitcoin Price
+
+on:
+  schedule:
+    # Run every 30 minutes
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  update-price:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Update Bitcoin Price
+        run: |
+          curl -X GET "${{ secrets.APP_URL }}/api/cron/update-bitcoin-price" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -f -s -o /dev/null -w "HTTP Status: %{http_code}\n" || echo "Request failed"
+          
+      - name: Show result
+        run: echo "Bitcoin price update triggered"
+
