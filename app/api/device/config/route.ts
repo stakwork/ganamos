@@ -73,10 +73,29 @@ export async function GET(request: NextRequest) {
     // Get current Bitcoin price from database (much faster than external API)
     let btcPrice = null
     try {
-      const { data: priceData, error: priceError } = await supabase.rpc(
-        "get_latest_bitcoin_price",
-        { p_currency: "USD" }
-      )
+      // Try function first
+      let priceData, priceError
+      try {
+        const result = await supabase.rpc("get_latest_bitcoin_price", {
+          p_currency: "USD",
+        })
+        priceData = result.data
+        priceError = result.error
+      } catch {
+        // Fallback: Query table directly
+        const result = await supabase
+          .from("bitcoin_prices")
+          .select("price")
+          .eq("currency", "USD")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single()
+
+        if (result.data) {
+          priceData = [{ price: result.data.price }]
+        }
+        priceError = result.error
+      }
 
       if (!priceError && priceData && priceData.length > 0) {
         btcPrice = parseFloat(priceData[0].price)

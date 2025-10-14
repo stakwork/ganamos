@@ -9,9 +9,42 @@ export async function GET() {
     const supabase = createServerSupabaseClient()
 
     // Get the latest Bitcoin price from database
-    const { data, error } = await supabase.rpc("get_latest_bitcoin_price", {
-      p_currency: "USD",
-    })
+    // Try using the function first, fallback to direct query if it fails
+    let data, error
+    
+    try {
+      const result = await supabase.rpc("get_latest_bitcoin_price", {
+        p_currency: "USD",
+      })
+      data = result.data
+      error = result.error
+    } catch (rpcError) {
+      console.warn("Function call failed, trying direct query:", rpcError)
+      // Fallback: Query the table directly
+      const result = await supabase
+        .from("bitcoin_prices")
+        .select("*")
+        .eq("currency", "USD")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single()
+      
+      if (result.data) {
+        // Calculate age manually
+        const created = new Date(result.data.created_at)
+        const now = new Date()
+        const ageMinutes = Math.floor((now.getTime() - created.getTime()) / 60000)
+        
+        data = [{
+          price: result.data.price,
+          currency: result.data.currency,
+          source: result.data.source,
+          created_at: result.data.created_at,
+          age_minutes: ageMinutes
+        }]
+      }
+      error = result.error
+    }
 
     if (error) {
       console.error("Error fetching Bitcoin price from database:", error)
