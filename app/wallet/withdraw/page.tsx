@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,7 +13,7 @@ import { LoadingSpinner } from "@/components/loading-spinner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Image from "next/image"
 
-export default function WithdrawPage() {
+function WithdrawPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, profile, connectedAccounts, mainAccountProfile, activeUserId, loading: authLoading, refreshProfile } = useAuth()
@@ -717,5 +717,26 @@ function QRScannerCamera({
         </p>
       </div>
     </div>
+  )
+}
+
+export default function WithdrawPage() {
+  return (
+    <Suspense fallback={
+      <div className="container max-w-md mx-auto py-8 px-4">
+        <div className="flex items-center mb-6">
+          <Button variant="ghost" size="icon" disabled className="mr-2">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-2xl font-bold">Send Bitcoin</h1>
+        </div>
+        <div className="flex flex-col items-center justify-center py-12">
+          <LoadingSpinner />
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    }>
+      <WithdrawPageContent />
+    </Suspense>
   )
 }
