@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { useAuth } from "@/components/auth-provider"
+import { useDashboardCache } from "@/components/dashboard-cache-provider"
 import { Button } from "@/components/ui/button"
 import { PostCard } from "@/components/post-card"
 import { getCurrentLocation, saveSelectedLocation } from "@/lib/mock-location"
@@ -39,32 +40,49 @@ export default function DashboardPage() {
     sessionLoaded,
     isConnectedAccount,
     connectedAccounts,
+    mainAccountProfile,
     activeUserId,
     switchToAccount,
     resetToMainAccount,
   } = useAuth()
   const router = useRouter()
+  const { cache, setCachedPosts, clearCache, isCacheFresh } = useDashboardCache()
   const [currentLocation, setCurrentLocation] = useState(getCurrentLocation())
-  const [posts, setPosts] = useState<Post[]>([])
+  const [posts, setPosts] = useState<Post[]>(cache.posts)
   const [isLoading, setIsLoading] = useState(true)
   const supabase = createBrowserSupabaseClient()
 
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage, setCurrentPage] = useState(cache.currentPage)
   const [pageSize, setPageSize] = useState(5)
-  const [hasMore, setHasMore] = useState(true)
+  const [hasMore, setHasMore] = useState(cache.hasMore)
 
-  const [activeFilters, setActiveFilters] = useState<ActiveFilters | null>(null)
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters | null>(cache.activeFilters)
   const [filterCleared, setFilterCleared] = useState(false)
 
   const prevDeps = useRef({ user, loading, router })
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const initialDataLoaded = useRef(false)
+  const cacheInitialized = useRef(false)
 
   // Add a ref to track the last fetched page
   const lastFetchedPage = useRef(1)
   
   // Add a ref to prevent concurrent fetches
   const fetchingPosts = useRef(false)
+
+  // Initialize from cache on mount
+  useEffect(() => {
+    if (!cacheInitialized.current && cache.posts.length > 0 && isCacheFresh()) {
+      console.log("Using fresh cached data - skipping initial fetch")
+      setPosts(cache.posts)
+      setCurrentPage(cache.currentPage)
+      setHasMore(cache.hasMore)
+      setActiveFilters(cache.activeFilters)
+      setIsLoading(false)
+      initialDataLoaded.current = true
+      cacheInitialized.current = true
+    }
+  }, [cache, isCacheFresh])
 
   // Add session guard with useEffect
   useEffect(() => {
@@ -152,6 +170,19 @@ export default function DashboardPage() {
     }
   }, [activeFilters?.sortBy])
 
+  // Get accounts to show in header avatars (excluding current active account)
+  const getHeaderAvatars = () => {
+    const accounts = [...connectedAccounts]
+    
+    // If viewing from child account, add main account to the list
+    if (activeUserId && user && mainAccountProfile) {
+      accounts.unshift(mainAccountProfile)
+    }
+    
+    // Filter out the currently active account
+    return accounts.filter(account => account !== null && account.id !== activeUserId)
+  }
+
   const clearFilters = () => {
     localStorage.removeItem("activeFilters")
     setActiveFilters(null)
@@ -160,6 +191,7 @@ export default function DashboardPage() {
     setPosts([]) // Clear posts immediately to avoid showing filtered results
     setIsLoading(true) // Show loading state
     setFilterCleared(true) // Set flag to trigger re-fetch
+    clearCache() // Clear the cache since filters changed
   }
 
   const fetchPosts = useCallback(async (page = currentPage, filters = activeFilters) => {
@@ -261,19 +293,26 @@ export default function DashboardPage() {
             from,
             to
           })
+          
+          const hasMorePages = count ? from + data.length < count : false
+          
+          // Build the final posts array
+          const updatedPosts = page === 1 ? data : [...posts, ...data]
+          
           if (page === 1) {
             console.log('Setting posts to new data (page 1)')
-            setPosts(data)
           } else {
             console.log('Appending posts to existing data (page > 1)')
-            setPosts((prev) => {
-              console.log('Previous posts count:', prev.length, 'Adding:', data.length)
-              return [...prev, ...data]
-            })
+            console.log('Previous posts count:', posts.length, 'Adding:', data.length)
           }
+          
+          setPosts(updatedPosts)
           setCurrentPage(page) // Only update after successful fetch
-          setHasMore(count ? from + data.length < count : false)
+          setHasMore(hasMorePages)
           setIsLoading(false)
+          
+          // Save to cache
+          setCachedPosts(updatedPosts, page, hasMorePages, filters)
           return
         }
       }
@@ -453,15 +492,14 @@ export default function DashboardPage() {
             <div className="flex items-center space-x-2">
               {/* Family Avatars */}
               <div className="flex items-center space-x-1">
-                {connectedAccounts && connectedAccounts.length > 0 ? (
-                  connectedAccounts
-                    .filter(account => account !== null) // Filter out null accounts
+                {getHeaderAvatars().length > 0 ? (
+                  getHeaderAvatars()
                     .sort((a, b) => (b.balance || 0) - (a.balance || 0)) // Sort by balance high to low
                     .slice(0, 4) // Show max 4 avatars
                     .map((account) => (
                       <button
                         key={account.id}
-                        onClick={() => router.push(`/send-sats/${account.id}`)}
+                        onClick={() => router.push(`/wallet/withdraw?recipient=${account.id}`)}
                         className="relative h-10 w-10 rounded-full overflow-hidden hover:ring-2 hover:ring-white hover:ring-offset-2 transition-all focus:outline-none"
                         title={`Send sats to ${account.name?.split(' ')[0]}`}
                       >

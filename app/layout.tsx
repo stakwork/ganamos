@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { NotificationsProvider } from "@/components/notifications-provider"
 import { BottomNav } from "@/components/bottom-nav"
 import { AuthProvider } from "@/components/auth-provider"
+import { DashboardCacheProvider } from "@/components/dashboard-cache-provider"
 // Import scheduler to initialize it on app startup
 import "@/lib/scheduler"
 
@@ -54,19 +55,21 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <AuthProvider>
-          <ConditionalThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-          >
-            <main className="min-h-[calc(100vh-4rem)] pb-16 mx-auto">
-              {children}
-            </main>
-            <BottomNav />
-          </ConditionalThemeProvider>
-          <NotificationsProvider>
-            <Toaster />
-          </NotificationsProvider>
+          <DashboardCacheProvider>
+            <ConditionalThemeProvider
+              attribute="class"
+              defaultTheme="dark"
+              enableSystem
+            >
+              <main className="min-h-[calc(100vh-4rem)] pb-16 mx-auto">
+                {children}
+              </main>
+              <BottomNav />
+            </ConditionalThemeProvider>
+            <NotificationsProvider>
+              <Toaster />
+            </NotificationsProvider>
+          </DashboardCacheProvider>
         </AuthProvider>
       </body>
     </html>

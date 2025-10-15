@@ -25,14 +25,8 @@ export default function HomePage() {
   // Show loading while auth state is being determined (but with timeout)
   if ((loading || !sessionLoaded) && !authTimeout) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="text-lg mb-2">Loading...</div>
-          <div className="text-sm text-gray-500">
-            Auth: {loading ? "Initializing" : "Not Loading"} | 
-            Session: {sessionLoaded ? "Loaded" : "Not Loaded"}
-          </div>
-        </div>
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="w-16 h-16 border-4 border-green-600 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }

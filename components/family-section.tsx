@@ -19,7 +19,7 @@ export function FamilySection({ onAddAccount }: FamilySectionProps) {
 
   // Handle child account tap - navigate to send sats page
   const handleChildAccountTap = (childAccount: Profile) => {
-    router.push(`/send-sats/${childAccount.id}`)
+    router.push(`/wallet/withdraw?recipient=${childAccount.id}`)
   }
 
   // Format balance with k for thousands
@@ -40,7 +40,7 @@ export function FamilySection({ onAddAccount }: FamilySectionProps) {
       if (mainAccountProfile && user) {
         accounts.push({
           ...mainAccountProfile,
-          id: user.id, // Use the actual user ID for send-sats navigation
+          id: user.id, // Use the actual user ID for navigation
         })
       }
       

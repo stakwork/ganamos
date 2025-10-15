@@ -70,6 +70,25 @@ export async function GET(request: NextRequest) {
       .update({ last_seen_at: new Date().toISOString() })
       .eq("id", device.id)
 
+    // Get the last transaction message (from most recent incoming transaction)
+    let lastMessage = ""
+    try {
+      const { data: lastTransaction } = await supabase
+        .from("transactions")
+        .select("message")
+        .eq("to_user_id", device.user_id)
+        .eq("type", "receive")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single()
+      
+      if (lastTransaction && lastTransaction.message) {
+        lastMessage = lastTransaction.message
+      }
+    } catch (error) {
+      console.warn("Could not fetch last transaction message:", error)
+    }
+
     // Get current Bitcoin price from database (much faster than external API)
     let btcPrice = null
     try {
@@ -120,6 +139,7 @@ export async function GET(request: NextRequest) {
         pollInterval: 30, // seconds
         serverUrl:
           process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3457",
+        lastMessage: lastMessage, // Include the last transaction message
       },
     })
   } catch (error) {

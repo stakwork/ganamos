@@ -1,20 +1,22 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, X, QrCode, Delete } from "lucide-react"
+import { ArrowLeft, X, QrCode, Delete, User } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { LoadingSpinner } from "@/components/loading-spinner"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Image from "next/image"
 
 export default function WithdrawPage() {
   const router = useRouter()
-  const { user, profile, connectedAccounts, activeUserId, loading: authLoading, refreshProfile } = useAuth()
+  const searchParams = useSearchParams()
+  const { user, profile, connectedAccounts, mainAccountProfile, activeUserId, loading: authLoading, refreshProfile } = useAuth()
   const [amount, setAmount] = useState("")
   const [recipient, setRecipient] = useState("")
   const [recipientType, setRecipientType] = useState<"lightning" | "username" | "">("")
@@ -26,6 +28,26 @@ export default function WithdrawPage() {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const { toast } = useToast()
   const supabase = createBrowserSupabaseClient()
+
+  // Pre-populate recipient from URL params
+  useEffect(() => {
+    const recipientId = searchParams.get('recipient')
+    if (recipientId) {
+      // Check in connected accounts first
+      let account = connectedAccounts.find(acc => acc.id === recipientId)
+      
+      // If not found and recipient is the main account (user.id), use mainAccountProfile
+      if (!account && user && recipientId === user.id && mainAccountProfile) {
+        account = mainAccountProfile
+      }
+      
+      if (account) {
+        setRecipient(account.username || account.id)
+        setRecipientType("username")
+        setRecipientProfile(account)
+      }
+    }
+  }, [searchParams, connectedAccounts, mainAccountProfile, user])
 
   // Handle number pad input
   const handleNumberInput = (digit: string) => {
@@ -60,6 +82,18 @@ export default function WithdrawPage() {
       console.error("Error fetching recipient profile:", error)
       setRecipientProfile(null)
     }
+  }
+
+  // Get all available recipient accounts (including main account if viewing from child)
+  const getAvailableRecipients = () => {
+    const recipients = [...connectedAccounts]
+    
+    // If viewing from child account, add main account to recipients
+    if (activeUserId && user && mainAccountProfile) {
+      recipients.unshift(mainAccountProfile) // Add main account at the beginning
+    }
+    
+    return recipients
   }
 
   // Handle family member selection
@@ -367,7 +401,7 @@ export default function WithdrawPage() {
               placeholder="What's this for?"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-center"
+              className="w-full p-3 bg-transparent text-center text-gray-500 dark:text-gray-400 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none"
             />
           </div>
 
@@ -383,12 +417,12 @@ export default function WithdrawPage() {
           </div>
 
           {/* Number Pad - Always Visible */}
-          <div className="grid grid-cols-3 gap-3 px-4">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 px-4">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
               <Button
                 key={num}
                 variant="outline"
-                className="h-10 text-lg"
+                className="h-16 sm:h-14 text-xl sm:text-lg"
                 onClick={() => recipient ? handleNumberInput(num.toString()) : undefined}
                 disabled={!recipient}
               >
@@ -398,7 +432,7 @@ export default function WithdrawPage() {
             <div></div>
             <Button
               variant="outline"
-              className="h-10 text-lg"
+              className="h-16 sm:h-14 text-xl sm:text-lg"
               onClick={() => recipient ? handleNumberInput("0") : undefined}
               disabled={!recipient}
             >
@@ -406,7 +440,7 @@ export default function WithdrawPage() {
             </Button>
             <Button
               variant="outline"
-              className="h-10 text-lg"
+              className="h-16 sm:h-14 text-xl sm:text-lg"
               onClick={() => recipient ? handleBackspace() : undefined}
               disabled={!recipient}
             >
@@ -420,18 +454,50 @@ export default function WithdrawPage() {
               <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-sm">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">Add Recipient</h3>
+                    <h3 className="text-lg font-semibold">Send to</h3>
                     <button
                       onClick={() => setShowPasteInput(false)}
-                      className="text-gray-500 hover:text-gray-700"
+                      className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                     >
                       ✕
                     </button>
-        </div>
+                  </div>
+                  
+                  {/* Connected Accounts */}
+                  {getAvailableRecipients().length > 0 && (
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {getAvailableRecipients().map((account) => (
+                        <button
+                          key={account.id}
+                          onClick={() => {
+                            setRecipient(account.username || account.id)
+                            setRecipientType("username")
+                            setRecipientProfile(account)
+                            setShowPasteInput(false)
+                          }}
+                          className="flex flex-col items-center gap-1 hover:opacity-80 transition-opacity"
+                          title={`Send to ${account.name}`}
+                        >
+                          <Avatar className="h-12 w-12">
+                            <AvatarImage
+                              src={account.avatar_url ?? undefined}
+                              alt={account.name || "Connected account"}
+                            />
+                            <AvatarFallback>
+                              <User className="h-5 w-5" />
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            {account.name?.split(' ')[0]}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   
                   <div className="relative">
                     <input
-            type="text"
+                      type="text"
                       placeholder="Lightning invoice or username"
                       value={recipient}
                       onChange={(e) => setRecipient(e.target.value)}
@@ -441,40 +507,32 @@ export default function WithdrawPage() {
                     <button
                       type="button"
                       onClick={() => setShowQRScanner(true)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       <QrCode className="h-4 w-4" />
                     </button>
                   </div>
                   
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setShowPasteInput(false)}
-                      className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (recipient.trim()) {
-                          if (recipient.toLowerCase().startsWith('lnbc')) {
-                            setRecipientType("lightning")
-                            setRecipientProfile(null)
-                          } else {
-                            const username = recipient.startsWith('@') ? recipient.substring(1) : recipient
-                            setRecipient(username)
-                            setRecipientType("username")
-                            await fetchRecipientProfile(username)
-                          }
-                          setShowPasteInput(false)
+                  <button
+                    onClick={async () => {
+                      if (recipient.trim()) {
+                        if (recipient.toLowerCase().startsWith('lnbc')) {
+                          setRecipientType("lightning")
+                          setRecipientProfile(null)
+                        } else {
+                          const username = recipient.startsWith('@') ? recipient.substring(1) : recipient
+                          setRecipient(username)
+                          setRecipientType("username")
+                          await fetchRecipientProfile(username)
                         }
-                      }}
-                      disabled={!recipient.trim()}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      Continue
-                    </button>
-                  </div>
+                        setShowPasteInput(false)
+                      }
+                    }}
+                    disabled={!recipient.trim()}
+                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Continue
+                  </button>
                 </div>
               </div>
             </div>

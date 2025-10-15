@@ -562,7 +562,7 @@ export default function ProfilePage() {
     }
   }, [user?.id]);
 
-  // Refresh connected accounts when page becomes visible (after returning from send-sats)
+  // Refresh connected accounts when page becomes visible (after returning from withdraw page)
   useEffect(() => {
     const handleFocus = () => {
       console.log('Profile page focused, refreshing connected accounts')
@@ -927,9 +927,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="container px-4 py-6 mx-auto max-w-md">
-      <div className="mb-6"></div>
-
+    <div className="container px-4 pt-6 mx-auto max-w-md">
       <Card className="mb-6 border dark:border-gray-800">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">

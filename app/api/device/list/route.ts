@@ -1,0 +1,58 @@
+import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+
+export async function GET() {
+  try {
+    const supabase = createRouteHandlerClient({ cookies })
+
+    // Get the current user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+        },
+        { status: 401 }
+      )
+    }
+
+    // Get all devices for this user
+    const { data: devices, error: devicesError } = await supabase
+      .from("devices")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+
+    if (devicesError) {
+      console.error("Error fetching devices:", devicesError)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to fetch devices",
+        },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      devices: devices || [],
+    })
+  } catch (error) {
+    console.error("Error in device list API:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Internal server error",
+      },
+      { status: 500 }
+    )
+  }
+}
+

@@ -14,8 +14,8 @@ export function BottomNav() {
   const { hasPendingRequests } = useNotifications()
   const { user, loading } = useAuth()
 
-  // Don't show bottom nav on home page, auth pages, public job posting page, send-sats page, or withdraw page
-  if (pathname === "/" || pathname.startsWith("/auth") || pathname === "/new" || pathname.startsWith("/send-sats") || pathname.startsWith("/wallet/withdraw")) {
+  // Don't show bottom nav on home page, auth pages, public job posting page, or withdraw page
+  if (pathname === "/" || pathname.startsWith("/auth") || pathname === "/new" || pathname.startsWith("/wallet/withdraw")) {
     return null
   }
 
@@ -46,7 +46,7 @@ export function BottomNav() {
   }
 
   return (
-    <div id="bottom-nav" className="fixed bottom-0 left-0 z-50 w-full h-[72px] bg-white/80 backdrop-blur-md dark:bg-gray-900/80 pb-4">
+    <div id="bottom-nav" className="fixed bottom-0 left-0 z-50 w-full h-[82px] bg-white/80 backdrop-blur-md dark:bg-gray-900/80 pb-6">
       <div className="relative w-full max-w-md mx-auto h-full">
         <div className="grid grid-cols-5 items-center h-full w-full px-6">
           {/* Home icon */}

@@ -87,10 +87,15 @@ export async function GET() {
     return jsonResponse
   } catch (error) {
     console.error("Error in Bitcoin price API:", error)
+    console.error("Error stack:", error instanceof Error ? error.stack : "No stack")
+    console.error("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL ? "Set" : "Missing")
+    console.error("Service Key:", process.env.SUPABASE_SERVICE_ROLE_KEY ? "Set" : "Missing")
+    
     const errorResponse = NextResponse.json(
       {
         error: "Failed to fetch current price",
         details: error instanceof Error ? error.message : "Unknown error",
+        stack: process.env.NODE_ENV === "development" ? (error instanceof Error ? error.stack : null) : undefined,
       },
       { status: 500 }
     )

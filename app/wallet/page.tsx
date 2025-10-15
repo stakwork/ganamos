@@ -206,7 +206,7 @@ export default function WalletPage() {
   // If not authenticated, show login prompt
   if (!user) {
     return (
-      <div className="container max-w-md mx-auto py-8 px-4">
+      <div className="container max-w-md mx-auto pt-6 px-4">
         <div className="flex items-center mb-6">
           <h1 className="text-2xl font-bold">Bitcoin Wallet</h1>
         </div>
@@ -225,7 +225,7 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="container max-w-md mx-auto py-8 px-4">
+    <div className="container max-w-md mx-auto pt-6 px-4">
       <Card className="mb-6 border dark:border-gray-800">
         <CardContent className="p-6">
           <div className="flex flex-col items-center">
