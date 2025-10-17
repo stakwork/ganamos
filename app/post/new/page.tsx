@@ -293,6 +293,32 @@ export default function NewPostPage() {
   const handleCapture = async (imageSrc: string) => {
     setImage(imageSrc)
     setCameraActive(false)
+    
+    // Force stop all media streams immediately
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
+      try {
+        // Get all video elements and clear their sources
+        const videos = document.querySelectorAll('video')
+        videos.forEach((video) => {
+          if (video.srcObject) {
+            const stream = video.srcObject as MediaStream
+            stream.getTracks().forEach(track => {
+              track.stop()
+              console.log('🛑 Force stopped track:', track.kind)
+            })
+            video.srcObject = null
+            video.pause()
+            video.load()
+          }
+        })
+      } catch (error) {
+        console.error('Error force-stopping camera:', error)
+      }
+    }
+    
+    // Wait a moment for browser to release camera
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
     setStep("details")
 
     // Automatically get current location when taking a photo with in-app camera
@@ -689,6 +715,7 @@ export default function NewPostPage() {
 
       {step === "photo" && cameraActive ? (
         <DynamicCameraCapture 
+          key="camera-active"
           onCapture={handleCapture}
           onGalleryClick={() => document.getElementById('photo-upload')?.click()}
         />
