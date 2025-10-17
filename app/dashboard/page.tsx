@@ -347,14 +347,19 @@ export default function DashboardPage() {
           
           const hasMorePages = count ? from + data.length < count : false
           
-          // Build the final posts array
-          const updatedPosts = page === 1 ? data : [...posts, ...data]
-          
+          // Build the final posts array with deduplication
+          let updatedPosts: typeof data
           if (page === 1) {
+            updatedPosts = data
             console.log('Setting posts to new data (page 1)')
           } else {
+            // Deduplicate posts by ID to prevent showing the same post multiple times
+            const existingIds = new Set(posts.map(p => p.id))
+            const newPosts = data.filter(p => !existingIds.has(p.id))
+            updatedPosts = [...posts, ...newPosts]
+            
             console.log('Appending posts to existing data (page > 1)')
-            console.log('Previous posts count:', posts.length, 'Adding:', data.length)
+            console.log('Previous posts count:', posts.length, 'New posts to add:', newPosts.length, 'Duplicates filtered:', data.length - newPosts.length)
           }
           
           setPosts(updatedPosts)
@@ -477,25 +482,29 @@ export default function DashboardPage() {
           hasMore,
           isLoading,
           currentPage,
-          lastFetchedPage: lastFetchedPage.current
+          lastFetchedPage: lastFetchedPage.current,
+          fetchingPosts: fetchingPosts.current
         })
         if (
           entries[0].isIntersecting &&
           hasMore &&
           !isLoading &&
+          !fetchingPosts.current && // Don't trigger if already fetching
           currentPage === lastFetchedPage.current
         ) {
-          console.log('Fetching next page:', currentPage + 1)
+          console.log('✅ Fetching next page:', currentPage + 1)
           // Only fetch if we haven't already fetched the next page
           lastFetchedPage.current = currentPage + 1
           fetchPosts(currentPage + 1)
+        } else if (entries[0].isIntersecting) {
+          console.log('❌ Skipping infinite scroll - conditions not met')
         }
       },
       { root: null, rootMargin: "100px", threshold: 0.1 }
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [hasMore, isLoading, currentPage])
+  }, [hasMore, isLoading, currentPage, fetchPosts])
 
   const handleSatsClick = () => {
     router.push("/wallet")
