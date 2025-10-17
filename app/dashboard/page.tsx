@@ -183,6 +183,27 @@ export default function DashboardPage() {
     return accounts.filter(account => account !== null && account.id !== activeUserId)
   }
 
+  // Check if header data is ready to display
+  const isHeaderReady = () => {
+    return profile !== null && !loading && !isLoading && posts.length > 0
+  }
+
+  // Preload avatar images to ensure they all appear together
+  useEffect(() => {
+    if (profile && connectedAccounts.length > 0) {
+      const avatarUrls = getHeaderAvatars()
+        .map(account => account.avatar_url)
+        .filter(url => url != null)
+      
+      avatarUrls.forEach(url => {
+        if (typeof window !== 'undefined') {
+          const img = document.createElement('img')
+          img.src = url!
+        }
+      })
+    }
+  }, [profile, connectedAccounts])
+
   const clearFilters = () => {
     localStorage.removeItem("activeFilters")
     setActiveFilters(null)
@@ -487,182 +508,173 @@ export default function DashboardPage() {
   return (
     <>
       <div className="sticky top-0 z-10 bg-gradient-to-b from-background via-background to-transparent pb-4 w-full flex justify-center will-change-transform" style={{ contain: 'layout style paint', transform: 'translate3d(0,0,0)' }}>
-        <div className="w-full max-w-md pt-6 px-4 relative">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              {/* Family Avatars */}
-              <div className="flex items-center space-x-1">
-                {getHeaderAvatars().length > 0 ? (
-                  getHeaderAvatars()
-                    .sort((a, b) => (b.balance || 0) - (a.balance || 0)) // Sort by balance high to low
-                    .slice(0, 4) // Show max 4 avatars
-                    .map((account) => (
-                      <button
-                        key={account.id}
-                        onClick={() => router.push(`/wallet/withdraw?recipient=${account.id}`)}
-                        className="relative h-10 w-10 rounded-full overflow-hidden hover:ring-2 hover:ring-white hover:ring-offset-2 transition-all focus:outline-none"
-                        title={`Send sats to ${account.name?.split(' ')[0]}`}
+        <div className="w-full max-w-md pt-6 px-4 relative min-h-[64px]">
+          {isHeaderReady() && (
+            // Header content - fades in as a unit when ready
+            <div className="flex items-center justify-between animate-in fade-in duration-1000">
+              <div className="flex items-center space-x-2">
+                {/* Family Avatars */}
+                <div className="flex items-center space-x-1">
+                  {getHeaderAvatars().length > 0 && (
+                    getHeaderAvatars()
+                      .sort((a, b) => (b.balance || 0) - (a.balance || 0)) // Sort by balance high to low
+                      .slice(0, 4) // Show max 4 avatars
+                      .map((account) => (
+                        <button
+                          key={account.id}
+                          onClick={() => router.push(`/wallet/withdraw?recipient=${account.id}`)}
+                          className="relative h-10 w-10 rounded-full overflow-hidden hover:ring-2 hover:ring-white hover:ring-offset-2 transition-all focus:outline-none"
+                          title={`Send sats to ${account.name?.split(' ')[0]}`}
+                        >
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage 
+                              src={account.avatar_url ?? undefined} 
+                              alt={account.name || "Family member"}
+                              className="object-cover"
+                            />
+                            <AvatarFallback>
+                              <User className="h-4 w-4" />
+                            </AvatarFallback>
+                          </Avatar>
+                        </button>
+                      ))
+                  )}
+                </div>
+                
+                {activeFilters && activeFilters.count > 0 && (
+                  <button
+                    onClick={clearFilters}
+                    className="flex items-center px-3 py-1 text-sm font-medium bg-blue-100 rounded-full text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800 transition-all"
+                  >
+                    <Filter className="mr-1 h-3.5 w-3.5" />
+                    {activeFilters.count} {activeFilters.count === 1 ? "Filter" : "Filters"}
+                    <X className="ml-1 h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              {/* Combined Account Button */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    className="flex items-center gap-2 h-10 px-3 bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900 transition-all focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 data-[state=open]:outline-none data-[state=open]:ring-0"
+                    aria-label="Account menu"
+                  >
+                    {/* Only show avatar if viewing from a child account */}
+                    {isConnectedAccount && (
+                      <Avatar className="h-7 w-7">
+                        <AvatarImage
+                          src={profile?.avatar_url ?? undefined}
+                          alt={profile?.name ?? "User"}
+                        />
+                        <AvatarFallback>
+                          <User className="h-3.5 w-3.5" />
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={14} height={14} />
+                      <span className="text-sm font-medium">
+                        {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
+                      </span>
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72 p-2">
+                  {/* Current Balance Header */}
+                  <div className="px-3 py-3 border-b border-gray-200 dark:border-gray-700 mb-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Current Balance</p>
+                        <p className="text-lg font-semibold">
+                          {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSatsClick}
+                        className="text-xs"
                       >
-                        <Avatar className="h-10 w-10">
+                        View Wallet
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Account Switcher Section */}
+                  {connectedAccounts.length > 0 && (
+                    <>
+                      <div className="px-3 py-1 mb-2">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Switch Account
+                        </p>
+                      </div>
+
+                      {/* Main Account */}
+                      <DropdownMenuItem
+                        onClick={resetToMainAccount}
+                        className={`flex items-center gap-3 py-3 px-3 text-base ${!isConnectedAccount ? "bg-blue-50 dark:bg-blue-950" : ""}`}
+                      >
+                        <Avatar className="h-8 w-8">
                           <AvatarImage 
-                            src={account.avatar_url ?? undefined} 
-                            alt={account.name || "Family member"}
-                            className="object-cover"
+                            src={!isConnectedAccount ? profile?.avatar_url : user?.user_metadata?.avatar_url ?? undefined} 
+                            alt={user?.user_metadata?.full_name ?? "User"} 
                           />
                           <AvatarFallback>
                             <User className="h-4 w-4" />
                           </AvatarFallback>
                         </Avatar>
-                      </button>
-                    ))
-                ) : (
-                  // Show skeleton loading avatars while connected accounts load
-                  user && !loading && (
-                    <>
-                      {[1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse"
-                        />
+                        <span className="flex-1 font-medium">{user?.user_metadata?.full_name || "Main Account"}</span>
+                        {!isConnectedAccount && <span className="text-blue-600">✓</span>}
+                      </DropdownMenuItem>
+
+                      {/* Connected Accounts */}
+                      {connectedAccounts.map((account: any) => (
+                        <DropdownMenuItem
+                          key={account.id}
+                          onClick={() => switchToAccount(account.id)}
+                          className={`flex items-center gap-3 py-3 px-3 text-base ${activeUserId === account.id ? "bg-blue-50 dark:bg-blue-950" : ""}`}
+                        >
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={account.avatar_url ?? undefined} alt={account.name ?? undefined} />
+                            <AvatarFallback>
+                              <User className="h-4 w-4" />
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="flex-1 font-medium">{account.name}</span>
+                          {activeUserId === account.id && <span className="text-blue-600">✓</span>}
+                        </DropdownMenuItem>
                       ))}
                     </>
-                  )
-                )}
-              </div>
-              
-              {activeFilters && activeFilters.count > 0 && (
-                <button
-                  onClick={clearFilters}
-                  className="flex items-center px-3 py-1 text-sm font-medium bg-blue-100 rounded-full text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800 transition-all"
-                >
-                  <Filter className="mr-1 h-3.5 w-3.5" />
-                  {activeFilters.count} {activeFilters.count === 1 ? "Filter" : "Filters"}
-                  <X className="ml-1 h-4 w-4" />
-                </button>
-              )}
-            </div>
-            {/* Combined Account Button */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  className="flex items-center gap-2 h-10 px-3 bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900 transition-all focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 data-[state=open]:outline-none data-[state=open]:ring-0"
-                  aria-label="Account menu"
-                >
-                  {/* Only show avatar if viewing from a child account */}
-                  {isConnectedAccount && (
-                    <Avatar className="h-7 w-7">
-                      <AvatarImage
-                        src={profile?.avatar_url ?? undefined}
-                        alt={profile?.name ?? "User"}
-                      />
-                      <AvatarFallback>
-                        <User className="h-3.5 w-3.5" />
-                      </AvatarFallback>
-                    </Avatar>
                   )}
-                  <div className="flex items-center gap-1.5">
-                    <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={14} height={14} />
-                    <span className="text-sm font-medium">
-                      {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
-                    </span>
-                  </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72 p-2">
-                {/* Current Balance Header */}
-                <div className="px-3 py-3 border-b border-gray-200 dark:border-gray-700 mb-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Current Balance</p>
-                      <p className="text-lg font-semibold">
-                        {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleSatsClick}
-                      className="text-xs"
-                    >
-                      View Wallet
-                    </Button>
-                  </div>
-                </div>
 
-                {/* Account Switcher Section */}
-                {connectedAccounts.length > 0 && (
-                  <>
-                    <div className="px-3 py-1 mb-2">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Switch Account
-                      </p>
-                    </div>
-
-                    {/* Main Account */}
-                    <DropdownMenuItem
-                      onClick={resetToMainAccount}
-                      className={`flex items-center gap-3 py-3 px-3 text-base ${!isConnectedAccount ? "bg-blue-50 dark:bg-blue-950" : ""}`}
-                    >
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage 
-                          src={!isConnectedAccount ? profile?.avatar_url : user?.user_metadata?.avatar_url ?? undefined} 
-                          alt={user?.user_metadata?.full_name ?? "User"} 
-                        />
-                        <AvatarFallback>
-                          <User className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="flex-1 font-medium">{user?.user_metadata?.full_name || "Main Account"}</span>
-                      {!isConnectedAccount && <span className="text-blue-600">✓</span>}
-                    </DropdownMenuItem>
-
-                    {/* Connected Accounts */}
-                    {connectedAccounts.map((account: any) => (
-                      <DropdownMenuItem
-                        key={account.id}
-                        onClick={() => switchToAccount(account.id)}
-                        className={`flex items-center gap-3 py-3 px-3 text-base ${activeUserId === account.id ? "bg-blue-50 dark:bg-blue-950" : ""}`}
-                      >
+                  {/* If no connected accounts, still show main account info */}
+                  {connectedAccounts.length === 0 && (
+                    <>
+                      <div className="px-3 py-1 mb-2">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Account
+                        </p>
+                      </div>
+                      <DropdownMenuItem className="flex items-center gap-3 py-3 px-3 text-base bg-blue-50 dark:bg-blue-950">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={account.avatar_url ?? undefined} alt={account.name ?? undefined} />
+                          <AvatarImage 
+                            src={profile?.avatar_url ?? undefined} 
+                            alt={user?.user_metadata?.full_name ?? "User"} 
+                          />
                           <AvatarFallback>
                             <User className="h-4 w-4" />
                           </AvatarFallback>
                         </Avatar>
-                        <span className="flex-1 font-medium">{account.name}</span>
-                        {activeUserId === account.id && <span className="text-blue-600">✓</span>}
+                        <span className="flex-1 font-medium">{user?.user_metadata?.full_name || "Account"}</span>
+                        <span className="text-blue-600">✓</span>
                       </DropdownMenuItem>
-                    ))}
-                  </>
-                )}
-
-                {/* If no connected accounts, still show main account info */}
-                {connectedAccounts.length === 0 && (
-                  <>
-                    <div className="px-3 py-1 mb-2">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Account
-                      </p>
-                    </div>
-                    <DropdownMenuItem className="flex items-center gap-3 py-3 px-3 text-base bg-blue-50 dark:bg-blue-950">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage 
-                          src={profile?.avatar_url ?? undefined} 
-                          alt={user?.user_metadata?.full_name ?? "User"} 
-                        />
-                        <AvatarFallback>
-                          <User className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="flex-1 font-medium">{user?.user_metadata?.full_name || "Account"}</span>
-                      <span className="text-blue-600">✓</span>
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
         </div>
       </div>
 

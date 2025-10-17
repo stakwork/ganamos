@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import { useAuth } from "@/components/auth-provider"
@@ -31,10 +31,15 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const [pendingGroupRequests, setPendingGroupRequests] = useState(0)
   const [pendingGroupIds, setPendingGroupIds] = useState<string[]>([])
   const [adminGroupIds, setAdminGroupIds] = useState<string[]>([])
+  
+  // Add ref to prevent concurrent fetches
+  const fetchingRef = useRef(false)
 
   // Fetch initial pending requests
   useEffect(() => {
-    if (!user) return
+    if (!user || fetchingRef.current) return
+    
+    fetchingRef.current = true
 
     async function fetchPendingRequests() {
       try {
@@ -75,6 +80,8 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         setPendingGroupIds(uniqueGroupIds)
       } catch (error) {
         console.error("Error fetching pending requests:", error)
+      } finally {
+        fetchingRef.current = false
       }
     }
 

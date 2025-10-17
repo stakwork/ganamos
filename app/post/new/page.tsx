@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from "@/lib/uuid"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import type { Group } from "@/lib/types"
+import { uploadImage, generateImagePath, isBase64Image } from "@/lib/storage"
 import {
   createPostFundingInvoiceAction,
   checkPostFundingStatusAction,
@@ -23,6 +24,7 @@ import { getCurrentLocationWithName } from "@/lib/geocoding" // Import the geoco
 import { ChevronLeft } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { LoadingSpinner } from "@/components/loading-spinner"
+import { LocationEditorModal } from "@/components/location-editor-modal"
 
 // Pre-load the camera component
 import dynamic from "next/dynamic"
@@ -69,6 +71,7 @@ export default function NewPostPage() {
   const [bitcoinPrice, setBitcoinPrice] = useState<number | null>(null)
   const [isPriceLoading, setIsPriceLoading] = useState(true)
   const [cameraActive, setCameraActive] = useState(true)
+  const [showLocationModal, setShowLocationModal] = useState(false)
 
   useEffect(() => {
     if (isAnonymous) {
@@ -88,16 +91,9 @@ export default function NewPostPage() {
     }
   }, [])
 
-  // Diagnostic logs for mount/unmount and user state
+  // Fetch user's groups only when they reach the details step (after taking photo)
   useEffect(() => {
-    console.log("[NewPostPage] MOUNT, user:", user)
-    return () => {
-      console.log("[NewPostPage] UNMOUNT, user:", user)
-    }
-  }, [])
-
-  // Fetch user's groups only when userId is available
-  useEffect(() => {
+    if (step !== "details") return // Only fetch when on details step
     const userId = activeUserId || user?.id
     if (!userId) return
     async function fetchUserGroups() {
@@ -145,24 +141,7 @@ export default function NewPostPage() {
       }
     }
     fetchUserGroups()
-  }, [user, activeUserId, supabase, toast])
-
-  // Hide navigation bar
-  useEffect(() => {
-    // Hide the navigation bar when on details step
-    const bottomNav = document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16") as HTMLElement
-    if (bottomNav && step === "details") {
-      bottomNav.style.display = "none"
-    }
-
-    return () => {
-      // Show the navigation bar again when component unmounts
-      const bottomNav = document.querySelector(".fixed.bottom-0.left-0.z-50.w-full.h-16") as HTMLElement
-      if (bottomNav) {
-        bottomNav.style.display = "grid"
-      }
-    }
-  }, [step])
+  }, [user, activeUserId, supabase, toast, step])
 
   // Polling for payment status
   useEffect(() => {
@@ -243,7 +222,9 @@ export default function NewPostPage() {
     fundingPaymentRequest,
   ])
 
+  // Only fetch Bitcoin price when user reaches details step (after taking photo)
   useEffect(() => {
+    if (step !== "details") return // Only fetch when on details step
     async function fetchBitcoinPrice() {
       try {
         const response = await fetch("/api/bitcoin-price")
@@ -266,6 +247,40 @@ export default function NewPostPage() {
       }
     }
     fetchBitcoinPrice()
+  }, [step])
+
+  // Load Google Maps for location autocomplete
+  useEffect(() => {
+    const loadGoogleMaps = async () => {
+      if (typeof window === 'undefined') return
+      
+      if (window.google?.maps?.places) {
+        console.log('Google Maps already loaded')
+        return
+      }
+      
+      try {
+        const response = await fetch('/api/maps')
+        const scriptContent = await response.text()
+        const script = document.createElement('script')
+        script.text = scriptContent
+        document.head.appendChild(script)
+        
+        // Wait for Google Maps to load
+        const checkInterval = setInterval(() => {
+          if (window.google?.maps?.places) {
+            clearInterval(checkInterval)
+            console.log('Google Maps loaded successfully')
+          }
+        }, 100)
+        
+        setTimeout(() => clearInterval(checkInterval), 10000)
+      } catch (error) {
+        console.error('Failed to load Google Maps:', error)
+      }
+    }
+
+    loadGoogleMaps()
   }, [])
 
   const calculateUsdValue = (sats: number) => {
@@ -275,10 +290,85 @@ export default function NewPostPage() {
     return usdValue.toFixed(2)
   }
 
-  const handleCapture = (imageSrc: string) => {
+  const handleCapture = async (imageSrc: string) => {
     setImage(imageSrc)
     setCameraActive(false)
     setStep("details")
+
+    // Automatically get current location when taking a photo with in-app camera
+    // Since the photo is being taken right now, the issue is at the user's current location
+    setIsGettingLocation(true)
+    try {
+      const locationInfo = await getCurrentLocationWithName({ useCache: true })
+
+      if (locationInfo) {
+        setCurrentLocation({
+          name: locationInfo.name,
+          lat: locationInfo.latitude,
+          lng: locationInfo.longitude,
+          displayName: locationInfo.name,
+        })
+        console.log('✅ Auto-populated location from current position:', locationInfo.name)
+      }
+    } catch (error) {
+      console.log('Could not get current location:', error)
+      // Non-critical error - user can manually select location
+    } finally {
+      setIsGettingLocation(false)
+    }
+  }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file",
+        description: "Please select an image file",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Convert to base64
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const imageData = e.target?.result as string
+      setImage(imageData)
+      setCameraActive(false)
+      setStep("details")
+
+      // Try to extract GPS location from EXIF data
+      try {
+        const { extractExifLocation } = await import('@/lib/exif')
+        const exifLocation = await extractExifLocation(file)
+        
+        if (exifLocation) {
+          console.log('📍 Found GPS in photo EXIF:', exifLocation)
+          setIsGettingLocation(true)
+          
+          // Reverse geocode to get location name
+          const { reverseGeocode, getStandardizedLocation } = await import('@/lib/geocoding')
+          const name = await reverseGeocode(exifLocation.latitude, exifLocation.longitude)
+          const standardized = await getStandardizedLocation(exifLocation.latitude, exifLocation.longitude)
+          
+          setCurrentLocation({
+            name,
+            lat: exifLocation.latitude,
+            lng: exifLocation.longitude,
+            displayName: name,
+          })
+          console.log('✅ Auto-populated location from photo:', name)
+          setIsGettingLocation(false)
+        }
+      } catch (error) {
+        console.log('Could not extract EXIF location:', error)
+        setIsGettingLocation(false)
+        // Non-critical error - just continue without auto-populating location
+      }
+    }
+    reader.readAsDataURL(file)
   }
 
   const handleGetLocation = async () => {
@@ -470,6 +560,28 @@ export default function NewPostPage() {
       const now = new Date()
       const postId = uuidv4()
 
+      // Upload image to storage if it's base64
+      let finalImageUrl = image
+      if (image && isBase64Image(image)) {
+        console.log("📤 Uploading image to storage...")
+        const imagePath = generateImagePath(activeUserId || user!.id, "posts")
+        const { url, error: uploadError } = await uploadImage(image, imagePath)
+        
+        if (uploadError || !url) {
+          console.error("Failed to upload image:", uploadError)
+          toast({
+            title: "Upload Error",
+            description: "Failed to upload image. Please try again.",
+            variant: "destructive",
+          })
+          setIsSubmitting(false)
+          return
+        }
+        
+        finalImageUrl = url
+        console.log("✅ Image uploaded successfully")
+      }
+
       const postDataForSupabase = {
         id: postId,
         user_id: activeUserId || user!.id,
@@ -477,7 +589,7 @@ export default function NewPostPage() {
         created_by_avatar: profile!.avatar_url,
         title: description.substring(0, 50),
         description,
-        image_url: image,
+        image_url: finalImageUrl,
         location: currentLocation?.name || null, // Use geocoded name
         latitude: currentLocation?.lat || null,
         longitude: currentLocation?.lng || null,
@@ -558,15 +670,28 @@ export default function NewPostPage() {
   return (
     <div className="container px-4 py-6 mx-auto max-w-md">
       {step === "photo" && cameraActive && (
-        <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="bg-black/50 text-white/70 px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
-            Take photo of the issue
+        <>
+          <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50">
+            <div className="bg-black/50 text-white/70 px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
+              Take photo of the issue
+            </div>
           </div>
-        </div>
+          {/* Hidden file input that will be triggered by the icon in camera component */}
+          <input
+            id="photo-upload"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+        </>
       )}
 
       {step === "photo" && cameraActive ? (
-        <DynamicCameraCapture onCapture={handleCapture} />
+        <DynamicCameraCapture 
+          onCapture={handleCapture}
+          onGalleryClick={() => document.getElementById('photo-upload')?.click()}
+        />
       ) : (
         <>
           {!showCreateAccountPrompt && (
@@ -583,6 +708,76 @@ export default function NewPostPage() {
                     <ChevronLeft className="h-6 w-6" />
                     <span className="sr-only">Back</span>
                   </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    className="absolute top-2 right-2 rounded-md bg-black/20 text-white hover:bg-black/40"
+                    onClick={() => router.push("/dashboard")}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-6 w-6"
+                    >
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                    <span className="sr-only">Close</span>
+                  </Button>
+                  
+                  {/* Location Pill Overlay */}
+                  <button
+                    type="button"
+                    onClick={() => setShowLocationModal(true)}
+                    className="absolute bottom-2 left-2 flex items-center gap-1.5 px-3 py-1.5 bg-black/60 backdrop-blur-sm text-white rounded-full text-xs font-medium hover:bg-black/70 transition-colors"
+                  >
+                    {currentLocation ? (
+                      <>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                        <span className="max-w-[180px] truncate">
+                          {(currentLocation.displayName || currentLocation.name).split(",")[0].trim()}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="opacity-70"
+                        >
+                          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                        <span className="opacity-70">Add location</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
 
@@ -597,79 +792,7 @@ export default function NewPostPage() {
                 />
               </div>
 
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg h-12">
-                    {currentLocation ? (
-                      <div className="flex items-center flex-1">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="mr-1 text-green-600 flex-shrink-0"
-                        >
-                          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                          <circle cx="12" cy="10" r="3" />
-                        </svg>
-                        <div className="flex-1 min-w-0">
-                          <span className="text-xs font-medium text-green-700 dark:text-green-400 block truncate">
-                            {(currentLocation.displayName || currentLocation.name).split(",")[0].trim()}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center flex-1">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="mr-1 text-muted-foreground flex-shrink-0"
-                        >
-                          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                          <circle cx="12" cy="10" r="3" />
-                        </svg>
-                        <span className="text-xs text-muted-foreground">No location</span>
-                      </div>
-                    )}
-
-                    {currentLocation ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRemoveLocation}
-                        className="text-xs h-6 px-2 ml-1 flex-shrink-0"
-                      >
-                        ×
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleGetLocation}
-                        className="text-xs h-6 px-2 flex-shrink-0"
-                        disabled={isGettingLocation}
-                      >
-                        {isGettingLocation ? "..." : "Add"}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {!isAnonymous && (
+              {!isAnonymous && (
                   <div className="flex-1">
                     <Select
                       value={selectedGroupId || "public"}
@@ -809,7 +932,6 @@ export default function NewPostPage() {
                     </Select>
                   </div>
                 )}
-              </div>
 
               <div className="space-y-6">
                 <div className="flex flex-col items-center space-y-4 py-6">
@@ -904,11 +1026,12 @@ export default function NewPostPage() {
                     <span>sats reward</span>
                   </div>
 
-                  {bitcoinPrice && calculateUsdValue(reward) && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      ${calculateUsdValue(reward)} USD
+                  {/* Reserve space for USD conversion to prevent layout shift */}
+                  <div className="h-5 flex items-center justify-center">
+                    <p className={`text-xs text-gray-500 dark:text-gray-400 transition-opacity duration-300 ${bitcoinPrice && calculateUsdValue(reward) ? 'opacity-100' : 'opacity-0'}`}>
+                      {bitcoinPrice && calculateUsdValue(reward) ? `$${calculateUsdValue(reward)} USD` : '$0.00 USD'}
                     </p>
-                  )}
+                  </div>
 
                   {showKeypad && (
                     <div className="w-full max-w-xs">
@@ -1085,6 +1208,16 @@ export default function NewPostPage() {
           </div>
         </div>
       )}
+
+      {/* Location Editor Modal */}
+      <LocationEditorModal
+        isOpen={showLocationModal}
+        onOpenChange={setShowLocationModal}
+        currentLocation={currentLocation}
+        onLocationChange={setCurrentLocation}
+        onGetCurrentLocation={handleGetLocation}
+        isGettingLocation={isGettingLocation}
+      />
     </div>
   )
 }

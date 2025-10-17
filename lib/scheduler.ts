@@ -1,5 +1,14 @@
 import * as cron from 'node-cron'
 
+/**
+ * IMPORTANT: This node-cron scheduler does NOT work in serverless environments like Vercel.
+ * 
+ * For production on Vercel, use vercel.json to configure Vercel Cron Jobs instead.
+ * This scheduler only works for local development or traditional server deployments.
+ * 
+ * See vercel.json for the production cron configuration.
+ */
+
 let schedulerInitialized = false
 
 export function initializeScheduler() {

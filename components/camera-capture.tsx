@@ -7,9 +7,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useMobile } from "@/hooks/use-mobile"
 
-export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => void }) {
+export function CameraCapture({ 
+  onCapture, 
+  onGalleryClick 
+}: { 
+  onCapture: (imageSrc: string) => void
+  onGalleryClick?: () => void
+}) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment")
@@ -65,6 +72,7 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
 
         try {
           const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
+          streamRef.current = mediaStream
           setStream(mediaStream)
 
           if (videoRef.current) {
@@ -85,14 +93,16 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
     startCamera()
 
     return () => {
-      // Access the current stream from the state
-      setStream((currentStream) => {
-        if (currentStream) {
-          currentStream.getTracks().forEach((track) => track.stop())
-        }
-        // Return null to update the state after stopping the tracks
-        return null
-      })
+      // Stop the camera stream using ref for reliable cleanup
+      if (streamRef.current) {
+        console.log("🔴 Camera cleanup: stopping stream tracks")
+        streamRef.current.getTracks().forEach((track) => {
+          track.stop()
+          console.log("🔴 Stopped track:", track.kind, track.label)
+        })
+        streamRef.current = null
+      }
+      setStream(null)
 
       // Remove the camera flag when component unmounts
       if (typeof window !== "undefined") {
@@ -129,10 +139,15 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
         const imageSrc = canvas.toDataURL("image/jpeg")
 
         // Stop the camera stream after taking photo
-        if (stream) {
-          stream.getTracks().forEach((track) => track.stop())
-          setStream(null)
+        console.log("📸 Photo taken: stopping camera stream")
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => {
+            track.stop()
+            console.log("📸 Stopped track:", track.kind)
+          })
+          streamRef.current = null
         }
+        setStream(null)
 
         onCapture(imageSrc)
       }
@@ -140,9 +155,12 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
   }
 
   const switchCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop())
+    console.log("🔄 Switching camera")
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
     }
+    setStream(null)
 
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"))
   }
@@ -283,6 +301,33 @@ export function CameraCapture({ onCapture }: { onCapture: (imageSrc: string) => 
                     <path d="M3 3v5h5" />
                   </svg>
                   <span className="sr-only">Switch Camera</span>
+                </Button>
+              )}
+              {/* Gallery/Upload button - lower right */}
+              {onGalleryClick && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={onGalleryClick}
+                  className="absolute bottom-6 right-4 bg-black/30 border-0 hover:bg-black/40 text-white/70"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                    <circle cx="9" cy="9" r="2"/>
+                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                  </svg>
+                  <span className="sr-only">Upload from Gallery</span>
                 </Button>
               )}
         </div>

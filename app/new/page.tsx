@@ -194,7 +194,7 @@ export default function NewJobPage() {
   }
 
   // Handle image upload
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader()
@@ -202,6 +202,36 @@ export default function NewJobPage() {
         setImagePreview(e.target?.result as string)
       }
       reader.readAsDataURL(file)
+
+      // Try to extract GPS location from EXIF data
+      try {
+        const { extractExifLocation } = await import('@/lib/exif')
+        const exifLocation = await extractExifLocation(file)
+        
+        if (exifLocation) {
+          console.log('📍 Found GPS in photo EXIF:', exifLocation)
+          
+          // Reverse geocode to get location name
+          const response = await fetch(`${API_BASE_URL}/api/maps?lat=${exifLocation.latitude}&lng=${exifLocation.longitude}`)
+          if (response.ok) {
+            const data = await response.json()
+            if (data.name) {
+              // Auto-populate location with EXIF data
+              selectedLocation = {
+                name: data.name,
+                lat: exifLocation.latitude,
+                lng: exifLocation.longitude
+              }
+              setSelectedLocationState(selectedLocation)
+              setLocationQuery(data.name)
+              console.log('✅ Auto-populated location from photo:', data.name)
+            }
+          }
+        }
+      } catch (error) {
+        console.log('Could not extract EXIF location:', error)
+        // Non-critical error - just continue without auto-populating location
+      }
     }
   }
 

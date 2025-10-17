@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,8 +20,15 @@ export function GroupsList({ userId }: { userId: string }) {
   const supabase = createBrowserSupabaseClient();
   const { toast } = useToast();
   const { pendingGroupIds } = useNotifications();
+  
+  // Add ref to prevent concurrent fetches
+  const fetchingRef = useRef(false);
 
   useEffect(() => {
+    if (fetchingRef.current) return;
+    
+    fetchingRef.current = true;
+    
     async function fetchGroups() {
       setLoading(true);
       try {
@@ -123,6 +130,7 @@ export function GroupsList({ userId }: { userId: string }) {
         });
       } finally {
         setLoading(false);
+        fetchingRef.current = false;
       }
     }
 

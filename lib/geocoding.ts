@@ -34,6 +34,11 @@ const LOCATION_PERMISSION_KEY = 'ganamos_location_permission'
 const CACHED_LOCATION_KEY = 'ganamos_cached_location'
 const PERMISSION_CACHE_DURATION = 72 * 60 * 60 * 1000 // 72 hours
 
+// In-memory cache for geocoding results to prevent duplicate API calls
+const geocodingCache = new Map<string, {result: string, timestamp: number}>()
+const geocodingPromises = new Map<string, Promise<string>>()
+const GEOCODING_CACHE_DURATION = 60 * 60 * 1000 // 1 hour
+
 // Get stored location permission state
 export function getLocationPermissionState(): LocationPermissionState {
   if (typeof window === 'undefined') {
@@ -118,63 +123,94 @@ export function clearLocationData(): void {
 }
 
 export async function reverseGeocode(latitude: number, longitude: number): Promise<string> {
-  try {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    if (!apiKey) {
-      throw new Error("Google Maps API key not found")
-    }
-
-    const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`,
-    )
-
-    if (!response.ok) {
-      throw new Error("Geocoding request failed")
-    }
-
-    const data = await response.json()
-
-    if (data.status === "OK" && data.results && data.results.length > 0) {
-      const result = data.results[0]
-
-      // Extract city and state from address_components
-      let city = ""
-      let state = ""
-
-      for (const component of result.address_components) {
-        if (component.types.includes("locality")) {
-          city = component.long_name
-        } else if (component.types.includes("administrative_area_level_1")) {
-          state = component.short_name
-        }
-      }
-
-      if (city && state) {
-        return `${city}, ${state}`
-      } else if (city) {
-        return city
-      } else if (state) {
-        return state
-      }
-
-      // Fallback to formatted_address if available
-      if (result.formatted_address) {
-        // Clean up formatted address to get just city/state
-        const parts = result.formatted_address.split(",")
-        if (parts.length >= 2) {
-          return parts.slice(0, 2).join(",").trim()
-        }
-        return result.formatted_address
-      }
-    }
-
-    // Fallback to coordinates
-    return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
-  } catch (error) {
-    console.error("Reverse geocoding failed:", error)
-    // Fallback to coordinates on error
-    return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+  const cacheKey = `${latitude.toFixed(6)},${longitude.toFixed(6)}`
+  
+  // Check memory cache first
+  const cached = geocodingCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < GEOCODING_CACHE_DURATION) {
+    console.log('Returning cached geocoding result for:', cacheKey)
+    return cached.result
   }
+  
+  // Check if there's already a pending request for this location
+  const pendingPromise = geocodingPromises.get(cacheKey)
+  if (pendingPromise) {
+    console.log('Returning pending geocoding promise for:', cacheKey)
+    return pendingPromise
+  }
+  
+  // Create new promise for this request
+  const promise = (async () => {
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+      if (!apiKey) {
+        throw new Error("Google Maps API key not found")
+      }
+
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`,
+      )
+
+      if (!response.ok) {
+        throw new Error("Geocoding request failed")
+      }
+
+      const data = await response.json()
+
+      let result = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+
+      if (data.status === "OK" && data.results && data.results.length > 0) {
+        const firstResult = data.results[0]
+
+        // Extract city and state from address_components
+        let city = ""
+        let state = ""
+
+        for (const component of firstResult.address_components) {
+          if (component.types.includes("locality")) {
+            city = component.long_name
+          } else if (component.types.includes("administrative_area_level_1")) {
+            state = component.short_name
+          }
+        }
+
+        if (city && state) {
+          result = `${city}, ${state}`
+        } else if (city) {
+          result = city
+        } else if (state) {
+          result = state
+        } else if (firstResult.formatted_address) {
+          // Fallback to formatted_address if available
+          const parts = firstResult.formatted_address.split(",")
+          if (parts.length >= 2) {
+            result = parts.slice(0, 2).join(",").trim()
+          } else {
+            result = firstResult.formatted_address
+          }
+        }
+      }
+
+      // Cache the result
+      geocodingCache.set(cacheKey, { result, timestamp: Date.now() })
+      return result
+    } catch (error) {
+      console.error("Reverse geocoding failed:", error)
+      // Fallback to coordinates on error
+      const fallback = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+      // Cache error fallback too (shorter duration implicitly via timestamp)
+      geocodingCache.set(cacheKey, { result: fallback, timestamp: Date.now() })
+      return fallback
+    } finally {
+      // Remove from pending promises
+      geocodingPromises.delete(cacheKey)
+    }
+  })()
+  
+  // Store the pending promise
+  geocodingPromises.set(cacheKey, promise)
+  
+  return promise
 }
 
 export async function getStandardizedLocation(

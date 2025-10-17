@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { useNotifications } from "@/components/notifications-provider"
 import { getCurrentLocationWithName } from "@/lib/geocoding"
 import { useAuth } from "@/components/auth-provider"
+import { useEffect } from "react"
 
 export function BottomNav() {
   const pathname = usePathname()
@@ -14,8 +15,13 @@ export function BottomNav() {
   const { hasPendingRequests } = useNotifications()
   const { user, loading } = useAuth()
 
-  // Don't show bottom nav on home page, auth pages, public job posting page, or withdraw page
-  if (pathname === "/" || pathname.startsWith("/auth") || pathname === "/new" || pathname.startsWith("/wallet/withdraw")) {
+  // Prefetch the new post route for faster navigation
+  useEffect(() => {
+    router.prefetch("/post/new")
+  }, [router])
+
+  // Don't show bottom nav on home page, auth pages, public job posting page, post creation page, or withdraw page
+  if (pathname === "/" || pathname.startsWith("/auth") || pathname === "/new" || pathname === "/post/new" || pathname.startsWith("/wallet/withdraw")) {
     return null
   }
 
@@ -85,6 +91,14 @@ export function BottomNav() {
           <div className="flex items-center justify-center">
             <button
               onClick={() => router.push("/post/new")}
+              onMouseEnter={() => {
+                // Prefetch route on hover for even faster navigation
+                router.prefetch("/post/new")
+              }}
+              onTouchStart={() => {
+                // Prefetch route on touch for mobile
+                router.prefetch("/post/new")
+              }}
               className={cn(
                 "flex items-center justify-center w-14 h-14 rounded-full bg-primary hover:bg-primary/90 transition-all duration-200 transform hover:scale-105 shadow-lg",
                 pathname === "/post/new" && "bg-primary/90 scale-105",

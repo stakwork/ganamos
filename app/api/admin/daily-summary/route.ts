@@ -3,10 +3,23 @@ import { sendDailySummaryEmail } from "../../../../lib/daily-summary"
 
 /**
  * Send daily summary email
- * Can be triggered manually or by cron job
+ * Can be triggered manually or by Vercel Cron
  */
 export async function POST(request: NextRequest) {
   try {
+    // Verify the request is from Vercel Cron or has valid authorization
+    const authHeader = request.headers.get('authorization')
+    
+    // Vercel Cron sends a special header that we can verify
+    // See: https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs
+    if (process.env.CRON_SECRET) {
+      if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return NextResponse.json(
+          { error: 'Unauthorized' },
+          { status: 401 }
+        )
+      }
+    }
 
     console.log('Triggering daily summary email...')
     const result = await sendDailySummaryEmail('brianmurray03@gmail.com')

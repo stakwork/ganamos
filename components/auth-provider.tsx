@@ -53,8 +53,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [connectedAccounts, setConnectedAccounts] = useState<Profile[]>([])
   const [mainAccountProfile, setMainAccountProfile] = useState<Profile | null>(null)
 
+  // Add refs to prevent concurrent fetches
+  const fetchingProfile = useRef<Set<string>>(new Set())
+  const fetchingConnectedAccounts = useRef(false)
+
   // Fetch user profile
   const fetchProfile = useCallback(async (userId: string) => {
+    // Prevent concurrent fetches for the same user
+    if (fetchingProfile.current.has(userId)) {
+      console.log('Skipping duplicate profile fetch for:', userId)
+      return null
+    }
+    
+    fetchingProfile.current.add(userId)
+    
     try {
       const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
 
@@ -105,6 +117,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return data
     } catch (error) {
       return null
+    } finally {
+      fetchingProfile.current.delete(userId)
     }
   }, [supabase])
 
@@ -114,23 +128,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // Always fetch and store the main account profile first
-    const mainProfileData = await fetchProfile(user.id)
-    if (mainProfileData) {
-      setMainAccountProfile(mainProfileData)
-    }
-
-    // If we're using a connected account, fetch that profile for the current profile state
-    // Otherwise, use the main account profile
     const profileId = activeUserId || user.id
-    const profileData = await fetchProfile(profileId)
-    if (profileData) {
-      setProfile(profileData)
+    
+    // If using main account, only fetch once
+    if (!activeUserId || activeUserId === user.id) {
+      const mainProfileData = await fetchProfile(user.id)
+      if (mainProfileData) {
+        setMainAccountProfile(mainProfileData)
+        setProfile(mainProfileData)
+      }
+    } else {
+      // If using a connected account, fetch both
+      const [mainProfileData, activeProfileData] = await Promise.all([
+        fetchProfile(user.id),
+        fetchProfile(activeUserId)
+      ])
+      
+      if (mainProfileData) {
+        setMainAccountProfile(mainProfileData)
+      }
+      if (activeProfileData) {
+        setProfile(activeProfileData)
+      }
     }
   }, [user, activeUserId, fetchProfile])
-
-  // Add a ref to prevent concurrent fetches
-  const fetchingConnectedAccounts = useRef(false)
 
   // Fetch connected accounts
   const fetchConnectedAccounts = useCallback(async () => {
@@ -194,7 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       fetchingConnectedAccounts.current = false
     }
-  }, [user])
+  }, [user, supabase])
 
   // Switch to a connected account
   const switchToAccount = async (userId: string) => {
@@ -288,34 +309,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Check if there's a saved active user ID in localStorage
       const savedActiveUserId = localStorage.getItem(ACTIVE_USER_KEY);
       
-      // Always fetch and set the main account profile
-      const mainProfile = await fetchProfile(userId);
-      if (isMounted) {
-        setMainAccountProfile(mainProfile);
-      }
-      
-      // If there's a saved active user ID, fetch and set that profile instead
-      if (savedActiveUserId && savedActiveUserId !== userId) {
-        console.log("Restoring active account from localStorage:", savedActiveUserId);
-        const activeProfile = await fetchProfile(savedActiveUserId);
-        if (isMounted && activeProfile) {
-          setProfile(activeProfile);
-          setActiveUserId(savedActiveUserId);
-          setIsConnectedAccount(true);
-        } else if (isMounted) {
-          // If the saved active user doesn't exist anymore, fall back to main account
-          console.log("Saved active account not found, falling back to main account");
-          localStorage.removeItem(ACTIVE_USER_KEY);
+      // If using main account, fetch once
+      if (!savedActiveUserId || savedActiveUserId === userId) {
+        const mainProfile = await fetchProfile(userId);
+        if (isMounted && mainProfile) {
+          setMainAccountProfile(mainProfile);
           setProfile(mainProfile);
           setActiveUserId(null);
           setIsConnectedAccount(false);
         }
       } else {
-        // No active account, use the main account
+        // If there's a saved active user ID, fetch both profiles
+        console.log("Restoring active account from localStorage:", savedActiveUserId);
+        const [mainProfile, activeProfile] = await Promise.all([
+          fetchProfile(userId),
+          fetchProfile(savedActiveUserId)
+        ]);
+        
         if (isMounted) {
-          setProfile(mainProfile);
-          setActiveUserId(null);
-          setIsConnectedAccount(false);
+          if (mainProfile) {
+            setMainAccountProfile(mainProfile);
+          }
+          
+          if (activeProfile) {
+            setProfile(activeProfile);
+            setActiveUserId(savedActiveUserId);
+            setIsConnectedAccount(true);
+          } else {
+            // If the saved active user doesn't exist anymore, fall back to main account
+            console.log("Saved active account not found, falling back to main account");
+            localStorage.removeItem(ACTIVE_USER_KEY);
+            setProfile(mainProfile);
+            setActiveUserId(null);
+            setIsConnectedAccount(false);
+          }
         }
       }
     };
@@ -362,7 +389,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(sessionTimeout);
       subscription.unsubscribe();
     };
-  }, [supabase, fetchProfile]);
+  }, [supabase]);
 
   // Fetch connected accounts after user is set
   useEffect(() => {
@@ -375,8 +402,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return
 
+    console.log('Setting up profile real-time subscription for user:', activeUserId || user.id)
+    
     const profileSubscription = supabase
-      .channel("profile-updates")
+      .channel(`profile-updates-${activeUserId || user.id}`)
       .on(
         "postgres_changes",
         {
@@ -386,15 +415,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           filter: `id=eq.${activeUserId || user.id}`,
         },
         async (payload) => {
+          console.log('Profile update detected via real-time subscription:', payload)
           await refreshProfile()
         },
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('Profile subscription status:', status)
+      })
 
     return () => {
+      console.log('Unsubscribing from profile updates')
       profileSubscription.unsubscribe()
     }
-  }, [user, activeUserId, supabase])
+  }, [user, activeUserId, supabase, refreshProfile])
 
   // Sign in with Google
   const signInWithGoogle = async () => {

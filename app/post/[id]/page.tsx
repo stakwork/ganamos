@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import type { Post } from "@/lib/types"
 import { reverseGeocode } from "@/lib/geocoding"
+import { uploadImage, generateImagePath, isBase64Image } from "@/lib/storage"
 // Add the new server actions to imports
 import { markPostFixedAnonymouslyAction, submitAnonymousFixForReviewAction } from "@/app/actions/post-actions" // Adjust path if necessary
 import { LightningInvoiceModal } from "@/components/lightning-invoice-modal"
@@ -214,13 +215,35 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
 
     setSubmittingFix(true)
     try {
+      // Upload fix image to storage if it's base64
+      let finalFixImageUrl = fixImage
+      if (fixImage && isBase64Image(fixImage)) {
+        console.log("📤 Uploading fix image to storage...")
+        const imagePath = generateImagePath(user?.id || "anonymous", "fixes")
+        const { url, error: uploadError } = await uploadImage(fixImage, imagePath)
+        
+        if (uploadError || !url) {
+          console.error("Failed to upload fix image:", uploadError)
+          toast({
+            title: "Upload Error",
+            description: "Failed to upload fix image. Please try again.",
+            variant: "destructive",
+          })
+          setSubmittingFix(false)
+          return
+        }
+        
+        finalFixImageUrl = url
+        console.log("✅ Fix image uploaded successfully")
+      }
+
       console.log("🔍 FIX SUBMISSION - Starting AI verification process")
       const verificationResponse = await fetch("/api/verify-fix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           beforeImage: post?.imageUrl || post?.image_url,
-          afterImage: fixImage,
+          afterImage: finalFixImageUrl,
           description: post?.description,
           title: post?.title,
         }),
@@ -241,7 +264,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           // High confidence: Auto-approve anonymous fix
           const actionResult = await markPostFixedAnonymouslyAction(
             post.id,
-            fixImage || "",
+            finalFixImageUrl || "",
             fixerNote,
             verificationResult.confidence,
             verificationResult.reasoning,
@@ -256,7 +279,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                     fixed_at: new Date().toISOString(),
                     fixed_by: null,
                     fixed_by_is_anonymous: true,
-                    fixed_image_url: fixImage || "",
+                    fixed_image_url: finalFixImageUrl || "",
                     fixer_note: fixerNote,
                     under_review: false,
                     ai_confidence_score: verificationResult.confidence,
@@ -285,7 +308,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           // Low confidence: Submit anonymous fix for review
           const actionResult = await submitAnonymousFixForReviewAction(
             post.id,
-            fixImage || "",
+            finalFixImageUrl || "",
             fixerNote,
             verificationResult.confidence,
             verificationResult.reasoning,
@@ -302,7 +325,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                     submitted_fix_by_name: "Anonymous Fixer (Pending Review)",
                     submitted_fix_by_avatar: null,
                     submitted_fix_at: nowIso,
-                    submitted_fix_image_url: fixImage || "",
+                    submitted_fix_image_url: finalFixImageUrl || "",
                     submitted_fix_note: fixerNote || "",
                     ai_confidence_score: verificationResult.confidence,
                     ai_analysis: verificationResult.reasoning,
@@ -344,7 +367,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 fixed: true,
                 fixed_at: nowIso,
                 fixed_by: activeUserId || user?.id,
-                fixed_image_url: fixImage || "",
+                fixed_image_url: finalFixImageUrl || "",
                 fixer_note: fixerNote || "",
                 under_review: false, // Clear review status
                 ai_confidence_score: verificationResult.confidence, // Store AI score
@@ -403,7 +426,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                   fixed: true,
                   fixed_at: nowIso,
                   fixed_by: activeUserId || user?.id,
-                  fixed_image_url: fixImage || "",
+                  fixed_image_url: finalFixImageUrl || "",
                   fixer_note: fixerNote || "",
                   under_review: false,
                   ai_confidence_score: verificationResult.confidence,
@@ -444,7 +467,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               submitted_fix_by_name: profile?.name || user?.email?.split("@")[0] || "Unknown User",
               submitted_fix_by_avatar: profile?.avatar_url,
               submitted_fix_at: nowIso,
-              submitted_fix_image_url: fixImage || "",
+              submitted_fix_image_url: finalFixImageUrl || "",
               submitted_fix_note: "",
               ai_confidence_score: verificationResult.confidence,
               ai_analysis: verificationResult.reasoning,
@@ -465,7 +488,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                   submitted_fix_by_name: profile?.name || user?.email?.split("@")[0] || "Unknown User",
                   submitted_fix_by_avatar: profile?.avatar_url,
                   submitted_fix_at: nowIso,
-                  submitted_fix_image_url: fixImage || "",
+                  submitted_fix_image_url: finalFixImageUrl || "",
                   submitted_fix_note: "",
                   ai_confidence_score: verificationResult.confidence,
                   ai_analysis: verificationResult.reasoning,

@@ -9,6 +9,7 @@ import { useAuth } from "@/components/auth-provider"
 export default function ProfileCameraPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user")
@@ -38,6 +39,7 @@ export default function ProfileCameraPage() {
 
         try {
           const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
+          streamRef.current = mediaStream
           setStream(mediaStream)
 
           if (videoRef.current) {
@@ -58,9 +60,16 @@ export default function ProfileCameraPage() {
     startCamera()
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop())
+      // Stop the camera stream using ref for reliable cleanup
+      if (streamRef.current) {
+        console.log("🔴 Profile camera cleanup: stopping stream tracks")
+        streamRef.current.getTracks().forEach((track) => {
+          track.stop()
+          console.log("🔴 Stopped track:", track.kind)
+        })
+        streamRef.current = null
       }
+      setStream(null)
 
       // Show the navigation bar again when camera is inactive
       if (typeof window !== "undefined") {
@@ -92,10 +101,15 @@ export default function ProfileCameraPage() {
           await updateProfile({ avatar_url: imageSrc })
 
           // Stop the camera stream after taking photo
-          if (stream) {
-            stream.getTracks().forEach((track) => track.stop())
-            setStream(null)
+          console.log("📸 Profile photo taken: stopping camera stream")
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => {
+              track.stop()
+              console.log("📸 Stopped track:", track.kind)
+            })
+            streamRef.current = null
           }
+          setStream(null)
 
           toast({
             title: "✨ Profile photo updated!",
@@ -121,9 +135,12 @@ export default function ProfileCameraPage() {
   }
 
   const switchCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop())
+    console.log("🔄 Switching profile camera")
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
     }
+    setStream(null)
 
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"))
   }
@@ -187,7 +204,7 @@ export default function ProfileCameraPage() {
                   type="button"
                   size="lg"
                   onClick={takePhoto}
-                  className="rounded-full w-16 h-16 p-0 bg-green-500 hover:bg-green-600 shadow-lg"
+                  className="rounded-full w-16 h-16 p-0 bg-primary hover:bg-primary/90 text-white shadow-lg"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
