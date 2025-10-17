@@ -451,7 +451,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             variant: "success",
             duration: 2000,
           })
-          router.push("/dashboard")
+          // Add parameter to trigger pulse animation
+          router.push("/dashboard?sats_earned=true")
         }
       } else {
         // Low confidence for logged-in user: Submit for review

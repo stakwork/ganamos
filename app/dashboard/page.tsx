@@ -177,26 +177,34 @@ export default function DashboardPage() {
     if (profile?.balance !== undefined && profile.balance !== null) {
       // If this is the first time we're seeing the balance, just store it
       if (prevBalance.current === null) {
+        console.log('💰 Initial balance set:', profile.balance)
         prevBalance.current = profile.balance
         return
       }
 
       // If balance increased, trigger pulse animation
       if (profile.balance > prevBalance.current) {
-        console.log('Balance increased! Triggering pulse animation')
+        console.log('💰 Balance increased!', prevBalance.current, '→', profile.balance)
+        console.log('🎉 Triggering pulse animation')
         setShowBalancePulse(true)
+        
+        // Update the previous balance immediately
+        prevBalance.current = profile.balance
         
         // Stop the pulse after 3 seconds
         const timeout = setTimeout(() => {
+          console.log('⏱️ Pulse animation timeout - stopping pulse')
           setShowBalancePulse(false)
         }, 3000)
 
-        prevBalance.current = profile.balance
         return () => clearTimeout(timeout)
       }
 
-      // Update the previous balance
-      prevBalance.current = profile.balance
+      // If balance is same or decreased, just update tracking
+      if (profile.balance !== prevBalance.current) {
+        console.log('💰 Balance changed:', prevBalance.current, '→', profile.balance)
+        prevBalance.current = profile.balance
+      }
     }
   }, [profile?.balance])
 
