@@ -185,7 +185,7 @@ export default function DashboardPage() {
 
   // Check if header data is ready to display
   const isHeaderReady = () => {
-    return profile !== null && !loading && !isLoading && posts.length > 0
+    return profile !== null && !loading && !isLoading
   }
 
   // Preload avatar images to ensure they all appear together
@@ -511,7 +511,7 @@ export default function DashboardPage() {
         <div className="w-full max-w-md pt-6 px-4 relative min-h-[64px]">
           {isHeaderReady() && (
             // Header content - fades in as a unit when ready
-            <div className="flex items-center justify-between animate-in fade-in duration-1000">
+            <div className="flex items-center justify-between animate-in fade-in duration-700 fill-mode-both">
               <div className="flex items-center space-x-2">
                 {/* Family Avatars */}
                 <div className="flex items-center space-x-1">
