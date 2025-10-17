@@ -103,10 +103,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           if (data && !error) {
             setPost(data)
             setLoading(false)
-            // Add a small delay to show the fade effect
-            setTimeout(() => {
-              setShowContent(true)
-            }, 100)
+            // Show content immediately for faster perceived performance
+            setShowContent(true)
             return
           }
         }
@@ -887,13 +885,13 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   return (
     <div className="relative">
       {!showContent && (
-        <div className="absolute inset-0 z-10 transition-opacity duration-500 opacity-100">
+        <div className="absolute inset-0 z-10 transition-opacity duration-150 opacity-100">
           <PostDetailSkeleton />
         </div>
       )}
       
       {/* Real Content: fades in when showContent is true */}
-      <div className={`transition-opacity duration-500 ${showContent ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`transition-opacity duration-150 ${showContent ? 'opacity-100' : 'opacity-0'}`}>
         {post && (
           <div className="container px-4 pt-4 pb-20 mx-auto max-w-md">
             {" "}
