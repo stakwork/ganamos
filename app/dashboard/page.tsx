@@ -58,6 +58,8 @@ export default function DashboardPage() {
 
   const [activeFilters, setActiveFilters] = useState<ActiveFilters | null>(cache.activeFilters)
   const [filterCleared, setFilterCleared] = useState(false)
+  const [showBalancePulse, setShowBalancePulse] = useState(false)
+  const prevBalance = useRef<number | null>(null)
 
   const prevDeps = useRef({ user, loading, router })
   const sentinelRef = useRef<HTMLDivElement | null>(null)
@@ -169,6 +171,34 @@ export default function DashboardPage() {
       fetchPosts(1, activeFilters)
     }
   }, [activeFilters?.sortBy])
+
+  // Watch for balance changes and trigger pulse animation
+  useEffect(() => {
+    if (profile?.balance !== undefined && profile.balance !== null) {
+      // If this is the first time we're seeing the balance, just store it
+      if (prevBalance.current === null) {
+        prevBalance.current = profile.balance
+        return
+      }
+
+      // If balance increased, trigger pulse animation
+      if (profile.balance > prevBalance.current) {
+        console.log('Balance increased! Triggering pulse animation')
+        setShowBalancePulse(true)
+        
+        // Stop the pulse after 3 seconds
+        const timeout = setTimeout(() => {
+          setShowBalancePulse(false)
+        }, 3000)
+
+        prevBalance.current = profile.balance
+        return () => clearTimeout(timeout)
+      }
+
+      // Update the previous balance
+      prevBalance.current = profile.balance
+    }
+  }, [profile?.balance])
 
   // Get accounts to show in header avatars (excluding current active account)
   const getHeaderAvatars = () => {
@@ -552,33 +582,44 @@ export default function DashboardPage() {
                   </button>
                 )}
               </div>
-              {/* Combined Account Button */}
+              {/* Combined Account Button with Pulse */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    className="flex items-center gap-2 h-10 px-3 bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900 transition-all focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 data-[state=open]:outline-none data-[state=open]:ring-0"
-                    aria-label="Account menu"
-                  >
-                    {/* Only show avatar if viewing from a child account */}
-                    {isConnectedAccount && (
-                      <Avatar className="h-7 w-7">
-                        <AvatarImage
-                          src={profile?.avatar_url ?? undefined}
-                          alt={profile?.name ?? "User"}
-                        />
-                        <AvatarFallback>
-                          <User className="h-3.5 w-3.5" />
-                        </AvatarFallback>
-                      </Avatar>
+                  <div className="relative">
+                    {/* Pulse Rings - only show when balance increases */}
+                    {showBalancePulse && (
+                      <>
+                        <div className="absolute inset-0 rounded-full border-2 border-amber-400/40 dark:border-amber-500/30 animate-ping" style={{ animationDuration: '1.5s' }}></div>
+                        <div className="absolute inset-0 rounded-full border-2 border-amber-500/30 dark:border-amber-400/20 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.3s' }}></div>
+                        <div className="absolute inset-0 rounded-full border-2 border-amber-400/20 dark:border-amber-300/15 animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.6s' }}></div>
+                      </>
                     )}
-                    <div className="flex items-center gap-1.5">
-                      <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={14} height={14} />
-                      <span className="text-sm font-medium">
-                        {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
-                      </span>
-                    </div>
-                  </Button>
+                    
+                    <Button 
+                      variant="ghost" 
+                      className="flex items-center gap-2 h-10 px-3 bg-amber-100 rounded-full text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900 transition-all focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 data-[state=open]:outline-none data-[state=open]:ring-0 relative z-10"
+                      aria-label="Account menu"
+                    >
+                      {/* Only show avatar if viewing from a child account */}
+                      {isConnectedAccount && (
+                        <Avatar className="h-7 w-7">
+                          <AvatarImage
+                            src={profile?.avatar_url ?? undefined}
+                            alt={profile?.name ?? "User"}
+                          />
+                          <AvatarFallback>
+                            <User className="h-3.5 w-3.5" />
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        <Image src="/images/bitcoin-logo.png" alt="Bitcoin" width={14} height={14} />
+                        <span className="text-sm font-medium">
+                          {profile ? formatSatsValue(profile.balance) : formatSatsValue(0)}
+                        </span>
+                      </div>
+                    </Button>
+                  </div>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-72 p-2">
                   {/* Current Balance Header */}
