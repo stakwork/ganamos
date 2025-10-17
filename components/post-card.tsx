@@ -207,25 +207,6 @@ export function PostCard({ post }: { post: Post }) {
     router.prefetch(`/post/${post.id}`)
   }
 
-  const handleProfileClick = (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent triggering the card click
-    if (userId) {
-      router.push(`/profile/${userId}`)
-    }
-  }
-
-  const handleLocationClick = (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent triggering the card click
-
-    if (locationName) {
-      // Navigate to map page with the location as a search parameter
-      router.push(`/map?search=${encodeURIComponent(locationName)}`)
-    } else if (post.latitude && post.longitude) {
-      // If we don't have a location name but have coordinates, pass those
-      router.push(`/map?lat=${post.latitude}&lng=${post.longitude}`)
-    }
-  }
-
   // Format the date safely
   const formatAbbreviatedTimeAgo = () => {
     try {
@@ -261,7 +242,7 @@ export function PostCard({ post }: { post: Post }) {
 
   return (
     <>
-      <Card className="overflow-hidden border dark:border-gray-800 cursor-pointer" onClick={handleClick} onMouseEnter={handleMouseEnter}>
+      <Card className="overflow-hidden border dark:border-gray-800 cursor-pointer active:scale-[0.98] transition-transform" onClick={handleClick} onMouseEnter={handleMouseEnter}>
         <div className="relative w-full h-48">
           {imageError ? (
             <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
@@ -304,10 +285,7 @@ export function PostCard({ post }: { post: Post }) {
               {/* Location and Travel Times row - fixed position */}
               <div className="absolute top-9 left-0 right-0 flex items-center space-x-2">
                 {locationName && (
-                  <div
-                    className="flex items-center cursor-pointer hover:text-blue-600 transition-colors"
-                    onClick={handleLocationClick}
-                  >
+                  <div className="flex items-center">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="14"
@@ -323,7 +301,7 @@ export function PostCard({ post }: { post: Post }) {
                       <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
                       <circle cx="12" cy="10" r="3" />
                     </svg>
-                    <span className="text-xs text-muted-foreground hover:text-blue-600 transition-colors">
+                    <span className="text-xs text-muted-foreground">
                       {abbreviateLocation(locationName)}
                     </span>
                   </div>
@@ -371,7 +349,7 @@ export function PostCard({ post }: { post: Post }) {
 
               {/* Poster info and timestamp row - fixed position */}
               <div className="absolute bottom-0 left-0 right-0 flex items-center space-x-2">
-                <div className="flex items-center cursor-pointer hover:opacity-80" onClick={handleProfileClick}>
+                <div className="flex items-center">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="14"
