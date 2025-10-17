@@ -402,32 +402,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return
 
-    console.log('Setting up profile real-time subscription for user:', activeUserId || user.id)
+    const targetUserId = activeUserId || user.id
+    console.log('🔔 Setting up profile real-time subscription for user:', targetUserId)
     
     const profileSubscription = supabase
-      .channel(`profile-updates-${activeUserId || user.id}`)
+      .channel(`profile-updates-${targetUserId}`)
       .on(
         "postgres_changes",
         {
           event: "UPDATE",
           schema: "public",
           table: "profiles",
-          filter: `id=eq.${activeUserId || user.id}`,
+          filter: `id=eq.${targetUserId}`,
         },
         async (payload) => {
-          console.log('Profile update detected via real-time subscription:', payload)
-          await refreshProfile()
+          console.log('🔔 Profile update detected via real-time subscription!')
+          console.log('🔔 Payload:', payload)
+          console.log('🔔 New balance:', payload.new?.balance)
+          
+          // Fetch fresh profile data
+          try {
+            const { data: freshProfile, error } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", targetUserId)
+              .single()
+            
+            if (freshProfile && !error) {
+              console.log('🔔 Successfully fetched fresh profile, updating state')
+              setProfile(freshProfile)
+              
+              // Also update main account profile if this is the main account
+              if (!activeUserId) {
+                setMainAccountProfile(freshProfile)
+              }
+            } else {
+              console.error('🔔 Error fetching fresh profile:', error)
+            }
+          } catch (err) {
+            console.error('🔔 Exception fetching fresh profile:', err)
+          }
         },
       )
       .subscribe((status) => {
-        console.log('Profile subscription status:', status)
+        console.log('🔔 Profile subscription status:', status)
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Successfully subscribed to profile updates!')
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Channel error - subscription failed')
+        } else if (status === 'TIMED_OUT') {
+          console.error('⏱️ Subscription timed out')
+        }
       })
 
     return () => {
-      console.log('Unsubscribing from profile updates')
+      console.log('🔔 Unsubscribing from profile updates')
       profileSubscription.unsubscribe()
     }
-  }, [user, activeUserId, supabase, refreshProfile])
+  }, [user, activeUserId, supabase])
 
   // Sign in with Google
   const signInWithGoogle = async () => {

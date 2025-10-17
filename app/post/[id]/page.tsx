@@ -44,7 +44,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [showNoteDialog, setShowNoteDialog] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
-  const { user, profile, updateBalance, activeUserId } = useAuth() // user can be null for anonymous
+  const { user, profile, updateBalance, activeUserId, refreshProfile } = useAuth() // user can be null for anonymous
   const supabase = createBrowserSupabaseClient()
   const [displayLocation, setDisplayLocation] = useState<string>("")
   const [isReviewing, setIsReviewing] = useState(false)
@@ -399,8 +399,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 console.error("Error updating fixer profile (balance/count):", updateProfileError)
               } else {
                 console.log("🔍 BALANCE UPDATE - Profile balance and count updated for user:", activeUserId || user?.id)
-                // Call updateBalance from useAuth to reflect in UI immediately if possible
-                await updateBalance(newBalance)
+                console.log("💰 Manually refreshing profile to update UI")
+                // Refresh profile to update the UI immediately
+                await refreshProfile()
               }
             }
 
@@ -557,7 +558,14 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           if (profileError) console.error("Error getting fixer profile:", profileError)
           else if (fixerProfileData) {
             const newBalance = (fixerProfileData.balance || 0) + post.reward
+            console.log('💰 Updating fixer balance from', fixerProfileData.balance, 'to', newBalance)
             await supabase.from("profiles").update({ balance: newBalance }).eq("id", post.submitted_fix_by_id)
+            
+            // If the fixer is viewing this page, manually refresh their profile
+            if (user && post.submitted_fix_by_id === (activeUserId || user.id)) {
+              console.log('💰 Fixer is current user, manually refreshing profile')
+              await refreshProfile()
+            }
           }
         }
         toast({
