@@ -1,6 +1,16 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+let resend: Resend | null = null
+
+function getResendClient() {
+  if (!resend) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY not configured')
+    }
+    resend = new Resend(process.env.RESEND_API_KEY)
+  }
+  return resend
+}
 
 export async function sendEmail(to: string, subject: string, html: string) {
   console.log('[EMAIL DEBUG] Starting sendEmail function')
@@ -11,13 +21,10 @@ export async function sendEmail(to: string, subject: string, html: string) {
   console.log('[EMAIL DEBUG] RESEND_API_KEY first 10 chars:', process.env.RESEND_API_KEY?.substring(0, 10))
   
   try {
-    if (!process.env.RESEND_API_KEY) {
-      console.error('[EMAIL DEBUG] RESEND_API_KEY not configured')
-      throw new Error('RESEND_API_KEY not configured')
-    }
-
+    const resendClient = getResendClient()
+    
     console.log('[EMAIL DEBUG] About to call resend.emails.send')
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await resendClient.emails.send({
       from: 'Ganamos <noreply@ganamos.earth>',
       to: [to],
       subject,

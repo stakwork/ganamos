@@ -1,11 +1,22 @@
 import { createClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { Database } from './database.types'
 import { sendEmail } from './email'
 
-const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+let supabase: SupabaseClient<Database> | null = null
+
+function getSupabaseClient() {
+  if (!supabase) {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Supabase credentials not configured')
+    }
+    supabase = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    )
+  }
+  return supabase
+}
 
 export interface DailySummaryData {
   nodeBalance: {
@@ -71,15 +82,17 @@ export async function getDailySummaryData(): Promise<DailySummaryData> {
     nodeBalanceData = { balances: { channel_balance: 0, pending_balance: 0, onchain_balance: 0, total_balance: 0 } }
   }
 
+  const supabaseClient = getSupabaseClient()
+  
   // Get app total balance (sum of all user balances)
-  const { data: profiles } = await supabase
+  const { data: profiles } = await supabaseClient
     .from('profiles')
     .select('balance')
     
   const appTotalBalance = profiles?.reduce((sum, profile) => sum + profile.balance, 0) || 0
 
   // Get transactions in last 24 hours
-  const { data: transactions } = await supabase
+  const { data: transactions } = await supabaseClient
     .from('transactions')
     .select('type, amount, status')
     .gte('created_at', yesterdayIso)
@@ -90,7 +103,7 @@ export async function getDailySummaryData(): Promise<DailySummaryData> {
   const withdrawals = transactions?.filter(t => t.type === 'withdrawal') || []
 
   // Get posts created in last 24 hours (rewards)
-  const { data: createdPosts } = await supabase
+  const { data: createdPosts } = await supabaseClient
     .from('posts')
     .select('reward')
     .gte('created_at', yesterdayIso)
@@ -99,7 +112,7 @@ export async function getDailySummaryData(): Promise<DailySummaryData> {
   const rewardsAmount = createdPosts?.reduce((sum, post) => sum + post.reward, 0) || 0
 
   // Get posts completed in last 24 hours (earnings)
-  const { data: completedPosts } = await supabase
+  const { data: completedPosts } = await supabaseClient
     .from('posts')
     .select('reward')
     .gte('fixed_at', yesterdayIso)
@@ -109,7 +122,7 @@ export async function getDailySummaryData(): Promise<DailySummaryData> {
   const earningsAmount = completedPosts?.reduce((sum, post) => sum + post.reward, 0) || 0
 
   // Get active users (users who had any transaction, created post, or fixed post in last 24 hours)
-  const { data: activeUserIds } = await supabase
+  const { data: activeUserIds } = await supabaseClient
     .rpc('get_active_users_last_24h', { since_timestamp: yesterdayIso })
 
   const activeUsers = activeUserIds?.length || 0
