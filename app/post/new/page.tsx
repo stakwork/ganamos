@@ -222,7 +222,7 @@ export default function NewPostPage() {
     fundingPaymentRequest,
   ])
 
-  // Only fetch Bitcoin price when user reaches details step (after taking photo)
+  // Fetch Bitcoin price when user reaches details step (after taking photo)
   useEffect(() => {
     if (step !== "details") return // Only fetch when on details step
     async function fetchBitcoinPrice() {
