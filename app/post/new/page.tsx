@@ -662,11 +662,8 @@ export default function NewPostPage() {
       })
       setTimeout(() => successToast.dismiss(), 2000)
 
-      if (selectedGroupId) {
-        router.push(`/groups/${selectedGroupId}?newPost=${postId}`)
-      } else {
-        router.push(`/dashboard?newPost=${postId}`)
-      }
+      // Always redirect to dashboard, even if a group was selected
+      router.push(`/dashboard?newPost=${postId}`)
     } catch (error) {
       console.error("Error creating post:", error)
       toast({
