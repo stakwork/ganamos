@@ -393,17 +393,10 @@ export default function ProfilePage() {
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
       
-      // Fetch activities with post data joined for post-related activities
+      // Fetch activities
       const { data, error, count } = await supabase
         .from("activities")
-        .select(`
-          *,
-          post:related_id (
-            title,
-            fixed,
-            under_review
-          )
-        `, { count: "exact" })
+        .select("*", { count: "exact" })
         .eq("user_id", user.id)
         .order("timestamp", { ascending: false })
         .range(from, to);
@@ -413,21 +406,42 @@ export default function ProfilePage() {
         return { activities: [], hasMore: false };
       }
       
-      // Transform the data to include post info in metadata
-      const transformedActivities = (data || []).map((activity: any) => {
-        if (activity.post && ["post", "fix", "reward"].includes(activity.type)) {
-          return {
-            ...activity,
-            postTitle: activity.post.title,
-            postFixed: activity.post.fixed,
-            postUnderReview: activity.post.under_review,
-          };
-        }
-        return activity;
-      });
+      // For post-related activities, fetch the post data
+      const postRelatedActivities = (data || []).filter((activity: any) => 
+        ["post", "fix", "reward"].includes(activity.type) && activity.related_id
+      );
+      
+      if (postRelatedActivities.length > 0) {
+        const postIds = postRelatedActivities.map((a: any) => a.related_id);
+        const { data: posts } = await supabase
+          .from("posts")
+          .select("id, title, fixed, under_review")
+          .in("id", postIds);
+        
+        const postsMap = new Map((posts || []).map(p => [p.id, p]));
+        
+        // Transform activities to include post info
+        const transformedActivities = (data || []).map((activity: any) => {
+          const post = postsMap.get(activity.related_id);
+          if (post && ["post", "fix", "reward"].includes(activity.type)) {
+            return {
+              ...activity,
+              postTitle: post.title,
+              postFixed: post.fixed,
+              postUnderReview: post.under_review,
+            };
+          }
+          return activity;
+        });
+        
+        return {
+          activities: transformedActivities,
+          hasMore: count ? to + 1 < count : false,
+        };
+      }
       
       return {
-        activities: transformedActivities,
+        activities: data || [],
         hasMore: count ? to + 1 < count : false,
       };
     },
