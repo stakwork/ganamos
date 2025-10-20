@@ -52,6 +52,49 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [showLightningModal, setShowLightningModal] = useState(false)
   const [showContent, setShowContent] = useState(false)
 
+  // Handle share functionality
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/post/${params.id}`
+    
+    // Check if it's a mobile device
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+    
+    // Only use native share on mobile devices
+    if (isMobile && navigator.share) {
+      const shareData = {
+        title: post?.title || 'Check out this issue',
+        text: `${post?.title || 'Issue'} - ${displayLocation}`,
+        url: shareUrl,
+      }
+      
+      try {
+        await navigator.share(shareData)
+      } catch (error) {
+        // User cancelled or error occurred
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Error sharing:', error)
+        }
+      }
+    } else {
+      // Always use clipboard on desktop
+      try {
+        await navigator.clipboard.writeText(shareUrl)
+        toast({
+          title: "Link copied!",
+          description: "Post link copied to clipboard",
+          duration: 2000,
+        })
+      } catch (error) {
+        console.error('Error copying to clipboard:', error)
+        toast({
+          title: "Error",
+          description: "Could not copy link",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
   // Force hide bottom nav when camera is shown
   useEffect(() => {
     if (showCamera || showBeforeAfter) {
@@ -935,29 +978,57 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                   <div className="absolute top-2 left-2">
                     <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">After</span>
                   </div>
-                  {/* Close button overlaid on top-right */}
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => router.back()} 
-                    className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white border-0 p-2"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                  {/* Action buttons overlaid on top-right */}
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleShare()
+                      }}
+                      className="bg-black/50 hover:bg-black/70 text-white border-0 p-2"
                     >
-                      <path d="M18 6 6 18" />
-                      <path d="m6 6 12 12" />
-                    </svg>
-                    <span className="sr-only">Close</span>
-                  </Button>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                        <polyline points="16 6 12 2 8 6" />
+                        <line x1="12" x2="12" y1="2" y2="15" />
+                      </svg>
+                      <span className="sr-only">Share</span>
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => router.back()} 
+                      className="bg-black/50 hover:bg-black/70 text-white border-0 p-2"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                      </svg>
+                      <span className="sr-only">Close</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -969,29 +1040,57 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 fill
                 className="object-cover"
               />
-              {/* Close button overlaid on top-right */}
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => router.back()} 
-                className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white border-0 p-2"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+              {/* Action buttons overlaid on top-right */}
+              <div className="absolute top-2 right-2 flex gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleShare()
+                  }}
+                  className="bg-black/50 hover:bg-black/70 text-white border-0 p-2"
                 >
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
-                <span className="sr-only">Close</span>
-              </Button>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                    <polyline points="16 6 12 2 8 6" />
+                    <line x1="12" x2="12" y1="2" y2="15" />
+                  </svg>
+                  <span className="sr-only">Share</span>
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => router.back()} 
+                  className="bg-black/50 hover:bg-black/70 text-white border-0 p-2"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
+                  <span className="sr-only">Close</span>
+                </Button>
+              </div>
             </div>
           )}
           <div className="mb-6">

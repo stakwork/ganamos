@@ -558,7 +558,7 @@ export default function DashboardPage() {
         <div className="w-full max-w-md pt-6 px-4 relative min-h-[64px]">
           {isHeaderReady() && (
             // Header content - fades in as a unit when ready
-            <div className="flex items-center justify-between animate-in fade-in duration-700 fill-mode-both">
+            <div className="flex items-center justify-between animate-in fade-in duration-400 fill-mode-both">
               <div className="flex items-center space-x-2">
                 {/* Family Avatars */}
                 <div className="flex items-center space-x-1">

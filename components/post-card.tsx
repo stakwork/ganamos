@@ -278,7 +278,7 @@ export function PostCard({ post }: { post: Post }) {
             {/* Left side: Fixed positioned content to prevent shifting */}
             <div className="flex-1 relative h-full">
               {/* Description - fixed position */}
-              <div className="absolute top-0 left-0 right-0">
+              <div className="absolute top-0 left-0 right-0 pr-4">
                 <p className="text-base truncate">{post.description}</p>
               </div>
 

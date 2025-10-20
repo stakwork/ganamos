@@ -1501,7 +1501,7 @@ export default function ProfilePage() {
           <div className="grid grid-cols-3 gap-4 mt-4">
             <Button
               variant="outline"
-              className="p-3 text-center border rounded-lg w-full h-auto dark:border-gray-800"
+              className="p-3 text-center border rounded-lg w-full min-h-[104px] dark:border-gray-800"
               onClick={() => router.push("/wallet")}
             >
               <div className="flex flex-col items-center">
@@ -1531,7 +1531,7 @@ export default function ProfilePage() {
                 </p>
               </div>
             </Button>
-            <div className="p-3 text-center border rounded-lg dark:border-gray-800">
+            <div className="p-3 text-center border rounded-lg min-h-[104px] dark:border-gray-800">
               <p className="text-sm text-muted-foreground mb-2">Fixes</p>
               <div className="flex items-center justify-center" style={{ height: "32px" }}>
                 <p className="text-xl font-bold">
@@ -1540,7 +1540,7 @@ export default function ProfilePage() {
               </div>
               <div style={{ minHeight: "1.25rem" }}></div> {/* Spacer to align with USD value */}
             </div>
-            <div className="p-3 text-center border rounded-lg dark:border-gray-800">
+            <div className="p-3 text-center border rounded-lg min-h-[104px] dark:border-gray-800">
               <p className="text-sm text-muted-foreground mb-2">Pet</p>
               {connectedDevices.length > 0 ? (
                 <>
