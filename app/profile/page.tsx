@@ -61,6 +61,7 @@ type ActivityItem = {
   postTitle?: string;
   postFixed?: boolean;
   postUnderReview?: boolean;
+  postLocation?: string;
   timestamp: Date;
   amount?: number;
   submitterName?: string;
@@ -415,7 +416,7 @@ export default function ProfilePage() {
         const postIds = postRelatedActivities.map((a: any) => a.related_id);
         const { data: posts } = await supabase
           .from("posts")
-          .select("id, title, fixed, under_review")
+          .select("id, title, fixed, under_review, location")
           .in("id", postIds);
         
         const postsMap = new Map((posts || []).map(p => [p.id, p]));
@@ -429,6 +430,7 @@ export default function ProfilePage() {
               postTitle: post.title,
               postFixed: post.fixed,
               postUnderReview: post.under_review,
+              postLocation: post.location,
             };
           }
           return activity;
@@ -2150,12 +2152,18 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
           <div className="ml-3 flex-1">
             <ActivityTitle activity={activity} />
             
-            {/* Metadata line: status and timestamp */}
-            <div className="flex items-center mt-1 text-xs text-muted-foreground space-x-2">
+            {/* Metadata line: status, location, and timestamp */}
+            <div className="flex items-center mt-1 text-xs text-muted-foreground">
               {["post", "fix", "reward"].includes(activity.type) && (
                 <>
                   <ActivityStatus activity={activity} />
-                  <span>·</span>
+                  <span className="mx-2">·</span>
+                </>
+              )}
+              {(activity as any).postLocation && (
+                <>
+                  <span>{(activity as any).postLocation}</span>
+                  <span className="mx-2">·</span>
                 </>
               )}
               <span>{formatDate()}</span>
