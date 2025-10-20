@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { LoadingSpinner } from "@/components/loading-spinner"
-import { ArrowLeft, Copy, Check, ChevronDown, ChevronUp } from "lucide-react"
+import { ArrowLeft, Copy, Check, ChevronDown, ChevronUp, X } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
+import Image from "next/image"
 
 export default function DepositPage() {
   const router = useRouter()
@@ -301,8 +302,14 @@ export default function DepositPage() {
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-semibold">Receive Bitcoin</h1>
-          <div className="w-10"></div>
+          
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Balance: {formatSatsValue(profile?.balance || 0)}
+          </div>
+
+          <Button variant="ghost" size="icon" onClick={() => router.push("/wallet")}>
+            <X className="h-5 w-5" />
+          </Button>
         </div>
 
         {/* Content */}
@@ -325,8 +332,29 @@ export default function DepositPage() {
             </div>
           ) : invoice ? (
             <>
+              {/* User Info - Receiving to */}
+              <div className="flex flex-col items-center space-y-2">
+                <div className="relative w-16 h-16 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+                  <Image
+                    src={profile?.avatar_url || "/placeholder.svg?height=64&width=64"}
+                    alt={profile?.name || "Your account"}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div className="text-lg font-semibold">
+                  {profile?.name || "Your Account"}
+                </div>
+                {amount && amount !== "" && (
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Requesting</p>
+                    <p className="text-2xl font-bold">{parseInt(amount).toLocaleString()} sats</p>
+                  </div>
+                )}
+              </div>
+
               {/* QR Code - Main Focus */}
-              <div className="flex flex-col items-center space-y-4">
+              <div className="flex flex-col items-center">
                 <div className="bg-white p-6 rounded-xl shadow-sm">
                   <QRCode 
                     data={invoice} 
@@ -336,13 +364,6 @@ export default function DepositPage() {
                     cornerColor="#10b981"
                   />
                 </div>
-
-                {amount && amount !== "" && (
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Requesting</p>
-                    <p className="text-2xl font-bold">{parseInt(amount).toLocaleString()} sats</p>
-                  </div>
-                )}
               </div>
 
               {/* Invoice String with Copy */}

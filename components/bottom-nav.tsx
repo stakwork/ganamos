@@ -20,8 +20,8 @@ export function BottomNav() {
     router.prefetch("/post/new")
   }, [router])
 
-  // Don't show bottom nav on home page, auth pages, public job posting page, post creation page, post detail page, withdraw page, or pet settings page
-  if (pathname === "/" || pathname.startsWith("/auth") || pathname === "/new" || pathname === "/post/new" || pathname.startsWith("/post/") || pathname.startsWith("/wallet/withdraw") || pathname === "/pet-settings") {
+  // Don't show bottom nav on home page, auth pages, public job posting page, post creation page, post detail page, withdraw page, deposit page, or pet settings page
+  if (pathname === "/" || pathname.startsWith("/auth") || pathname === "/new" || pathname === "/post/new" || pathname.startsWith("/post/") || pathname.startsWith("/wallet/withdraw") || pathname.startsWith("/wallet/deposit") || pathname === "/pet-settings") {
     return null
   }
 
