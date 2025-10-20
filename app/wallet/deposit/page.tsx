@@ -27,7 +27,7 @@ export default function DepositPage() {
   const supabase = createBrowserSupabaseClient()
 
   const { user, profile, loading: authLoading, refreshProfile } = useAuth()
-  
+
   // Auto-generate invoice on page load
   const initialInvoiceGenerated = useRef(false)
 
@@ -86,7 +86,7 @@ export default function DepositPage() {
 
         // Start checking for payment automatically
         setTimeout(() => {
-          startCheckingPayment(result.rHash)
+        startCheckingPayment(result.rHash)
         }, 1000)
       } else {
         if (result.error?.includes("LND") || result.error?.includes("ECONNREFUSED")) {
@@ -151,7 +151,7 @@ export default function DepositPage() {
 
   const startCheckingPayment = async (hash: string) => {
     if (!user) return
-    
+
     setChecking(true)
     let checkCount = 0
     const maxChecks = 60
@@ -164,9 +164,9 @@ export default function DepositPage() {
 
       if (result.settled) {
         console.log("Payment settled!")
-        clearInterval(checkInterval)
-        setSettled(true)
-        setChecking(false)
+          clearInterval(checkInterval)
+          setSettled(true)
+          setChecking(false)
 
         if (!profile) return
 
@@ -210,12 +210,12 @@ export default function DepositPage() {
         } catch (error) {
           console.error("Error handling successful payment:", error)
         }
-      }
+        }
 
       if (checkCount >= maxChecks) {
         console.log("Max check attempts reached")
-        clearInterval(checkInterval)
-        setChecking(false)
+          clearInterval(checkInterval)
+          setChecking(false)
       }
     }, 2000)
   }
@@ -305,7 +305,7 @@ export default function DepositPage() {
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          
+
           <div className="w-10"></div>
 
           <Button variant="ghost" size="icon" onClick={() => router.push("/wallet")}>
@@ -357,11 +357,15 @@ export default function DepositPage() {
                   </div>
                   <span>{formatSatsValue(profile?.balance || 0)}</span>
                 </div>
+              </div>
+
+              {/* Title */}
+              <div className="text-center">
+                <h2 className="text-2xl font-bold">Receive Bitcoin</h2>
                 {amount && amount !== "" && (
-                  <div className="text-center pt-2">
-                    <p className="text-sm text-muted-foreground">Requesting</p>
-                    <p className="text-2xl font-bold">{parseInt(amount).toLocaleString()} sats</p>
-                  </div>
+                  <p className="text-lg text-muted-foreground mt-1">
+                    {parseInt(amount).toLocaleString()} sats
+                  </p>
                 )}
               </div>
 
@@ -376,22 +380,19 @@ export default function DepositPage() {
                     cornerColor="#10b981"
                   />
                 </div>
-              </div>
+          </div>
 
               {/* Invoice String with Copy */}
               <div className="space-y-2">
-                <p className="text-sm text-muted-foreground text-center">
-                  Lightning Invoice
-                </p>
                 <div className="flex items-center space-x-2">
                   <Input 
                     value={invoice} 
                     readOnly 
                     className="text-xs font-mono bg-muted"
                   />
-                  <Button 
+            <Button
                     onClick={copyToClipboard} 
-                    variant="outline" 
+                variant="outline"
                     size="icon"
                     className="shrink-0"
                   >
@@ -400,31 +401,28 @@ export default function DepositPage() {
                     ) : (
                       <Copy className="h-4 w-4" />
                     )}
-                  </Button>
+              </Button>
                 </div>
-              </div>
+          </div>
 
               {/* Amount Input */}
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Add invoice amount</label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    type="number"
-                    placeholder="Amount in sats"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="flex-1"
-                    min="100"
-                  />
-                  <Button 
-                    onClick={handleRegenerateWithAmount} 
-                    variant="outline"
-                    disabled={loading || !amount || amount === ""}
-                  >
-                    Regenerate
-                  </Button>
-                </div>
-              </div>
+              <div className="flex items-center space-x-2">
+                <Input
+                  type="number"
+                  placeholder="Add invoice amount"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="flex-1"
+                  min="100"
+                />
+              <Button
+                  onClick={handleRegenerateWithAmount} 
+                  className={`${!amount || amount === "" ? "bg-gray-400" : "bg-green-600 hover:bg-green-700"} text-white`}
+                  disabled={loading || !amount || amount === ""}
+                >
+                  Regenerate
+            </Button>
+          </div>
             </>
           ) : null}
         </div>
