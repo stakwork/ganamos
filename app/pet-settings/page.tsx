@@ -8,15 +8,13 @@ import { Label } from "@/components/ui/label"
 import { X, Cat, Dog, Rabbit, Squirrel, Turtle, Trash2, Check } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export default function PetSettingsPage() {
   const router = useRouter()
@@ -316,20 +314,26 @@ export default function PetSettingsPage() {
       </div>
 
       {/* Unpair Confirmation Dialog */}
-      <AlertDialog open={showUnpairDialog} onOpenChange={setShowUnpairDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Unpair Device?</AlertDialogTitle>
-            <AlertDialogDescription>
+      <Dialog open={showUnpairDialog} onOpenChange={setShowUnpairDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unpair Device?</DialogTitle>
+            <DialogDescription>
               This will disconnect your {petName || "pet"} from your account. You can pair it again later using the same pairing code, or pair a different device.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isUnpairing}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowUnpairDialog(false)}
+              disabled={isUnpairing}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
               onClick={handleUnpair}
               disabled={isUnpairing}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isUnpairing ? (
                 <div className="flex items-center space-x-2">
@@ -339,10 +343,10 @@ export default function PetSettingsPage() {
               ) : (
                 "Unpair Device"
               )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

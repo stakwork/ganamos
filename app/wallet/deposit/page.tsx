@@ -314,7 +314,7 @@ export default function DepositPage() {
         </div>
 
         {/* Content */}
-        <div className="px-6 pt-2 pb-6 space-y-6">
+        <div className="px-6 pb-6 space-y-6">
           {loading && !invoice ? (
             <div className="flex flex-col items-center justify-center py-12">
               <LoadingSpinner />
@@ -357,16 +357,6 @@ export default function DepositPage() {
                   </div>
                   <span>{formatSatsValue(profile?.balance || 0)}</span>
                 </div>
-              </div>
-
-              {/* Title */}
-              <div className="text-center">
-                <h2 className="text-2xl font-bold">Receive Bitcoin</h2>
-                {amount && amount !== "" && (
-                  <p className="text-lg text-muted-foreground mt-1">
-                    {parseInt(amount).toLocaleString()} sats
-                  </p>
-                )}
               </div>
 
               {/* QR Code - Main Focus */}
@@ -412,17 +402,17 @@ export default function DepositPage() {
                   placeholder="Add invoice amount"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="flex-1"
+                  className="flex-1 text-sm placeholder:text-xs"
                   min="100"
                 />
-              <Button
+                <Button 
                   onClick={handleRegenerateWithAmount} 
                   className={`${!amount || amount === "" ? "bg-gray-400" : "bg-green-600 hover:bg-green-700"} text-white`}
                   disabled={loading || !amount || amount === ""}
                 >
                   Regenerate
-            </Button>
-          </div>
+                </Button>
+              </div>
             </>
           ) : null}
         </div>
