@@ -1380,7 +1380,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             }}
           />
           {!post.fixed && !post.under_review && (
-            <Button className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowCamera(true)}>Submit Fix</Button>
+            <Button className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold" onClick={() => setShowCamera(true)}>Submit Fix</Button>
           )}
           </div>
         )}

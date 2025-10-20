@@ -8,8 +8,6 @@ import { NotificationsProvider } from "@/components/notifications-provider"
 import { BottomNav } from "@/components/bottom-nav"
 import { AuthProvider } from "@/components/auth-provider"
 import { DashboardCacheProvider } from "@/components/dashboard-cache-provider"
-// Import scheduler to initialize it on app startup
-import "@/lib/scheduler"
 
 const inter = Inter({ subsets: ["latin"] })
 
