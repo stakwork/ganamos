@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { LoadingSpinner } from "@/components/loading-spinner"
-import { ArrowLeft, Copy, Check, ChevronDown, ChevronUp, X } from "lucide-react"
+import { ArrowLeft, Copy, Check, X } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
@@ -23,7 +23,6 @@ export default function DepositPage() {
   const [checking, setChecking] = useState<boolean>(false)
   const [settled, setSettled] = useState<boolean>(false)
   const [copied, setCopied] = useState<boolean>(false)
-  const [showAmountInput, setShowAmountInput] = useState<boolean>(false)
   const { toast } = useToast()
   const supabase = createBrowserSupabaseClient()
 
@@ -151,6 +150,8 @@ export default function DepositPage() {
   }
 
   const startCheckingPayment = async (hash: string) => {
+    if (!user) return
+    
     setChecking(true)
     let checkCount = 0
     const maxChecks = 60
@@ -159,13 +160,15 @@ export default function DepositPage() {
       checkCount++
       console.log(`Checking payment status... (attempt ${checkCount}/${maxChecks})`)
 
-      const result = await checkDepositStatus(hash)
+      const result = await checkDepositStatus(hash, user.id)
 
       if (result.settled) {
         console.log("Payment settled!")
         clearInterval(checkInterval)
         setSettled(true)
         setChecking(false)
+
+        if (!profile) return
 
         const satsAmount = amount && amount !== "" ? parseInt(amount) : result.amount || 1000
         const newBalance = profile.balance + satsAmount
@@ -303,9 +306,7 @@ export default function DepositPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Balance: {formatSatsValue(profile?.balance || 0)}
-          </div>
+          <div className="w-10"></div>
 
           <Button variant="ghost" size="icon" onClick={() => router.push("/wallet")}>
             <X className="h-5 w-5" />
@@ -313,7 +314,7 @@ export default function DepositPage() {
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="px-6 pt-2 pb-6 space-y-6">
           {loading && !invoice ? (
             <div className="flex flex-col items-center justify-center py-12">
               <LoadingSpinner />
@@ -345,8 +346,19 @@ export default function DepositPage() {
                 <div className="text-lg font-semibold">
                   {profile?.name || "Your Account"}
                 </div>
+                <div className="flex items-center space-x-1.5 text-sm text-muted-foreground">
+                  <div className="w-3.5 h-3.5 relative">
+                    <Image
+                      src="/images/bitcoin-logo.png"
+                      alt="Bitcoin"
+                      fill
+                      className="object-contain"
+                    />
+                  </div>
+                  <span>{formatSatsValue(profile?.balance || 0)}</span>
+                </div>
                 {amount && amount !== "" && (
-                  <div className="text-center">
+                  <div className="text-center pt-2">
                     <p className="text-sm text-muted-foreground">Requesting</p>
                     <p className="text-2xl font-bold">{parseInt(amount).toLocaleString()} sats</p>
                   </div>
@@ -392,40 +404,26 @@ export default function DepositPage() {
                 </div>
               </div>
 
-              {/* Amount Input (Collapsible) */}
-              <div className="pt-4">
-                <button
-                  onClick={() => setShowAmountInput(!showAmountInput)}
-                  className="w-full flex items-center justify-between text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <span>Add amount</span>
-                  {showAmountInput ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </button>
-
-                {showAmountInput && (
-                  <div className="mt-4 space-y-3">
-                    <Input
-                      type="number"
-                      placeholder="Amount in sats"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="text-center"
-                      min="100"
-                    />
-                    <Button 
-                      onClick={handleRegenerateWithAmount} 
-                      variant="outline"
-                      className="w-full"
-                      disabled={loading || !amount || amount === ""}
-                    >
-                      Regenerate
-                    </Button>
-                  </div>
-                )}
+              {/* Amount Input */}
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground">Add invoice amount</label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    type="number"
+                    placeholder="Amount in sats"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="flex-1"
+                    min="100"
+                  />
+                  <Button 
+                    onClick={handleRegenerateWithAmount} 
+                    variant="outline"
+                    disabled={loading || !amount || amount === ""}
+                  >
+                    Regenerate
+                  </Button>
+                </div>
               </div>
             </>
           ) : null}
