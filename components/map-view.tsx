@@ -256,18 +256,15 @@ export function MapView({
   }, [mapInitialized])
 
   // Add markers when map is ready and posts are available
-  // Track the number of posts to detect actual changes (not just reference changes)
-  const prevPostsLength = useRef(0)
+  // Track if we've already added markers to prevent duplicate draws
+  const markersAddedRef = useRef(false)
   
   useEffect(() => {
-    if (mapInstance && mapInitialized && PostMarkerClassRef.current && postsWithLocation.length > 0) {
-      // Only redraw if the number of posts actually changed
-      if (prevPostsLength.current !== postsWithLocation.length) {
-        console.log("Posts count changed, updating markers...", prevPostsLength.current, "→", postsWithLocation.length)
-        prevPostsLength.current = postsWithLocation.length
-        addPostMarkers(mapInstance)
-        addUserLocationMarker(mapInstance)
-      }
+    if (mapInstance && mapInitialized && PostMarkerClassRef.current && postsWithLocation.length > 0 && !markersAddedRef.current) {
+      console.log("Adding markers for the first time...")
+      markersAddedRef.current = true
+      addPostMarkers(mapInstance)
+      addUserLocationMarker(mapInstance)
     }
   }, [mapInstance, mapInitialized, postsWithLocation])
 
