@@ -4,6 +4,9 @@ import { createClient } from "@supabase/supabase-js"
 // This endpoint is called by Vercel Cron every 30 minutes
 // It fetches the current Bitcoin price from CoinMarketCap and stores it in the database
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     // Verify the request is from Vercel Cron
