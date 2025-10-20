@@ -124,6 +124,7 @@ export default function ProfilePage() {
   
   // Connected devices state
   const [connectedDevices, setConnectedDevices] = useState<any[]>([]);
+  const [isDevicesLoading, setIsDevicesLoading] = useState(true);
   const [isRemoveMode, setIsRemoveMode] = useState(false);
 
   // Helper function to get pet icon
@@ -185,6 +186,7 @@ export default function ProfilePage() {
       postsCache.current = [];
       initialDataLoaded.current = false;
       setConnectedDevices([]); // Clear devices immediately
+      setIsDevicesLoading(true); // Set loading state
 
       // Update the tracked user
       currentActiveUser.current = newActiveUser;
@@ -196,6 +198,7 @@ export default function ProfilePage() {
     if (!user) return;
 
     try {
+      setIsDevicesLoading(true);
       const response = await fetch("/api/device/list");
       if (response.ok) {
         const data = await response.json();
@@ -205,6 +208,8 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.warn("Failed to fetch connected devices:", error);
+    } finally {
+      setIsDevicesLoading(false);
     }
   }, [user]);
 
@@ -1542,6 +1547,7 @@ export default function ProfilePage() {
             <div 
               className="p-3 text-center border rounded-lg min-h-[104px] dark:border-gray-800 cursor-pointer hover:bg-accent transition-colors"
               onClick={() => {
+                if (isDevicesLoading) return; // Don't allow click while loading
                 if (connectedDevices.length > 0) {
                   router.push('/pet-settings')
                 } else {
@@ -1550,7 +1556,17 @@ export default function ProfilePage() {
               }}
             >
               <p className="text-sm text-muted-foreground mb-2">Pet</p>
-              {connectedDevices.length > 0 ? (
+              {isDevicesLoading ? (
+                <>
+                  <div className="flex items-center justify-center mb-1">
+                    <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                  </div>
+                  <div
+                    className="mx-auto mt-0.5 h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"
+                    style={{ minHeight: "1.25rem" }}
+                  ></div>
+                </>
+              ) : connectedDevices.length > 0 ? (
                 <>
                   <div className="flex items-center justify-center mb-1">
                     <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-blue-500 rounded-full flex items-center justify-center">
