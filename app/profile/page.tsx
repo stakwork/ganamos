@@ -1539,7 +1539,16 @@ export default function ProfilePage() {
               </div>
               <div style={{ minHeight: "1.25rem" }}></div> {/* Spacer to align with USD value */}
             </div>
-            <div className="p-3 text-center border rounded-lg min-h-[104px] dark:border-gray-800">
+            <div 
+              className="p-3 text-center border rounded-lg min-h-[104px] dark:border-gray-800 cursor-pointer hover:bg-accent transition-colors"
+              onClick={() => {
+                if (connectedDevices.length > 0) {
+                  router.push('/pet-settings')
+                } else {
+                  router.push('/connect-pet')
+                }
+              }}
+            >
               <p className="text-sm text-muted-foreground mb-2">Pet</p>
               {connectedDevices.length > 0 ? (
                 <>
