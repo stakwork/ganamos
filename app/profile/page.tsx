@@ -2,6 +2,7 @@
 
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingSpinner } from "@/components/loading-spinner";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -967,8 +968,10 @@ export default function ProfilePage() {
 
   if (loading || !user || !profile) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">Loading...</div>
+      <div className="container px-4 pt-6 mx-auto max-w-md">
+        <div className="flex items-center justify-center" style={{ minHeight: "60vh" }}>
+          <LoadingSpinner />
+        </div>
       </div>
     );
   }
