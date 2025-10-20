@@ -2150,15 +2150,15 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
           <div className="ml-3 flex-1">
             <ActivityTitle activity={activity} />
             
-            {/* Metadata line: timestamp and status */}
+            {/* Metadata line: status and timestamp */}
             <div className="flex items-center mt-1 text-xs text-muted-foreground space-x-2">
-              <span>{formatDate()}</span>
               {["post", "fix", "reward"].includes(activity.type) && (
                 <>
-                  <span>·</span>
                   <ActivityStatus activity={activity} />
+                  <span>·</span>
                 </>
               )}
+              <span>{formatDate()}</span>
             </div>
             
             {/* Additional info for different activity types */}
@@ -2264,16 +2264,16 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
   
   switch (activity.type) {
     case "post":
-      return <p className="font-medium">{postTitle || "You posted a new issue"}</p>;
+      return <p className="font-medium truncate">{postTitle || "You posted a new issue"}</p>;
     case "fix":
-      return <p className="font-medium">{postTitle ? `You fixed: ${postTitle}` : "You fixed an issue"}</p>;
+      return <p className="font-medium truncate">{postTitle ? `You fixed: ${postTitle}` : "You fixed an issue"}</p>;
     case "reward":
-      return <p className="font-medium">{postTitle ? `Reward: ${postTitle}` : "You received a reward"}</p>;
+      return <p className="font-medium truncate">{postTitle ? `Reward: ${postTitle}` : "You received a reward"}</p>;
     case "fix_submitted":
-      return <p className="font-medium">You submitted a fix for review</p>;
+      return <p className="font-medium truncate">You submitted a fix for review</p>;
     case "fix_review_needed":
       return (
-        <p className="font-medium">
+        <p className="font-medium truncate">
           {activity.submitterName || "Someone"} submitted a fix
         </p>
       );
@@ -2281,12 +2281,12 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
       const donorFirstName = activity.donorName
         ? activity.donorName.split(" ")[0]
         : "Someone";
-      return <p className="font-medium">{donorFirstName} donated Bitcoin</p>;
+      return <p className="font-medium truncate">{donorFirstName} donated Bitcoin</p>;
     }
     case "withdrawal":
-      return <p className="font-medium">You withdrew Bitcoin</p>;
+      return <p className="font-medium truncate">You withdrew Bitcoin</p>;
     case "deposit":
-      return <p className="font-medium">You deposited Bitcoin</p>;
+      return <p className="font-medium truncate">You deposited Bitcoin</p>;
     default:
       return null;
   }
