@@ -1656,7 +1656,7 @@ export default function ProfilePage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="posts" className="space-y-4">
+        <TabsContent value="posts" className="space-y-4 pb-24">
           {isLoading || isPostsLoading ? (
             <div className="flex flex-col space-y-4">
               {[1, 2, 3, 4].map((i) => (
@@ -1750,7 +1750,7 @@ export default function ProfilePage() {
           )}
         </TabsContent>
 
-        <TabsContent value="activity" className="space-y-4">
+        <TabsContent value="activity" className="space-y-4 pb-24">
           {isLoading || isActivityLoading ? (
             <div className="flex flex-col space-y-4">
               {[1, 2, 3, 4].map((i) => (
@@ -1838,7 +1838,7 @@ export default function ProfilePage() {
           )}
         </TabsContent>
 
-        <TabsContent value="groups" className="space-y-4">
+        <TabsContent value="groups" className="space-y-4 pb-24">
           <GroupsList userId={activeUserId || user.id} />
 
           <div className="space-y-2 pt-4">
