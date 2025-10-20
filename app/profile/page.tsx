@@ -1556,17 +1556,7 @@ export default function ProfilePage() {
               }}
             >
               <p className="text-sm text-muted-foreground mb-2">Pet</p>
-              {isDevicesLoading ? (
-                <>
-                  <div className="flex items-center justify-center mb-1">
-                    <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
-                  </div>
-                  <div
-                    className="mx-auto mt-0.5 h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"
-                    style={{ minHeight: "1.25rem" }}
-                  ></div>
-                </>
-              ) : connectedDevices.length > 0 ? (
+              {!isDevicesLoading && connectedDevices.length > 0 ? (
                 <>
                   <div className="flex items-center justify-center mb-1">
                     <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-blue-500 rounded-full flex items-center justify-center">
@@ -1580,7 +1570,7 @@ export default function ProfilePage() {
                     {connectedDevices[0].pet_name}
                   </p>
                 </>
-              ) : (
+              ) : !isDevicesLoading ? (
                 <>
                   <div className="flex items-center justify-center mb-1">
                     <div className="w-8 h-8 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center">
@@ -1594,7 +1584,7 @@ export default function ProfilePage() {
                     Not Connected
                   </p>
                 </>
-              )}
+              ) : null}
             </div>
           </div>
 
