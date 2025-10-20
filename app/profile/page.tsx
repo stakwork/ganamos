@@ -2148,11 +2148,22 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
         <div className="flex items-start">
           <ActivityIcon type={activity.type} />
           <div className="ml-3 flex-1">
-            <div className="flex items-start justify-between">
-              <div>
-                <ActivityTitle activity={activity} />
-                {/* Second line: description, sats, location, etc. */}
-                {activity.type === "reward" && (
+            <ActivityTitle activity={activity} />
+            
+            {/* Metadata line: timestamp and status */}
+            <div className="flex items-center mt-1 text-xs text-muted-foreground space-x-2">
+              <span>{formatDate()}</span>
+              {["post", "fix", "reward"].includes(activity.type) && (
+                <>
+                  <span>·</span>
+                  <ActivityStatus activity={activity} />
+                </>
+              )}
+            </div>
+            
+            {/* Additional info for different activity types */}
+            <div className="mt-1">
+              {activity.type === "reward" && (
                   <div className="flex items-center mt-1 text-sm text-muted-foreground">
                     {sats && (
                       <Badge
@@ -2240,10 +2251,6 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
                     )}
                   </div>
                 )}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {formatDate()}
-              </div>
             </div>
           </div>
         </div>
@@ -2253,60 +2260,15 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
 }
 
 function ActivityTitle({ activity }: { activity: ActivityItem }) {
-  // Helper to get status badge
-  const getStatusBadge = () => {
-    if (!["post", "fix", "reward"].includes(activity.type)) return null;
-    
-    const postFixed = (activity as any).postFixed;
-    const postUnderReview = (activity as any).postUnderReview;
-    
-    if (postUnderReview) {
-      return (
-        <Badge variant="outline" className="ml-2 bg-yellow-50 text-yellow-800 border-yellow-200 dark:bg-yellow-950/50 dark:text-yellow-200 dark:border-yellow-800/30">
-          Under Review
-        </Badge>
-      );
-    }
-    
-    if (postFixed) {
-      return (
-        <Badge variant="outline" className="ml-2 bg-green-50 text-green-800 border-green-200 dark:bg-green-950/50 dark:text-green-200 dark:border-green-800/30">
-          Fixed
-        </Badge>
-      );
-    }
-    
-    return (
-      <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/50 dark:text-blue-200 dark:border-blue-800/30">
-        Open
-      </Badge>
-    );
-  };
-
   const postTitle = (activity as any).postTitle;
   
   switch (activity.type) {
     case "post":
-      return (
-        <div className="flex items-center flex-wrap">
-          <p className="font-medium">{postTitle || "You posted a new issue"}</p>
-          {getStatusBadge()}
-        </div>
-      );
+      return <p className="font-medium">{postTitle || "You posted a new issue"}</p>;
     case "fix":
-      return (
-        <div className="flex items-center flex-wrap">
-          <p className="font-medium">{postTitle ? `You fixed: ${postTitle}` : "You fixed an issue"}</p>
-          {getStatusBadge()}
-        </div>
-      );
+      return <p className="font-medium">{postTitle ? `You fixed: ${postTitle}` : "You fixed an issue"}</p>;
     case "reward":
-      return (
-        <div className="flex items-center flex-wrap">
-          <p className="font-medium">{postTitle ? `Reward: ${postTitle}` : "You received a reward"}</p>
-          {getStatusBadge()}
-        </div>
-      );
+      return <p className="font-medium">{postTitle ? `Reward: ${postTitle}` : "You received a reward"}</p>;
     case "fix_submitted":
       return <p className="font-medium">You submitted a fix for review</p>;
     case "fix_review_needed":
@@ -2328,6 +2290,38 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
     default:
       return null;
   }
+}
+
+function ActivityStatus({ activity }: { activity: ActivityItem }) {
+  if (!["post", "fix", "reward"].includes(activity.type)) return null;
+  
+  const postFixed = (activity as any).postFixed;
+  const postUnderReview = (activity as any).postUnderReview;
+  
+  if (postUnderReview) {
+    return (
+      <div className="flex items-center text-xs text-muted-foreground">
+        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mr-1.5"></span>
+        <span>Under Review</span>
+      </div>
+    );
+  }
+  
+  if (postFixed) {
+    return (
+      <div className="flex items-center text-xs text-muted-foreground">
+        <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+        <span>Fixed</span>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="flex items-center text-xs text-muted-foreground">
+      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
+      <span>Open</span>
+    </div>
+  );
 }
 
 function ActivityIcon({ type }: { type: string }) {
