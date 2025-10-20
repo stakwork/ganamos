@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { X, RefreshCw, AlertCircle, Heart, Plus, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -211,22 +211,26 @@ export function MapView({
   // Debug log for posts prop
   console.log("MapView received posts:", posts)
 
-  // Filter posts that have location data
-  const postsWithLocation = allPosts.filter(
-    (post) => post.latitude && post.longitude && !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
-  )
+  // Filter posts that have location data - memoized to prevent recalculation
+  const postsWithLocation = useMemo(() => {
+    return allPosts.filter(
+      (post) => post.latitude && post.longitude && !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
+    )
+  }, [allPosts])
 
   // Debug log for filtered posts
-  console.log("Posts with location data:", postsWithLocation)
-  postsWithLocation.forEach((post, index) => {
-    console.log(`Post ${index} location:`, {
-      id: post.id,
-      lat: post.latitude,
-      lng: post.longitude,
-      type: typeof post.latitude,
-      isValid: !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
+  useEffect(() => {
+    console.log("Posts with location data:", postsWithLocation.length)
+    postsWithLocation.forEach((post, index) => {
+      console.log(`Post ${index} location:`, {
+        id: post.id,
+        lat: post.latitude,
+        lng: post.longitude,
+        type: typeof post.latitude,
+        isValid: !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
+      })
     })
-  })
+  }, [postsWithLocation])
 
   // Format date for preview card
   const formatPostDate = (post: Post) => {
@@ -251,15 +255,21 @@ export function MapView({
     loadGoogleMaps()
   }, [mapInitialized])
 
-  // Add a separate effect to update markers when posts change
+  // Add markers when map is ready and posts are available
+  // Track the number of posts to detect actual changes (not just reference changes)
+  const prevPostsLength = useRef(0)
+  
   useEffect(() => {
     if (mapInstance && mapInitialized && PostMarkerClassRef.current && postsWithLocation.length > 0) {
-      console.log("Posts changed, updating markers...")
-      addPostMarkers(mapInstance)
-      // Also update user location marker when posts change
-      addUserLocationMarker(mapInstance)
+      // Only redraw if the number of posts actually changed
+      if (prevPostsLength.current !== postsWithLocation.length) {
+        console.log("Posts count changed, updating markers...", prevPostsLength.current, "→", postsWithLocation.length)
+        prevPostsLength.current = postsWithLocation.length
+        addPostMarkers(mapInstance)
+        addUserLocationMarker(mapInstance)
+      }
     }
-  }, [allPosts, mapInstance, mapInitialized])
+  }, [mapInstance, mapInitialized, postsWithLocation])
 
   // Create PostMarker class after Google Maps is loaded
   const createPostMarkerClass = () => {
@@ -719,12 +729,8 @@ export function MapView({
         }
       }
 
-      // Skip user location and go straight to adding post markers
-      console.log("About to add post markers...")
-      addPostMarkers(map)
-      
-      // Add user location marker with pulsing dot
-      addUserLocationMarker(map)
+      // Markers will be added by the useEffect once map is initialized
+      console.log("Map initialized, markers will be added by useEffect...")
       
       setIsLoading(false)
     } catch (error) {
