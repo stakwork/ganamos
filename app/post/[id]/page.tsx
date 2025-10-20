@@ -27,6 +27,7 @@ import { LightningInvoiceModal } from "@/components/lightning-invoice-modal"
 import { v4 as uuidv4 } from "uuid"
 import dynamic from "next/dynamic"
 import PostDetailSkeleton from "@/components/post-detail-skeleton"
+import { StaticMapWidget } from "@/components/static-map-widget"
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
   // const { id } = useParams() // params.id is used directly
@@ -902,7 +903,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           <Button
             onClick={handleSubmitFix}
             disabled={submittingFix}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="w-full bg-green-600 hover:bg-green-700 text-white"
           >
             {submittingFix ? (
               <div className="flex items-center">
@@ -944,9 +945,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
       {/* Real Content: fades in when showContent is true */}
       <div className={`transition-opacity duration-150 ${showContent ? 'opacity-100' : 'opacity-0'}`}>
         {post && (
-          <div className="container px-4 pt-4 pb-20 mx-auto max-w-md">
-            {" "}
-            {/* Added pb-20 for bottom nav space */}
+          <div className="container px-4 pt-4 pb-6 mx-auto max-w-md">
             {/* Updated image display logic to handle anonymous reviews */}
             {((post.under_review &&
             post.submitted_fix_image_url &&
@@ -1093,119 +1092,119 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               </div>
             </div>
           )}
-          <div className="mb-6">
-            <h2 className="text-xl font-bold">{post.title}</h2>
-            <div className="flex items-center mt-2 text-sm text-muted-foreground">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mr-1"
-              >
-                {" "}
-                <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /> <circle cx="12" cy="10" r="3" />{" "}
-              </svg>
-              <span className="mr-3">{displayLocation}</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mr-1"
-              >
-                {" "}
-                <circle cx="12" cy="12" r="10" /> <polyline points="12 6 12 12 16 14" />{" "}
-              </svg>
-              <span>
-                {formatDistanceToNow(new Date(post.createdAt || post.created_at || Date.now()), { addSuffix: false })
-                  .replace("about ", "")
-                  .replace(" hours", " hrs")
-                  .replace(" minutes", " mins")} 
-                ago
-              </span>
-              {/* Bitcoin badge to the right */}
-              <div style={{ position: "relative", width: "48px", height: "48px", marginLeft: "auto", marginTop: "-6px" }}>
-                <div
-                  className="marker-container"
-                  style={{
-                    width: "48px",
-                    height: "48px",
-                    borderRadius: "50%",
-                    background: "#FED56B",
-                    border: "1px solid #C5792D",
-                    boxShadow: "0 0 0 1px #F4C14F",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
+          <div className="mb-8 flex gap-3">
+            {/* Left column: Title and metadata */}
+            <div className="flex-1">
+              <h2 className="text-xl font-bold mb-1">{post.title}</h2>
+              <div className="flex items-center text-sm text-muted-foreground">
+                {!post.fixed && post.created_by && (
+                  <>
+                    <span>Created by {post.created_by}</span>
+                    <span className="mx-2">•</span>
+                  </>
+                )}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-1"
                 >
-                  <img
-                    src="/images/bitcoin-logo.png"
-                    alt="Bitcoin"
-                    width={43}
-                    height={43}
-                    style={{ zIndex: 1 }}
-                  />
+                  <circle cx="12" cy="12" r="10" /> <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <span>
+                  {formatDistanceToNow(new Date(post.createdAt || post.created_at || Date.now()), { addSuffix: false })
+                    .replace("about ", "")
+                    .replace(" hours", " hrs")
+                    .replace(" minutes", " mins")}{" "}
+                  ago
+                </span>
+              </div>
+              {post.under_review && post.submitted_fix_by_name && (
+                <div className="flex items-center mt-1 text-sm text-muted-foreground">
+                  <span>Fix submitted by {post.submitted_fix_by_name}</span>
                 </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: "-20px",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    background: "#fff",
-                    color: "black",
-                    padding: "2px 10px",
-                    fontSize: "14.4px",
-                    fontWeight: "bold",
-                    borderRadius: "14.4px",
-                    border: "1px solid #F7931A",
-                    boxShadow: "0 2px 3px rgba(0, 0, 0, 0.1)",
-                    fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-                    minWidth: "24px",
-                    textAlign: "center",
-                    zIndex: 3,
-                    pointerEvents: "auto",
-                    width: "max-content",
-                  }}
-                >
-                  {(() => {
-                    const sats = post.reward
-                    if (sats === 0) return "0"
-                    if (sats < 1000) return sats.toString()
-                    const inK = sats / 1000
-                    if (inK === Math.floor(inK)) {
-                      return `${Math.floor(inK)}k`
-                    }
-                    return `${inK.toFixed(1)}k`.replace(".0k", "k")
-                  })()}
-                </div>
+              )}
+            </div>
+            
+            {/* Right column: Bitcoin badge */}
+            <div style={{ position: "relative", width: "48px", height: "48px", flexShrink: 0 }}>
+              <div
+                className="marker-container"
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "50%",
+                  background: "#FED56B",
+                  border: "1px solid #C5792D",
+                  boxShadow: "0 0 0 1px #F4C14F",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <img
+                  src="/images/bitcoin-logo.png"
+                  alt="Bitcoin"
+                  width={43}
+                  height={43}
+                  style={{ zIndex: 1 }}
+                />
+              </div>
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "-20px",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "#fff",
+                  color: "black",
+                  padding: "2px 10px",
+                  fontSize: "14.4px",
+                  fontWeight: "bold",
+                  borderRadius: "14.4px",
+                  border: "1px solid #F7931A",
+                  boxShadow: "0 2px 3px rgba(0, 0, 0, 0.1)",
+                  fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+                  minWidth: "24px",
+                  textAlign: "center",
+                  zIndex: 3,
+                  pointerEvents: "auto",
+                  width: "max-content",
+                }}
+              >
+                {(() => {
+                  const sats = post.reward
+                  if (sats === 0) return "0"
+                  if (sats < 1000) return sats.toString()
+                  const inK = sats / 1000
+                  if (inK === Math.floor(inK)) {
+                    return `${Math.floor(inK)}k`
+                  }
+                  return `${inK.toFixed(1)}k`.replace(".0k", "k")
+                })()}
               </div>
             </div>
-            {!post.fixed && post.created_by && (
-              <div className="flex items-center mt-2">
-                <p className="text-xs text-muted-foreground mr-1">Created by</p>
-                <span className="text-xs font-medium text-muted-foreground">{post.created_by}</span>
-              </div>
-            )}
-            {post.under_review && post.submitted_fix_by_name && (
-              <div className="flex items-center mt-1">
-                <p className="text-xs text-muted-foreground mr-1">Fix submitted by</p>
-                <span className="text-xs font-medium text-muted-foreground">{post.submitted_fix_by_name}</span>
-              </div>
-            )}
           </div>
+          
+          {/* Map Widget - shows location of the issue */}
+          {post.latitude && post.longitude && (
+            <div className="mb-6">
+              <StaticMapWidget
+                latitude={Number(post.latitude)}
+                longitude={Number(post.longitude)}
+                title={post.title}
+                locationLabel={displayLocation}
+                height={160}
+              />
+            </div>
+          )}
+          
           {post.under_review && post.submitted_fix_image_url && (
             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-6">
               <div className="flex items-center mb-1">
@@ -1340,7 +1339,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                     contributions.
                   </p>
                   <div className="space-y-3">
-                    <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => setShowLightningModal(true)}>
+                    <Button className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowLightningModal(true)}>
                       Withdraw {formatSatsValue(post.reward)} sats
                     </Button>
                     <Button
@@ -1381,7 +1380,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             }}
           />
           {!post.fixed && !post.under_review && (
-            <Button className="w-full mt-6" onClick={() => setShowCamera(true)}>Submit Fix</Button>
+            <Button className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowCamera(true)}>Submit Fix</Button>
           )}
           </div>
         )}
