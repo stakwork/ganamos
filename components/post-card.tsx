@@ -130,25 +130,55 @@ export function PostCard({ post }: { post: Post }) {
     }
 
     let cancelled = false;
-    // Defer travel time calculation slightly to ensure card is immediately interactive
-    const timeoutId = setTimeout(() => {
-      (async () => {
-        const times = await getTravelTimes(
-          userLocation.lat,
-          userLocation.lng,
-          Number(post.latitude),
-          Number(post.longitude)
-        );
-        if (!cancelled) {
-          setTravelTimes(times);
-          travelTimeCache.set(cacheKey, times);
-        }
-      })();
-    }, 150); // 150ms delay ensures cards are interactive before heavy API calls
+    
+    // Use requestIdleCallback to run when browser is idle (fallback to setTimeout)
+    const scheduleWork = () => {
+      if ('requestIdleCallback' in window) {
+        return window.requestIdleCallback(() => {
+          if (cancelled) return;
+          (async () => {
+            const times = await getTravelTimes(
+              userLocation.lat,
+              userLocation.lng,
+              Number(post.latitude),
+              Number(post.longitude)
+            );
+            if (!cancelled) {
+              setTravelTimes(times);
+              travelTimeCache.set(cacheKey, times);
+            }
+          })();
+        }, { timeout: 2000 }); // Max 2s wait
+      } else {
+        return window.setTimeout(() => {
+          if (cancelled) return;
+          (async () => {
+            const times = await getTravelTimes(
+              userLocation.lat,
+              userLocation.lng,
+              Number(post.latitude),
+              Number(post.longitude)
+            );
+            if (!cancelled) {
+              setTravelTimes(times);
+              travelTimeCache.set(cacheKey, times);
+            }
+          })();
+        }, 150);
+      }
+    };
+    
+    const handle = scheduleWork();
 
     return () => { 
       cancelled = true;
-      clearTimeout(timeoutId);
+      if (typeof handle === 'number') {
+        if ('requestIdleCallback' in window) {
+          window.cancelIdleCallback(handle);
+        } else {
+          clearTimeout(handle);
+        }
+      }
     };
   }, [userLocation, post.latitude, post.longitude]);
 
@@ -199,12 +229,25 @@ export function PostCard({ post }: { post: Post }) {
       }
     }
 
-    // Defer slightly to prioritize card interactivity
-    const timeoutId = setTimeout(() => {
-      handleLocation()
-    }, 50)
+    // Use requestIdleCallback to run when browser is idle (fallback to setTimeout)
+    let handle: number;
+    if ('requestIdleCallback' in window) {
+      handle = window.requestIdleCallback(() => {
+        handleLocation()
+      }, { timeout: 1000 }); // Max 1s wait
+    } else {
+      handle = window.setTimeout(() => {
+        handleLocation()
+      }, 50);
+    }
 
-    return () => clearTimeout(timeoutId)
+    return () => {
+      if ('requestIdleCallback' in window) {
+        window.cancelIdleCallback(handle);
+      } else {
+        clearTimeout(handle);
+      }
+    }
   }, [post.location, post.latitude, post.longitude])
 
   const handleClick = (e: React.MouseEvent) => {
