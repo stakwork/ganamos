@@ -130,20 +130,26 @@ export function PostCard({ post }: { post: Post }) {
     }
 
     let cancelled = false;
-    (async () => {
-      const times = await getTravelTimes(
-        userLocation.lat,
-        userLocation.lng,
-        Number(post.latitude),
-        Number(post.longitude)
-      );
-      if (!cancelled) {
-        setTravelTimes(times);
-        travelTimeCache.set(cacheKey, times);
-      }
-    })();
+    // Defer travel time calculation slightly to ensure card is immediately interactive
+    const timeoutId = setTimeout(() => {
+      (async () => {
+        const times = await getTravelTimes(
+          userLocation.lat,
+          userLocation.lng,
+          Number(post.latitude),
+          Number(post.longitude)
+        );
+        if (!cancelled) {
+          setTravelTimes(times);
+          travelTimeCache.set(cacheKey, times);
+        }
+      })();
+    }, 150); // 150ms delay ensures cards are interactive before heavy API calls
 
-    return () => { cancelled = true; };
+    return () => { 
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
   }, [userLocation, post.latitude, post.longitude]);
 
   useEffect(() => {
@@ -193,11 +199,18 @@ export function PostCard({ post }: { post: Post }) {
       }
     }
 
-    handleLocation()
+    // Defer slightly to prioritize card interactivity
+    const timeoutId = setTimeout(() => {
+      handleLocation()
+    }, 50)
+
+    return () => clearTimeout(timeoutId)
   }, [post.location, post.latitude, post.longitude])
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
     // Immediately navigate to the post detail page
+    // Don't preventDefault as it can interfere with navigation
+    e.stopPropagation()
     router.push(`/post/${post.id}`)
   }
 
@@ -242,7 +255,11 @@ export function PostCard({ post }: { post: Post }) {
 
   return (
     <>
-      <Card className="overflow-hidden border dark:border-gray-800 cursor-pointer active:scale-[0.98] transition-transform" onClick={handleClick} onMouseEnter={handleMouseEnter}>
+      <Card 
+        className="overflow-hidden border dark:border-gray-800 cursor-pointer active:scale-[0.98] transition-transform touch-manipulation" 
+        onClick={handleClick} 
+        onMouseEnter={handleMouseEnter}
+      >
         <div className="relative w-full h-48">
           {imageError ? (
             <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
