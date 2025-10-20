@@ -2149,24 +2149,26 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
       <CardContent className="p-4">
         <div className="flex items-start">
           <ActivityIcon type={activity.type} />
-          <div className="ml-3 flex-1">
+          <div className="ml-3 flex-1 min-w-0">
             <ActivityTitle activity={activity} />
             
             {/* Metadata line: status, location, and timestamp */}
-            <div className="flex items-center mt-1 text-xs text-muted-foreground">
-              {["post", "fix", "reward"].includes(activity.type) && (
-                <>
-                  <ActivityStatus activity={activity} />
-                  <span className="mx-2">·</span>
-                </>
-              )}
+            <div className="flex items-center mt-1 text-xs text-muted-foreground min-w-0">
+              <div className="flex items-center shrink-0">
+                {["post", "fix", "reward"].includes(activity.type) && (
+                  <>
+                    <ActivityStatus activity={activity} />
+                    <span className="mx-2">·</span>
+                  </>
+                )}
+              </div>
               {(activity as any).postLocation && (
                 <>
-                  <span>{(activity as any).postLocation}</span>
-                  <span className="mx-2">·</span>
+                  <span className="truncate flex-shrink min-w-0">{(activity as any).postLocation}</span>
+                  <span className="mx-2 shrink-0">·</span>
                 </>
               )}
-              <span>{formatDate()}</span>
+              <span className="shrink-0 whitespace-nowrap">{formatDate()}</span>
             </div>
             
             {/* Additional info for different activity types */}
@@ -2272,16 +2274,16 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
   
   switch (activity.type) {
     case "post":
-      return <p className="font-medium truncate">{postTitle || "You posted a new issue"}</p>;
+      return <p className="font-medium truncate overflow-hidden whitespace-nowrap">{postTitle || "You posted a new issue"}</p>;
     case "fix":
-      return <p className="font-medium truncate">{postTitle ? `You fixed: ${postTitle}` : "You fixed an issue"}</p>;
+      return <p className="font-medium truncate overflow-hidden whitespace-nowrap">{postTitle ? `You fixed: ${postTitle}` : "You fixed an issue"}</p>;
     case "reward":
-      return <p className="font-medium truncate">{postTitle ? `Reward: ${postTitle}` : "You received a reward"}</p>;
+      return <p className="font-medium truncate overflow-hidden whitespace-nowrap">{postTitle ? `Reward: ${postTitle}` : "You received a reward"}</p>;
     case "fix_submitted":
-      return <p className="font-medium truncate">You submitted a fix for review</p>;
+      return <p className="font-medium truncate overflow-hidden whitespace-nowrap">You submitted a fix for review</p>;
     case "fix_review_needed":
       return (
-        <p className="font-medium truncate">
+        <p className="font-medium truncate overflow-hidden whitespace-nowrap">
           {activity.submitterName || "Someone"} submitted a fix
         </p>
       );
@@ -2289,12 +2291,12 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
       const donorFirstName = activity.donorName
         ? activity.donorName.split(" ")[0]
         : "Someone";
-      return <p className="font-medium truncate">{donorFirstName} donated Bitcoin</p>;
+      return <p className="font-medium truncate overflow-hidden whitespace-nowrap">{donorFirstName} donated Bitcoin</p>;
     }
     case "withdrawal":
-      return <p className="font-medium truncate">You withdrew Bitcoin</p>;
+      return <p className="font-medium truncate overflow-hidden whitespace-nowrap">You withdrew Bitcoin</p>;
     case "deposit":
-      return <p className="font-medium truncate">You deposited Bitcoin</p>;
+      return <p className="font-medium truncate overflow-hidden whitespace-nowrap">You deposited Bitcoin</p>;
     default:
       return null;
   }
