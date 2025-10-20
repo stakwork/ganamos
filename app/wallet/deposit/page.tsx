@@ -297,7 +297,7 @@ export default function DepositPage() {
     <div className="min-h-screen bg-background">
       <div className="max-w-md mx-auto min-h-screen bg-background">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between p-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -372,12 +372,12 @@ export default function DepositPage() {
               </div>
 
               {/* Amount Input (Collapsible) */}
-              <div className="border-t pt-4">
+              <div className="pt-4">
                 <button
                   onClick={() => setShowAmountInput(!showAmountInput)}
                   className="w-full flex items-center justify-between text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <span>Regenerate with specific amount</span>
+                  <span>Add amount</span>
                   {showAmountInput ? (
                     <ChevronUp className="h-4 w-4" />
                   ) : (
@@ -389,7 +389,7 @@ export default function DepositPage() {
                   <div className="mt-4 space-y-3">
                     <Input
                       type="number"
-                      placeholder="Amount in sats (optional)"
+                      placeholder="Amount in sats"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       className="text-center"
@@ -399,40 +399,13 @@ export default function DepositPage() {
                       onClick={handleRegenerateWithAmount} 
                       variant="outline"
                       className="w-full"
-                      disabled={loading}
+                      disabled={loading || !amount || amount === ""}
                     >
-                      Generate New Invoice
+                      Regenerate
                     </Button>
                   </div>
                 )}
               </div>
-
-              {/* Status */}
-              {checking && (
-                <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-                  <LoadingSpinner />
-                  <span>Waiting for payment...</span>
-                </div>
-              )}
-
-              {/* Dev Tools */}
-              {process.env.NODE_ENV !== "production" && (
-                <div className="border-t pt-4 space-y-2">
-                  <p className="text-xs text-muted-foreground text-center mb-2">Development Tools</p>
-                  <Button 
-                    onClick={simulatePaymentReceived} 
-                    variant="outline" 
-                    size="sm"
-                    className="w-full"
-                  >
-                    Simulate Payment
-                  </Button>
-                </div>
-              )}
-
-              <p className="text-xs text-center text-muted-foreground">
-                Scan the QR code with a Lightning wallet or copy the invoice to send payment
-              </p>
             </>
           ) : null}
         </div>
