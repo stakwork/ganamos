@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { X, RefreshCw, AlertCircle, Heart, Plus, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -56,7 +56,6 @@ interface MapViewProps {
 declare global {
   interface Window {
     google?: any
-    googleMapsLoading?: boolean
   }
 }
 
@@ -212,26 +211,22 @@ export function MapView({
   // Debug log for posts prop
   console.log("MapView received posts:", posts)
 
-  // Filter posts that have location data - memoized to prevent recalculation
-  const postsWithLocation = useMemo(() => {
-    return allPosts.filter(
-      (post) => post.latitude && post.longitude && !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
-    )
-  }, [allPosts])
+  // Filter posts that have location data
+  const postsWithLocation = allPosts.filter(
+    (post) => post.latitude && post.longitude && !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
+  )
 
   // Debug log for filtered posts
-  useEffect(() => {
-    console.log("Posts with location data:", postsWithLocation.length)
-    postsWithLocation.forEach((post, index) => {
-      console.log(`Post ${index} location:`, {
-        id: post.id,
-        lat: post.latitude,
-        lng: post.longitude,
-        type: typeof post.latitude,
-        isValid: !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
-      })
+  console.log("Posts with location data:", postsWithLocation)
+  postsWithLocation.forEach((post, index) => {
+    console.log(`Post ${index} location:`, {
+      id: post.id,
+      lat: post.latitude,
+      lng: post.longitude,
+      type: typeof post.latitude,
+      isValid: !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
     })
-  }, [postsWithLocation])
+  })
 
   // Format date for preview card
   const formatPostDate = (post: Post) => {
@@ -256,18 +251,15 @@ export function MapView({
     loadGoogleMaps()
   }, [mapInitialized])
 
-  // Add markers when map is ready and posts are available
-  // Track if we've already added markers to prevent duplicate draws
-  const markersAddedRef = useRef(false)
-  
+  // Add a separate effect to update markers when posts change
   useEffect(() => {
-    if (mapInstance && mapInitialized && PostMarkerClassRef.current && postsWithLocation.length > 0 && !markersAddedRef.current) {
-      console.log("Adding markers for the first time...")
-      markersAddedRef.current = true
+    if (mapInstance && mapInitialized && PostMarkerClassRef.current && postsWithLocation.length > 0) {
+      console.log("Posts changed, updating markers...")
       addPostMarkers(mapInstance)
+      // Also update user location marker when posts change
       addUserLocationMarker(mapInstance)
     }
-  }, [mapInstance, mapInitialized, postsWithLocation])
+  }, [allPosts, mapInstance, mapInitialized])
 
   // Create PostMarker class after Google Maps is loaded
   const createPostMarkerClass = () => {
@@ -553,24 +545,6 @@ export function MapView({
         return
       }
 
-      // Check if already loading (prevent duplicate script tags)
-      if (window.googleMapsLoading) {
-        console.log("Google Maps is already loading, waiting...")
-        // Wait for it to finish loading
-        const checkInterval = setInterval(() => {
-          if (window.google && window.google.maps) {
-            clearInterval(checkInterval)
-            PostMarkerClassRef.current = createPostMarkerClass()
-            initializeMap()
-          }
-        }, 100)
-        setTimeout(() => clearInterval(checkInterval), 10000) // Timeout after 10s
-        return
-      }
-
-      // Set loading flag
-      window.googleMapsLoading = true
-
       // Load Google Maps JavaScript API
       console.log("Loading Google Maps JavaScript API...")
 
@@ -578,10 +552,7 @@ export function MapView({
         // Check if script already exists
         const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
         if (existingScript) {
-          console.log("Script already exists, skipping duplicate load")
-          window.googleMapsLoading = false
-          reject(new Error("Script already loading"))
-          return
+          existingScript.remove()
         }
 
         const script = document.createElement("script")
@@ -591,7 +562,6 @@ export function MapView({
 
         script.onload = () => {
           console.log("Google Maps script loaded successfully")
-          window.googleMapsLoading = false
           // Give it a moment to initialize
           setTimeout(() => {
             if (window.google && window.google.maps) {
@@ -609,13 +579,11 @@ export function MapView({
 
         script.onerror = (error) => {
           console.error("Failed to load Google Maps script:", error)
-          window.googleMapsLoading = false
           reject(new Error("Failed to load map library"))
         }
 
         // Add timeout
         setTimeout(() => {
-          window.googleMapsLoading = false
           reject(new Error("Script loading timeout"))
         }, 10000)
 
@@ -628,7 +596,6 @@ export function MapView({
       initializeMap()
     } catch (error) {
       console.error("Error loading Google Maps:", error)
-      window.googleMapsLoading = false
       setLocationError(`Failed to load map: ${error instanceof Error ? error.message : "Unknown error"}`)
       setIsLoading(false)
     }
@@ -752,8 +719,12 @@ export function MapView({
         }
       }
 
-      // Markers will be added by the useEffect once map is initialized
-      console.log("Map initialized, markers will be added by useEffect...")
+      // Skip user location and go straight to adding post markers
+      console.log("About to add post markers...")
+      addPostMarkers(map)
+      
+      // Add user location marker with pulsing dot
+      addUserLocationMarker(map)
       
       setIsLoading(false)
     } catch (error) {
