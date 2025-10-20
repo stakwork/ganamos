@@ -59,6 +59,8 @@ type ActivityItem = {
     | "deposit";
   postId?: string;
   postTitle?: string;
+  postFixed?: boolean;
+  postUnderReview?: boolean;
   timestamp: Date;
   amount?: number;
   submitterName?: string;
@@ -390,18 +392,42 @@ export default function ProfilePage() {
       const pageSize = ACTIVITIES_PER_PAGE;
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
+      
+      // Fetch activities with post data joined for post-related activities
       const { data, error, count } = await supabase
         .from("activities")
-        .select("*", { count: "exact" })
+        .select(`
+          *,
+          post:related_id (
+            title,
+            fixed,
+            under_review
+          )
+        `, { count: "exact" })
         .eq("user_id", user.id)
         .order("timestamp", { ascending: false })
         .range(from, to);
+        
       if (error) {
         console.error("Error fetching activities:", error);
         return { activities: [], hasMore: false };
       }
+      
+      // Transform the data to include post info in metadata
+      const transformedActivities = (data || []).map((activity: any) => {
+        if (activity.post && ["post", "fix", "reward"].includes(activity.type)) {
+          return {
+            ...activity,
+            postTitle: activity.post.title,
+            postFixed: activity.post.fixed,
+            postUnderReview: activity.post.under_review,
+          };
+        }
+        return activity;
+      });
+      
       return {
-        activities: data || [],
+        activities: transformedActivities,
         hasMore: count ? to + 1 < count : false,
       };
     },
@@ -2200,13 +2226,6 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
                     )}
                   </div>
                 )}
-                {/* For post/fix, show description */}
-                {(activity.type === "post" || activity.type === "fix") &&
-                  description && (
-                    <p className="text-sm text-muted-foreground">
-                      {description}
-                    </p>
-                  )}
               </div>
               <div className="text-xs text-muted-foreground">
                 {formatDate()}
@@ -2220,13 +2239,60 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
 }
 
 function ActivityTitle({ activity }: { activity: ActivityItem }) {
+  // Helper to get status badge
+  const getStatusBadge = () => {
+    if (!["post", "fix", "reward"].includes(activity.type)) return null;
+    
+    const postFixed = (activity as any).postFixed;
+    const postUnderReview = (activity as any).postUnderReview;
+    
+    if (postUnderReview) {
+      return (
+        <Badge variant="outline" className="ml-2 bg-yellow-50 text-yellow-800 border-yellow-200 dark:bg-yellow-950/50 dark:text-yellow-200 dark:border-yellow-800/30">
+          Under Review
+        </Badge>
+      );
+    }
+    
+    if (postFixed) {
+      return (
+        <Badge variant="outline" className="ml-2 bg-green-50 text-green-800 border-green-200 dark:bg-green-950/50 dark:text-green-200 dark:border-green-800/30">
+          Fixed
+        </Badge>
+      );
+    }
+    
+    return (
+      <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/50 dark:text-blue-200 dark:border-blue-800/30">
+        Open
+      </Badge>
+    );
+  };
+
+  const postTitle = (activity as any).postTitle;
+  
   switch (activity.type) {
     case "post":
-      return <p className="font-medium">You posted a new issue</p>;
+      return (
+        <div className="flex items-center flex-wrap">
+          <p className="font-medium">{postTitle || "You posted a new issue"}</p>
+          {getStatusBadge()}
+        </div>
+      );
     case "fix":
-      return <p className="font-medium">You fixed an issue</p>;
+      return (
+        <div className="flex items-center flex-wrap">
+          <p className="font-medium">{postTitle ? `You fixed: ${postTitle}` : "You fixed an issue"}</p>
+          {getStatusBadge()}
+        </div>
+      );
     case "reward":
-      return <p className="font-medium">You received a reward</p>;
+      return (
+        <div className="flex items-center flex-wrap">
+          <p className="font-medium">{postTitle ? `Reward: ${postTitle}` : "You received a reward"}</p>
+          {getStatusBadge()}
+        </div>
+      );
     case "fix_submitted":
       return <p className="font-medium">You submitted a fix for review</p>;
     case "fix_review_needed":
