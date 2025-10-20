@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, Suspense } from "react"
+import { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +28,52 @@ function WithdrawPageContent() {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const { toast } = useToast()
   const supabase = createBrowserSupabaseClient()
+
+  // Bitcoin price state
+  const [bitcoinPrice, setBitcoinPrice] = useState<number | null>(null)
+  const [isPriceLoading, setIsPriceLoading] = useState(false)
+  const bitcoinPriceFetched = useRef(false)
+
+  // Fetch the current Bitcoin price
+  const fetchBitcoinPrice = useCallback(async () => {
+    if (bitcoinPriceFetched.current) return
+
+    try {
+      setIsPriceLoading(true)
+      const response = await fetch("/api/bitcoin-price")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.price && typeof data.price === "number") {
+          setBitcoinPrice(data.price)
+          bitcoinPriceFetched.current = true
+        } else {
+          console.warn("Bitcoin price API returned invalid price data")
+          setBitcoinPrice(null)
+        }
+      } else {
+        console.error("Failed to fetch Bitcoin price")
+        setBitcoinPrice(null)
+      }
+    } catch (error) {
+      console.error("Error fetching Bitcoin price:", error)
+      setBitcoinPrice(null)
+    } finally {
+      setIsPriceLoading(false)
+    }
+  }, [])
+
+  // Fetch Bitcoin price on mount
+  useEffect(() => {
+    fetchBitcoinPrice()
+  }, [fetchBitcoinPrice])
+
+  // Calculate USD value
+  const calculateUsdValue = (sats: number) => {
+    if (!bitcoinPrice) return null
+    const btcAmount = sats / 100000000
+    const usdValue = btcAmount * bitcoinPrice
+    return usdValue.toFixed(2)
+  }
 
   // Pre-populate recipient from URL params
   useEffect(() => {
@@ -392,6 +438,11 @@ function WithdrawPageContent() {
               <span>{(parseInt(amount) || 0).toLocaleString()}</span>
               <span className="text-2xl text-gray-500">sats</span>
             </div>
+            {!isPriceLoading && bitcoinPrice && calculateUsdValue(parseInt(amount) || 0) ? (
+              <p className="text-sm text-muted-foreground">${calculateUsdValue(parseInt(amount) || 0)} USD</p>
+            ) : (
+              <p className="text-sm text-muted-foreground opacity-0">$0.00 USD</p>
+            )}
           </div>
 
           {/* Note Input */}

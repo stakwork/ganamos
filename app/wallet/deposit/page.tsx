@@ -1,30 +1,90 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createDepositInvoice, checkDepositStatus } from "@/app/actions/lightning-actions"
 import QRCode from "@/components/qr-code"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { LoadingSpinner } from "@/components/loading-spinner"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { ArrowLeftIcon } from "lucide-react"
+import { ArrowLeft, X, Delete } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
+import { formatSatsValue } from "@/lib/utils"
+import Image from "next/image"
 
 export default function DepositPage() {
   const router = useRouter()
-  const [amount, setAmount] = useState<number>(1000)
+  const [amount, setAmount] = useState<string>("0")
   const [invoice, setInvoice] = useState<string | null>(null)
   const [rHash, setRHash] = useState<string | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
   const [checking, setChecking] = useState<boolean>(false)
   const [settled, setSettled] = useState<boolean>(false)
-  const [error, setError] = useState<string | null>(null)
+  const [note, setNote] = useState<string>("")
   const { toast } = useToast()
 
   const { user, profile, loading: authLoading, refreshProfile } = useAuth()
+
+  // Bitcoin price state
+  const [bitcoinPrice, setBitcoinPrice] = useState<number | null>(null)
+  const [isPriceLoading, setIsPriceLoading] = useState(false)
+  const bitcoinPriceFetched = useRef(false)
+
+  // Fetch the current Bitcoin price
+  const fetchBitcoinPrice = useCallback(async () => {
+    if (bitcoinPriceFetched.current) return
+
+    try {
+      setIsPriceLoading(true)
+      const response = await fetch("/api/bitcoin-price")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.price && typeof data.price === "number") {
+          setBitcoinPrice(data.price)
+          bitcoinPriceFetched.current = true
+        } else {
+          console.warn("Bitcoin price API returned invalid price data")
+          setBitcoinPrice(null)
+        }
+      } else {
+        console.error("Failed to fetch Bitcoin price")
+        setBitcoinPrice(null)
+      }
+    } catch (error) {
+      console.error("Error fetching Bitcoin price:", error)
+      setBitcoinPrice(null)
+    } finally {
+      setIsPriceLoading(false)
+    }
+  }, [])
+
+  // Fetch Bitcoin price on mount
+  useEffect(() => {
+    fetchBitcoinPrice()
+  }, [fetchBitcoinPrice])
+
+  // Calculate USD value
+  const calculateUsdValue = (sats: number) => {
+    if (!bitcoinPrice) return null
+    const btcAmount = sats / 100000000
+    const usdValue = btcAmount * bitcoinPrice
+    return usdValue.toFixed(2)
+  }
+
+  // Handle number pad input
+  const handleNumberInput = (digit: string) => {
+    if (amount === "0" && digit !== "0") {
+      setAmount(digit)
+    } else {
+      setAmount((prev) => prev + digit)
+    }
+  }
+
+  // Handle backspace
+  const handleBackspace = () => {
+    setAmount((prev) => prev.slice(0, -1) || "0")
+  }
 
   // Check if user is authenticated
   useEffect(() => {
@@ -50,7 +110,8 @@ export default function DepositPage() {
       return
     }
 
-    if (amount < 100) {
+    const satsAmount = parseInt(amount)
+    if (!satsAmount || satsAmount < 100) {
       toast({
         title: "Invalid amount",
         description: "Minimum deposit is 100 sats",
@@ -60,14 +121,13 @@ export default function DepositPage() {
     }
 
     setLoading(true)
-    setError(null)
 
     try {
       // Wait a moment to ensure authentication is fully established
       await new Promise((resolve) => setTimeout(resolve, 500))
 
       // Pass the user ID to the server action
-      const result = await createDepositInvoice(amount, user.id)
+      const result = await createDepositInvoice(satsAmount, user.id)
       if (result.success) {
         setInvoice(result.paymentRequest)
         setRHash(result.rHash)
@@ -88,7 +148,6 @@ export default function DepositPage() {
           return
         }
 
-        setError(result.error || "Failed to create invoice")
         toast({
           title: "Error Creating Invoice",
           description: result.error || "Failed to create invoice. Check console for details.",
@@ -97,7 +156,6 @@ export default function DepositPage() {
       }
     } catch (error) {
       console.error("Error creating invoice:", error)
-      setError("An unexpected error occurred")
       toast({
         title: "Error",
         description: "An unexpected error occurred. Check console for details.",
@@ -111,11 +169,11 @@ export default function DepositPage() {
   // Generate a mock invoice for development/testing
   const handleCreateMockInvoice = () => {
     setLoading(true)
-    setError(null)
 
+    const satsAmount = parseInt(amount)
     // Create a fake invoice and r_hash for testing
     setTimeout(() => {
-      const mockInvoice = `lnbc${amount}n1pj${Math.random().toString(36).substring(2, 10)}qdqqxqyjw5qcqpjsp5`
+      const mockInvoice = `lnbc${satsAmount}n1pj${Math.random().toString(36).substring(2, 10)}qdqqxqyjw5qcqpjsp5`
       const mockRHash = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
 
       setInvoice(mockInvoice)
@@ -202,8 +260,9 @@ export default function DepositPage() {
     setSettled(true)
     setChecking(false)
 
+    const satsAmount = parseInt(amount)
     // Calculate new balance
-    const newBalance = profile.balance + amount
+    const newBalance = profile.balance + satsAmount
     console.log("Simulating payment received. Current balance:", profile.balance, "New balance:", newBalance)
 
     // Update the user's balance in the database
@@ -216,9 +275,9 @@ export default function DepositPage() {
       const { error: txError } = await supabase.from("transactions").insert({
         user_id: user.id,
         type: "deposit",
-        amount: amount,
+        amount: satsAmount,
         status: "completed",
-        memo: `Simulated deposit of ${amount} sats`,
+        memo: `Simulated deposit of ${satsAmount} sats`,
       })
 
       if (txError) {
@@ -243,7 +302,7 @@ export default function DepositPage() {
 
       toast({
         title: "Payment received! (Simulated)",
-        description: `${amount} sats added to your balance`,
+        description: `${satsAmount} sats added to your balance`,
         variant: "default",
         duration: 2000,
       })
@@ -280,7 +339,7 @@ export default function DepositPage() {
       <div className="container max-w-md mx-auto py-8 px-4">
         <div className="flex items-center mb-6">
           <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
-            <ArrowLeftIcon className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5" />
             <span className="sr-only">Back</span>
           </Button>
           <h1 className="text-2xl font-bold">Deposit Bitcoin</h1>
@@ -293,140 +352,232 @@ export default function DepositPage() {
     )
   }
 
-  // Redirect if not authenticated
+  // If not authenticated, show login prompt
   if (!user) {
     return (
       <div className="container max-w-md mx-auto py-8 px-4">
         <div className="flex items-center mb-6">
           <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
-            <ArrowLeftIcon className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5" />
             <span className="sr-only">Back</span>
           </Button>
           <h1 className="text-2xl font-bold">Deposit Bitcoin</h1>
         </div>
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center py-8">
-              <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
-              <p className="text-muted-foreground mb-6">Please sign in to access this feature</p>
-              <Button onClick={() => router.push("/auth/login?redirect=/wallet/deposit")}>Sign In</Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="text-center py-8">
+          <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+          <p className="text-muted-foreground mb-6">Please sign in to deposit funds</p>
+          <Button onClick={() => router.push("/auth/login?redirect=/wallet/deposit")}>Sign In</Button>
+        </div>
       </div>
     )
   }
 
-  return (
-    <div className="container max-w-md mx-auto py-8 px-4">
-      <div className="flex items-center mb-6">
-        <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
-          <ArrowLeftIcon className="h-5 w-5" />
-          <span className="sr-only">Back</span>
-        </Button>
-        <h1 className="text-2xl font-bold">Deposit Bitcoin</h1>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardDescription>Add funds to your Ganamos! account using Lightning Network</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {!invoice ? (
-            <>
-              <div className="space-y-2">
-                <label htmlFor="amount" className="text-sm font-medium">
-                  Amount (sats)
-                </label>
-                <Input
-                  id="amount"
-                  type="number"
-                  min="100"
-                  value={amount}
-                  onChange={(e) => setAmount(Number.parseInt(e.target.value, 10))}
-                  placeholder="Enter amount in sats"
-                />
-              </div>
-              <Button onClick={handleCreateInvoice} className="w-full" disabled={loading}>
-                {loading ? <LoadingSpinner /> : "Generate Invoice"}
-              </Button>
-
-              {process.env.NODE_ENV !== "production" && (
-                <Button onClick={handleCreateMockInvoice} variant="outline" className="w-full mt-2" disabled={loading}>
-                  Generate Test Invoice
-                </Button>
-              )}
-            </>
-          ) : (
-            <div className="space-y-4">
-              {settled ? (
-                <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <h3 className="text-lg font-medium text-green-700 dark:text-green-300">Payment Received!</h3>
-                  <p className="text-green-600 dark:text-green-400">{amount} sats have been added to your balance</p>
-                  <p className="text-sm text-green-500 dark:text-green-400 mt-1">Redirecting to your profile...</p>
-                </div>
-              ) : (
-                <>
-                  <div className="flex justify-center">
-                    <QRCode data={invoice} size={250} color="#000000" backgroundColor="#ffffff" cornerColor="#10b981" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                      Scan with a Lightning wallet or copy the invoice
-                    </p>
-                    <div className="flex items-center space-x-2">
-                      <Input value={invoice} readOnly className="text-xs" />
-                      <Button onClick={copyToClipboard} variant="outline" size="sm">
-                        Copy
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    {!checking && (
-                      <Button onClick={() => startCheckingPayment(rHash!)} variant="outline">
-                        Check Payment Status
-                      </Button>
-                    )}
-
-                    {process.env.NODE_ENV !== "production" && (
-                      <Button onClick={simulatePaymentReceived} variant="outline" className={checking ? "" : "ml-2"}>
-                        Simulate Payment
-                      </Button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </CardContent>
-        {process.env.NODE_ENV !== "production" && (
-          <div className="px-6 py-2 border-t border-gray-200 dark:border-gray-800">
-            <details className="text-xs text-gray-500">
-              <summary className="cursor-pointer font-medium">Debug Info</summary>
-              <div className="mt-2 space-y-1">
-                <p>LND_REST_URL: {process.env.LND_REST_URL ? `"${process.env.LND_REST_URL}"` : "Not set"}</p>
-                <p>LND_ADMIN_MACAROON set: {process.env.LND_ADMIN_MACAROON ? "Yes" : "No"}</p>
-                <p>Current state: {invoice ? "Invoice generated" : "No invoice"}</p>
-                <p>User authenticated: {user ? "Yes" : "No"}</p>
-                <p>User ID: {user?.id ? user.id.substring(0, 8) + "..." : "None"}</p>
-                <p>Current balance: {profile ? profile.balance : "Unknown"} sats</p>
-                {rHash && <p>rHash: {rHash.substring(0, 10)}...</p>}
-                {invoice && <p>Invoice length: {invoice.length} chars</p>}
-              </div>
-            </details>
+  // If invoice has been generated, show QR code screen
+  if (invoice) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="max-w-md mx-auto min-h-screen bg-background">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4">
+            <Button variant="ghost" size="icon" onClick={() => router.back()}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-lg font-semibold">Deposit Bitcoin</h1>
+            <Button variant="ghost" size="icon" onClick={() => router.push("/wallet")}>
+              <X className="h-5 w-5" />
+            </Button>
           </div>
-        )}
-        <CardFooter className="flex justify-center text-sm text-gray-500">
-          <p>Lightning Network payments are typically confirmed within seconds</p>
-        </CardFooter>
-      </Card>
+
+          <div className="p-4 space-y-6">
+            {settled ? (
+              <div className="text-center p-6 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <h3 className="text-lg font-medium text-green-700 dark:text-green-300">Payment Received!</h3>
+                <p className="text-green-600 dark:text-green-400 mt-2">
+                  {parseInt(amount)} sats have been added to your balance
+                </p>
+                <p className="text-sm text-green-500 dark:text-green-400 mt-1">Redirecting to your profile...</p>
+              </div>
+            ) : (
+              <>
+                {/* Amount Display */}
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">Deposit Amount</p>
+                  <div className="flex items-center justify-center space-x-2 text-4xl font-light">
+                    <div className="w-6 h-6 relative">
+                      <Image src="/images/bitcoin-logo.png" alt="Bitcoin" fill className="object-contain" />
+                    </div>
+                    <span>{(parseInt(amount) || 0).toLocaleString()}</span>
+                    <span className="text-2xl text-gray-500">sats</span>
+                  </div>
+                  {!isPriceLoading && bitcoinPrice && calculateUsdValue(parseInt(amount) || 0) ? (
+                    <p className="text-sm text-muted-foreground">${calculateUsdValue(parseInt(amount) || 0)} USD</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground opacity-0">$0.00 USD</p>
+                  )}
+                </div>
+
+                {/* QR Code */}
+                <div className="flex justify-center bg-white p-4 rounded-lg">
+                  <QRCode data={invoice} size={250} color="#000000" backgroundColor="#ffffff" cornerColor="#10b981" />
+                </div>
+
+                {/* Invoice String */}
+                <div className="space-y-2">
+                  <p className="text-sm text-center text-gray-500 dark:text-gray-400">
+                    Scan with a Lightning wallet or copy the invoice
+                  </p>
+                  <div className="flex items-center space-x-2">
+                    <Input value={invoice} readOnly className="text-xs font-mono" />
+                    <Button onClick={copyToClipboard} variant="outline" size="sm">
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="space-y-2">
+                  {!checking && (
+                    <Button onClick={() => startCheckingPayment(rHash!)} variant="outline" className="w-full">
+                      Check Payment Status
+                    </Button>
+                  )}
+
+                  {process.env.NODE_ENV !== "production" && (
+                    <Button onClick={simulatePaymentReceived} variant="outline" className="w-full">
+                      Simulate Payment (Dev)
+                    </Button>
+                  )}
+
+                  {checking && (
+                    <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
+                      <LoadingSpinner />
+                      <span>Waiting for payment...</span>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs text-center text-muted-foreground">
+                  Lightning Network payments are typically confirmed within seconds
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Main deposit screen (enter amount)
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="max-w-md mx-auto min-h-screen bg-background">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Balance: {formatSatsValue(profile?.balance || 0)}
+          </div>
+
+          <Button variant="ghost" size="icon" onClick={() => router.push("/wallet")}>
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* User Info - Receiving to self */}
+          <div className="flex flex-col items-center space-y-4 py-4">
+            <div className="text-center">
+              <div className="flex flex-col items-center space-y-2">
+                <div className="relative w-16 h-16 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+                  <Image
+                    src={profile?.avatar_url || "/placeholder.svg?height=64&width=64"}
+                    alt={profile?.name || "Your account"}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div className="text-lg font-semibold">
+                  {profile?.name || "Your Account"}
+                </div>
+                <div className="text-sm text-muted-foreground">Receiving Bitcoin</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Amount Display */}
+          <div className="text-center space-y-2">
+            <div className="flex items-center justify-center space-x-2 text-4xl font-light">
+              <div className="w-6 h-6 relative">
+                <Image src="/images/bitcoin-logo.png" alt="Bitcoin" fill className="object-contain" />
+              </div>
+              <span>{(parseInt(amount) || 0).toLocaleString()}</span>
+              <span className="text-2xl text-gray-500">sats</span>
+            </div>
+            {!isPriceLoading && bitcoinPrice && calculateUsdValue(parseInt(amount) || 0) ? (
+              <p className="text-sm text-muted-foreground">${calculateUsdValue(parseInt(amount) || 0)} USD</p>
+            ) : (
+              <p className="text-sm text-muted-foreground opacity-0">$0.00 USD</p>
+            )}
+          </div>
+
+          {/* Note Input */}
+          <div className="px-4">
+            <input
+              type="text"
+              placeholder="What's this for?"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="w-full p-3 bg-transparent text-center text-gray-500 dark:text-gray-400 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none"
+            />
+          </div>
+
+          {/* Generate Invoice Button */}
+          <div className="px-4">
+            <Button
+              onClick={handleCreateInvoice}
+              disabled={!amount || amount === "0" || loading}
+              className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
+            >
+              {loading ? "Generating..." : "Generate Invoice"}
+            </Button>
+
+            {process.env.NODE_ENV !== "production" && (
+              <Button
+                onClick={handleCreateMockInvoice}
+                variant="outline"
+                disabled={!amount || amount === "0" || loading}
+                className="w-full h-12 mt-2"
+              >
+                Generate Test Invoice
+              </Button>
+            )}
+          </div>
+
+          {/* Number Pad */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 px-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+              <Button
+                key={num}
+                variant="outline"
+                className="h-16 sm:h-14 text-xl sm:text-lg"
+                onClick={() => handleNumberInput(num.toString())}
+              >
+                {num}
+              </Button>
+            ))}
+            <div></div>
+            <Button variant="outline" className="h-16 sm:h-14 text-xl sm:text-lg" onClick={() => handleNumberInput("0")}>
+              0
+            </Button>
+            <Button variant="outline" className="h-16 sm:h-14 text-xl sm:text-lg" onClick={handleBackspace}>
+              <Delete className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
