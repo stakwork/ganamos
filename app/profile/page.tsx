@@ -1499,9 +1499,8 @@ export default function ProfilePage() {
           </div>
 
           <div className="grid grid-cols-3 gap-4 mt-4">
-            <Button
-              variant="outline"
-              className="p-3 text-center border rounded-lg w-full min-h-[104px] dark:border-gray-800"
+            <div
+              className="p-3 text-center border rounded-lg min-h-[104px] dark:border-gray-800 cursor-pointer hover:bg-accent transition-colors"
               onClick={() => router.push("/wallet")}
             >
               <div className="flex flex-col items-center">
@@ -1530,7 +1529,7 @@ export default function ProfilePage() {
                     `$${calculateUsdValue(profile.balance)} USD`}
                 </p>
               </div>
-            </Button>
+            </div>
             <div className="p-3 text-center border rounded-lg min-h-[104px] dark:border-gray-800">
               <p className="text-sm text-muted-foreground mb-2">Fixes</p>
               <div className="flex items-center justify-center" style={{ height: "32px" }}>
