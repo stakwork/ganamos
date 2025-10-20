@@ -5,7 +5,9 @@ import { sendDailySummaryEmail } from "../../../../lib/daily-summary"
  * Send daily summary email
  * Can be triggered manually or by Vercel Cron
  */
-export async function POST(request: NextRequest) {
+
+// Shared handler for both GET and POST (Vercel Cron uses GET)
+async function handleDailySummary(request: NextRequest) {
   try {
     // Verify the request is from Vercel Cron or has valid authorization
     const authHeader = request.headers.get('authorization')
@@ -43,4 +45,14 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+// Vercel Cron uses GET requests
+export async function GET(request: NextRequest) {
+  return handleDailySummary(request)
+}
+
+// Support POST for manual triggering
+export async function POST(request: NextRequest) {
+  return handleDailySummary(request)
 }
