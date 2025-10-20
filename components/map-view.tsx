@@ -56,6 +56,7 @@ interface MapViewProps {
 declare global {
   interface Window {
     google?: any
+    googleMapsLoading?: boolean
   }
 }
 
@@ -552,6 +553,24 @@ export function MapView({
         return
       }
 
+      // Check if already loading (prevent duplicate script tags)
+      if (window.googleMapsLoading) {
+        console.log("Google Maps is already loading, waiting...")
+        // Wait for it to finish loading
+        const checkInterval = setInterval(() => {
+          if (window.google && window.google.maps) {
+            clearInterval(checkInterval)
+            PostMarkerClassRef.current = createPostMarkerClass()
+            initializeMap()
+          }
+        }, 100)
+        setTimeout(() => clearInterval(checkInterval), 10000) // Timeout after 10s
+        return
+      }
+
+      // Set loading flag
+      window.googleMapsLoading = true
+
       // Load Google Maps JavaScript API
       console.log("Loading Google Maps JavaScript API...")
 
@@ -559,7 +578,10 @@ export function MapView({
         // Check if script already exists
         const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
         if (existingScript) {
-          existingScript.remove()
+          console.log("Script already exists, skipping duplicate load")
+          window.googleMapsLoading = false
+          reject(new Error("Script already loading"))
+          return
         }
 
         const script = document.createElement("script")
@@ -569,6 +591,7 @@ export function MapView({
 
         script.onload = () => {
           console.log("Google Maps script loaded successfully")
+          window.googleMapsLoading = false
           // Give it a moment to initialize
           setTimeout(() => {
             if (window.google && window.google.maps) {
@@ -586,11 +609,13 @@ export function MapView({
 
         script.onerror = (error) => {
           console.error("Failed to load Google Maps script:", error)
+          window.googleMapsLoading = false
           reject(new Error("Failed to load map library"))
         }
 
         // Add timeout
         setTimeout(() => {
+          window.googleMapsLoading = false
           reject(new Error("Script loading timeout"))
         }, 10000)
 
@@ -603,6 +628,7 @@ export function MapView({
       initializeMap()
     } catch (error) {
       console.error("Error loading Google Maps:", error)
+      window.googleMapsLoading = false
       setLocationError(`Failed to load map: ${error instanceof Error ? error.message : "Unknown error"}`)
       setIsLoading(false)
     }
