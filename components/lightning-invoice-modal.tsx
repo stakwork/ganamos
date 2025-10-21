@@ -8,9 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { BitcoinLogo } from "@/components/bitcoin-logo"
 import { formatSatsValue } from "@/lib/utils"
-import { Copy, AlertCircle, CheckCircle, QrCode } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { QRScanner } from "@/components/qr-scanner"
+import { AlertCircle, CheckCircle } from "lucide-react"
 
 interface LightningInvoiceModalProps {
   open: boolean
@@ -31,28 +29,27 @@ export function LightningInvoiceModal({
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState("")
   const [step, setStep] = useState<"input" | "processing" | "success">("input")
-  const [showQRScanner, setShowQRScanner] = useState(false)
-  const { toast} = useToast()
 
   const validateInvoice = (invoice: string): boolean => {
-    // Basic Lightning invoice validation
     const trimmedInvoice = invoice.trim().toLowerCase()
 
-    // Check if it starts with lightning invoice prefixes
+    // Support Lightning invoices (lnbc, lntb, lnbcrt)
     if (
-      !trimmedInvoice.startsWith("lnbc") &&
-      !trimmedInvoice.startsWith("lntb") &&
-      !trimmedInvoice.startsWith("lnbcrt")
+      trimmedInvoice.startsWith("lnbc") ||
+      trimmedInvoice.startsWith("lntb") ||
+      trimmedInvoice.startsWith("lnbcrt")
     ) {
-      return false
+      // Check minimum length for Lightning invoices
+      return trimmedInvoice.length >= 100
     }
 
-    // Check minimum length (Lightning invoices are typically quite long)
-    if (trimmedInvoice.length < 100) {
-      return false
+    // Support Lightning addresses (format: user@domain.com)
+    if (trimmedInvoice.includes("@") && trimmedInvoice.includes(".")) {
+      const [user, domain] = trimmedInvoice.split("@")
+      return user.length > 0 && domain.length > 0 && domain.includes(".")
     }
 
-    return true
+    return false
   }
 
   const handleSubmit = async () => {
@@ -64,7 +61,7 @@ export function LightningInvoiceModal({
     }
 
     if (!validateInvoice(invoice)) {
-      setError("Please enter a valid Lightning invoice (should start with 'lnbc', 'lntb', or 'lnbcrt')")
+      setError("Please enter a valid Lightning invoice or Lightning address (e.g., user@domain.com)")
       return
     }
 
@@ -103,21 +100,12 @@ export function LightningInvoiceModal({
     }
   }
 
-  const handleQRScan = (data: string) => {
-    setInvoice(data)
-    setShowQRScanner(false)
-    toast({
-      title: "Invoice scanned!",
-      description: "Lightning invoice detected from QR code",
-    })
-  }
 
   const resetModal = () => {
     setInvoice("")
     setError("")
     setStep("input")
     setIsProcessing(false)
-    setShowQRScanner(false)
   }
 
   const handleClose = () => {
@@ -127,14 +115,6 @@ export function LightningInvoiceModal({
     }
   }
 
-  const copyExampleInvoice = () => {
-    const exampleInvoice = "lnbc" + rewardAmount + "n1p..." // Truncated example
-    navigator.clipboard.writeText(exampleInvoice)
-    toast({
-      title: "Example copied",
-      description: "Example invoice format copied to clipboard",
-    })
-  }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -154,22 +134,10 @@ export function LightningInvoiceModal({
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="invoice">Lightning Invoice</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowQRScanner(true)}
-                  className="h-8"
-                >
-                  <QrCode className="w-4 h-4 mr-1" />
-                  Scan QR
-                </Button>
-              </div>
+              <Label htmlFor="invoice">Lightning Invoice or Address</Label>
               <Textarea
                 id="invoice"
-                placeholder="Paste your Lightning invoice here (starts with lnbc...)"
+                placeholder="Paste your Lightning invoice (lnbc...) or Lightning address (user@domain.com)"
                 value={invoice}
                 onChange={(e) => setInvoice(e.target.value)}
                 rows={4}
@@ -228,12 +196,6 @@ export function LightningInvoiceModal({
         )}
       </DialogContent>
 
-      {/* QR Scanner */}
-      <QRScanner
-        isOpen={showQRScanner}
-        onScan={handleQRScan}
-        onClose={() => setShowQRScanner(false)}
-      />
     </Dialog>
   )
 }
