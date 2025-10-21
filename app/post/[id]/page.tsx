@@ -56,6 +56,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   // Handle share functionality
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}/post/${params.id}`
+    const shareText = `${post?.title || 'Check out this issue'} - ${displayLocation} ${shareUrl}`
     
     // Check if it's a mobile device
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
@@ -64,8 +65,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     if (isMobile && navigator.share) {
       const shareData = {
         title: post?.title || 'Check out this issue',
-        text: `${post?.title || 'Issue'} - ${displayLocation}`,
-        url: shareUrl,
+        text: shareText, // Include URL in text for apps like Signal
       }
       
       try {
@@ -77,9 +77,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         }
       }
     } else {
-      // Always use clipboard on desktop
+      // Always use clipboard on desktop - include full text with URL
       try {
-        await navigator.clipboard.writeText(shareUrl)
+        await navigator.clipboard.writeText(shareText)
         toast({
           title: "Link copied!",
           description: "Post link copied to clipboard",
