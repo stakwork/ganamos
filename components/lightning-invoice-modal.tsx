@@ -140,12 +140,7 @@ export function LightningInvoiceModal({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-orange-100 rounded-full">
-              <BitcoinLogo size={20} />
-            </div>
-            <DialogTitle>Withdraw Your Reward</DialogTitle>
-          </div>
+          <DialogTitle>Withdraw Your Reward</DialogTitle>
         </DialogHeader>
 
         {step === "input" && (
@@ -180,9 +175,6 @@ export function LightningInvoiceModal({
                 rows={4}
                 className="font-mono text-sm"
               />
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Generate an invoice for {formatSatsValue(rewardAmount)} in your Lightning wallet</span>
-              </div>
             </div>
 
             {error && (
@@ -192,21 +184,11 @@ export function LightningInvoiceModal({
               </Alert>
             )}
 
-            <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg">
-              <h4 className="text-sm font-medium mb-2">How to get a Lightning invoice:</h4>
-              <ol className="text-xs text-muted-foreground space-y-1">
-                <li>1. Open your Lightning wallet (Phoenix, Wallet of Satoshi, etc.)</li>
-                <li>2. Tap "Receive" or "Request"</li>
-                <li>3. Enter amount: {formatSatsValue(rewardAmount)}</li>
-                <li>4. Copy the generated invoice and paste it above</li>
-              </ol>
-            </div>
-
             <div className="flex space-x-3">
               <Button variant="outline" onClick={handleClose} className="flex-1">
                 Cancel
               </Button>
-              <Button onClick={handleSubmit} disabled={!invoice.trim() || isProcessing} className="flex-1">
+              <Button onClick={handleSubmit} disabled={!invoice.trim() || isProcessing} className="flex-1 bg-green-600 hover:bg-green-700">
                 Withdraw {formatSatsValue(rewardAmount)}
               </Button>
             </div>

@@ -52,6 +52,62 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [showFullAnalysis, setShowFullAnalysis] = useState(false)
   const [showLightningModal, setShowLightningModal] = useState(false)
   const [showContent, setShowContent] = useState(false)
+  const [showFullscreenImage, setShowFullscreenImage] = useState(false)
+  const [fullscreenImageSrc, setFullscreenImageSrc] = useState<string | null>(null)
+  const [bitcoinPrice, setBitcoinPrice] = useState<number | null>(null)
+
+  // Fetch Bitcoin price on mount
+  useEffect(() => {
+    const fetchBitcoinPrice = async () => {
+      try {
+        const response = await fetch("/api/bitcoin-price")
+        if (response.ok) {
+          const data = await response.json()
+          if (data.price && typeof data.price === 'number') {
+            setBitcoinPrice(data.price)
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to fetch Bitcoin price:", error)
+      }
+    }
+    fetchBitcoinPrice()
+  }, [])
+
+  // Calculate USD value from sats
+  const calculateUsdValue = (sats: number) => {
+    if (!bitcoinPrice) return null
+    const btcAmount = sats / 100000000
+    const usdValue = btcAmount * bitcoinPrice
+    return usdValue.toFixed(2)
+  }
+
+  // Handle fullscreen image viewer
+  const openFullscreenImage = (imageSrc: string) => {
+    setFullscreenImageSrc(imageSrc)
+    setShowFullscreenImage(true)
+    // Prevent body scroll
+    document.body.style.overflow = 'hidden'
+  }
+
+  const closeFullscreenImage = () => {
+    setShowFullscreenImage(false)
+    setFullscreenImageSrc(null)
+    // Restore body scroll
+    document.body.style.overflow = 'unset'
+  }
+
+  // Handle escape key to close fullscreen image
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showFullscreenImage) {
+        closeFullscreenImage()
+      }
+    }
+    
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [showFullscreenImage])
 
   // Handle share functionality
   const handleShare = async () => {
@@ -954,7 +1010,10 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           (post.fixed && post.fixed_image_url)) ? (
             <div className="grid grid-cols-2 gap-2 mb-4">
               <div>
-                <div className="relative w-full h-40 overflow-hidden rounded-lg">
+                <div 
+                  className="relative w-full h-40 overflow-hidden rounded-lg cursor-pointer transition-opacity hover:opacity-90"
+                  onClick={() => openFullscreenImage(post.imageUrl || post.image_url || "/placeholder.svg")}
+                >
                   <Image
                     src={post.imageUrl || post.image_url || "/placeholder.svg"}
                     alt="Before"
@@ -967,7 +1026,10 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 </div>
               </div>
               <div>
-                <div className="relative w-full h-40 overflow-hidden rounded-lg">
+                <div 
+                  className="relative w-full h-40 overflow-hidden rounded-lg cursor-pointer transition-opacity hover:opacity-90"
+                  onClick={() => openFullscreenImage((post.under_review ? post.submitted_fix_image_url : post.fixed_image_url) || "/placeholder.svg")}
+                >
                   <Image
                     src={(post.under_review ? post.submitted_fix_image_url : post.fixed_image_url) || "/placeholder.svg"}
                     alt="After"
@@ -1032,7 +1094,10 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               </div>
             </div>
           ) : (
-            <div className="relative w-full h-64 mb-4 overflow-hidden rounded-lg">
+            <div 
+              className="relative w-full h-64 mb-4 overflow-hidden rounded-lg cursor-pointer transition-opacity hover:opacity-95"
+              onClick={() => openFullscreenImage(post.imageUrl || post.image_url || "/placeholder.svg")}
+            >
               <Image
                 src={post.imageUrl || post.image_url || "/placeholder.svg"}
                 alt={post.title}
@@ -1097,6 +1162,24 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             <div className="flex-1">
               <h2 className="text-xl font-bold mb-1">{post.title}</h2>
               <div className="flex items-center text-sm text-muted-foreground">
+                {post.fixed && (
+                  <>
+                    <div className="flex items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+                      <span>Fixed</span>
+                    </div>
+                    <span className="mx-2">•</span>
+                  </>
+                )}
+                {post.under_review && (
+                  <>
+                    <div className="flex items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mr-1.5"></span>
+                      <span>Under Review</span>
+                    </div>
+                    <span className="mx-2">•</span>
+                  </>
+                )}
                 {!post.fixed && post.created_by && (
                   <>
                     <span>Created by {post.created_by}</span>
@@ -1308,39 +1391,37 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 </Button>
               </div>
             </div>
-                      ) : (
-              // Show fixed badge if post is fixed (only if not under review by post owner)
-              !(
-                post.under_review &&
-                post.submitted_fix_image_url &&
-                user &&
-                (post.userId === user.id || post.user_id === user.id || post.user_id === activeUserId)
-              ) && post.fixed && (
-                <div className="mb-6">
-                  <Badge
-                    variant="outline"
-                    className="px-3 py-1 text-sm bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100 dark:border-emerald-800/30"
-                  >
-                    Fixed
-                  </Badge>
-                </div>
-              )
-            )}
+          ) : null}
           {showAnonymousRewardOptions && anonymousFixedPostId === post.id && (
             <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
               <Card className="w-full max-w-md">
-                <CardContent className="p-6 text-center">
-                  <h2 className="text-2xl font-bold mb-4">Fix Submitted Successfully!</h2>
-                  <p className="mb-2 text-muted-foreground">
-                    Your fix has been recorded. You've earned {formatSatsValue(post.reward)} sats!
+                <CardContent className="p-8 text-center">
+                  <h2 className="text-2xl font-bold mb-4">Fix Approved!</h2>
+                  <p className="text-lg mb-6 text-muted-foreground">
+                    You earned
                   </p>
-                  <p className="mb-6 text-sm text-muted-foreground">
-                    You can withdraw your reward now or create an account to save your earnings and track your
-                    contributions.
+                  
+                  {/* Prominent reward amount */}
+                  <div className="mb-2">
+                    <div className="flex items-center justify-center gap-2">
+                      <BitcoinLogo size={32} />
+                      <span className="text-5xl font-bold">{post.reward.toLocaleString()}</span>
+                      <span className="text-3xl font-normal text-muted-foreground">sats</span>
+                    </div>
+                    {calculateUsdValue(post.reward) && (
+                      <p className="text-lg text-muted-foreground mt-2">
+                        ${calculateUsdValue(post.reward)} USD
+                      </p>
+                    )}
+                  </div>
+                  
+                  <p className="mb-8 text-sm text-muted-foreground">
+                    Withdraw your sats now or create an account to save your earnings.
                   </p>
+                  
                   <div className="space-y-3">
                     <Button className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowLightningModal(true)}>
-                      Withdraw {formatSatsValue(post.reward)} sats
+                      Withdraw {formatSatsValue(post.reward)}
                     </Button>
                     <Button
                       variant="outline"
@@ -1351,10 +1432,10 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                           localStorage.setItem('pending_anonymous_reward_post', anonymousFixedPostId || '')
                           localStorage.setItem('pending_anonymous_reward_amount', post.reward.toString())
                         }
-                        router.push('/auth/register')
+                        router.push(`/auth/register?postId=${anonymousFixedPostId}`)
                       }}
                     >
-                      Create Account & Claim
+                      Create Account & Save Reward
                     </Button>
                   </div>
                 </CardContent>
@@ -1382,6 +1463,46 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           </div>
         )}
       </div>
+
+      {/* Fullscreen Image Viewer */}
+      {showFullscreenImage && fullscreenImageSrc && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center"
+          onClick={closeFullscreenImage}
+        >
+          <button
+            onClick={closeFullscreenImage}
+            className="absolute top-4 right-4 z-[101] w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+            aria-label="Close fullscreen image"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+          <div
+            className="relative w-full h-full max-w-7xl max-h-screen p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Image
+              src={fullscreenImageSrc}
+              alt="Fullscreen view"
+              fill
+              className="object-contain"
+              quality={100}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

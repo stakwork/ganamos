@@ -166,33 +166,37 @@ export function CameraCapture({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="fixed inset-0 z-40">
       <style jsx>{`
         .camera-preview-container {
           width: 100%;
           max-width: 100%;
-          height: calc(100vh - 120px);
-          min-height: 600px;
-          margin: 0 auto;
-          position: relative;
+          height: 100vh;
+          min-height: 100vh;
+          margin: 0;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
           background: #111;
           display: flex;
           align-items: center;
           justify-content: center;
-          border-radius: 16px;
+          border-radius: 0;
           overflow: hidden;
         }
         @media (max-width: 768px) {
           .camera-preview-container {
-            height: calc(100vh - 100px);
-            min-height: 500px;
+            height: 100vh;
+            min-height: 100vh;
           }
         }
         .camera-preview-video {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          border-radius: 16px;
+          border-radius: 0;
           background: #111;
         }
         .camera-capture-btn {
@@ -310,12 +314,12 @@ export function CameraCapture({
                   variant="outline"
                   size="icon"
                   onClick={onGalleryClick}
-                  className="absolute bottom-6 right-4 bg-black/30 border-0 hover:bg-black/40 text-white/70"
+                  className="absolute bottom-6 right-4 w-14 h-14 bg-black/30 border-0 hover:bg-black/40 text-white/70"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
+                    width="28"
+                    height="28"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"

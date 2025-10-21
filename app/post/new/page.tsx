@@ -691,7 +691,7 @@ export default function NewPostPage() {
   }
 
   return (
-    <div className="container px-4 py-6 mx-auto max-w-md">
+    <div className={step === "photo" && cameraActive ? "" : "container px-4 py-6 mx-auto max-w-md"}>
       {step === "photo" && cameraActive && (
         <>
           <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50">
