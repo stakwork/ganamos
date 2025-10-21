@@ -1161,61 +1161,67 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             {/* Left column: Title and metadata */}
             <div className="flex-1">
               <h2 className="text-xl font-bold mb-1">{post.title}</h2>
-              <div className="flex items-center text-sm text-muted-foreground">
-                {post.fixed && (
-                  <>
-                    <div className="flex items-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
-                      <span>Fixed</span>
-                    </div>
-                    <span className="mx-2">•</span>
-                  </>
-                )}
-                {post.under_review && (
-                  <>
-                    <div className="flex items-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mr-1.5"></span>
-                      <span>Under Review</span>
-                    </div>
-                    <span className="mx-2">•</span>
-                  </>
-                )}
-                {!post.fixed && !post.under_review && (
-                  <>
-                    <div className="flex items-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
-                      <span>Open</span>
-                    </div>
-                    <span className="mx-2">•</span>
-                  </>
-                )}
-                {!post.fixed && post.created_by && (
-                  <>
-                    <span>Created by {post.created_by}</span>
-                    <span className="mx-2">•</span>
-                  </>
-                )}
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="mr-1"
-                >
-                  <circle cx="12" cy="12" r="10" /> <polyline points="12 6 12 12 16 14" />
-                </svg>
-                <span>
-                  {formatDistanceToNow(new Date(post.createdAt || post.created_at || Date.now()), { addSuffix: false })
-                    .replace("about ", "")
-                    .replace(" hours", " hrs")
-                    .replace(" minutes", " mins")}{" "}
-                  ago
-                </span>
+              <div className="flex flex-col gap-1">
+                {/* First line: Status and Creator */}
+                <div className="flex items-center text-sm text-muted-foreground">
+                  {post.fixed && (
+                    <>
+                      <div className="flex items-center">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+                        <span>Fixed</span>
+                      </div>
+                      <span className="mx-2">•</span>
+                    </>
+                  )}
+                  {post.under_review && (
+                    <>
+                      <div className="flex items-center">
+                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mr-1.5"></span>
+                        <span>Under Review</span>
+                      </div>
+                      <span className="mx-2">•</span>
+                    </>
+                  )}
+                  {!post.fixed && !post.under_review && (
+                    <>
+                      <div className="flex items-center">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
+                        <span>Open</span>
+                      </div>
+                      <span className="mx-2">•</span>
+                    </>
+                  )}
+                  {!post.fixed && post.created_by && (
+                    <>
+                      <span>Created by {post.created_by}</span>
+                    </>
+                  )}
+                </div>
+                
+                {/* Second line: Timestamp */}
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="mr-1"
+                  >
+                    <circle cx="12" cy="12" r="10" /> <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  <span>
+                    {formatDistanceToNow(new Date(post.createdAt || post.created_at || Date.now()), { addSuffix: false })
+                      .replace("about ", "")
+                      .replace(" hours", " hrs")
+                      .replace(" minutes", " mins")}{" "}
+                    ago
+                  </span>
+                </div>
               </div>
               {post.under_review && post.submitted_fix_by_name && (
                 <div className="flex items-center mt-1 text-sm text-muted-foreground">
