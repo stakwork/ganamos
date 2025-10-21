@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { BitcoinLogo } from "@/components/bitcoin-logo"
 import { formatSatsValue } from "@/lib/utils"
-import { Copy, ExternalLink, AlertCircle, CheckCircle } from "lucide-react"
+import { Copy, AlertCircle, CheckCircle, QrCode } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { QRScanner } from "@/components/qr-scanner"
 
 interface LightningInvoiceModalProps {
   open: boolean
@@ -30,7 +31,8 @@ export function LightningInvoiceModal({
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState("")
   const [step, setStep] = useState<"input" | "processing" | "success">("input")
-  const { toast } = useToast()
+  const [showQRScanner, setShowQRScanner] = useState(false)
+  const { toast} = useToast()
 
   const validateInvoice = (invoice: string): boolean => {
     // Basic Lightning invoice validation
@@ -101,11 +103,21 @@ export function LightningInvoiceModal({
     }
   }
 
+  const handleQRScan = (data: string) => {
+    setInvoice(data)
+    setShowQRScanner(false)
+    toast({
+      title: "Invoice scanned!",
+      description: "Lightning invoice detected from QR code",
+    })
+  }
+
   const resetModal = () => {
     setInvoice("")
     setError("")
     setStep("input")
     setIsProcessing(false)
+    setShowQRScanner(false)
   }
 
   const handleClose = () => {
@@ -147,7 +159,19 @@ export function LightningInvoiceModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="invoice">Lightning Invoice</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="invoice">Lightning Invoice</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowQRScanner(true)}
+                  className="h-8"
+                >
+                  <QrCode className="w-4 h-4 mr-1" />
+                  Scan QR
+                </Button>
+              </div>
               <Textarea
                 id="invoice"
                 placeholder="Paste your Lightning invoice here (starts with lnbc...)"
@@ -158,10 +182,6 @@ export function LightningInvoiceModal({
               />
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>Generate an invoice for {formatSatsValue(rewardAmount)} in your Lightning wallet</span>
-                <Button variant="ghost" size="sm" onClick={copyExampleInvoice} className="h-auto p-1 text-xs">
-                  <Copy className="w-3 h-3 mr-1" />
-                  Example
-                </Button>
               </div>
             </div>
 
@@ -180,17 +200,6 @@ export function LightningInvoiceModal({
                 <li>3. Enter amount: {formatSatsValue(rewardAmount)}</li>
                 <li>4. Copy the generated invoice and paste it above</li>
               </ol>
-              <div className="flex items-center mt-2 text-xs">
-                <ExternalLink className="w-3 h-3 mr-1" />
-                <a
-                  href="https://phoenix.acinq.co/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  Get Phoenix Wallet
-                </a>
-              </div>
             </div>
 
             <div className="flex space-x-3">
@@ -236,6 +245,13 @@ export function LightningInvoiceModal({
           </div>
         )}
       </DialogContent>
+
+      {/* QR Scanner */}
+      <QRScanner
+        isOpen={showQRScanner}
+        onScan={handleQRScan}
+        onClose={() => setShowQRScanner(false)}
+      />
     </Dialog>
   )
 }

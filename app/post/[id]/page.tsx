@@ -1345,19 +1345,16 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                     <Button
                       variant="outline"
                       className="w-full"
-                      onClick={() => router.push(`/auth/signup?postId=${anonymousFixedPostId}`)} // Or /auth/login
-                    >
-                      Create Account & Save Reward
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full"
                       onClick={() => {
-                        setShowAnonymousRewardOptions(false)
-                        router.push("/") // Go to homepage
+                        // Store anonymous reward info in localStorage for claiming after signup
+                        if (typeof window !== 'undefined') {
+                          localStorage.setItem('pending_anonymous_reward_post', anonymousFixedPostId || '')
+                          localStorage.setItem('pending_anonymous_reward_amount', post.reward.toString())
+                        }
+                        router.push('/auth/register')
                       }}
                     >
-                      Maybe Later
+                      Create Account & Claim
                     </Button>
                   </div>
                 </CardContent>

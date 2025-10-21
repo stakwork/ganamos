@@ -479,3 +479,92 @@ export async function submitAnonymousFixForReviewAction(
     }
   }
 }
+
+/**
+ * Claim an anonymous reward after user creates an account
+ * This associates the anonymous fix with the new user and credits their balance
+ */
+export async function claimAnonymousRewardAction(
+  postId: string,
+  userId: string
+): Promise<{ success: boolean; error?: string; amount?: number }> {
+  'use server'
+  
+  try {
+    const supabase = createServerSupabaseClient()
+    
+    // Get the post and verify it was fixed anonymously and reward not yet paid
+    const { data: post, error: postError } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('id', postId)
+      .eq('fixed_by_is_anonymous', true)
+      .is('anonymous_reward_paid_at', null)
+      .single()
+    
+    if (postError || !post) {
+      return { success: false, error: 'Anonymous reward not found or already claimed' }
+    }
+    
+    // Update the post to associate with the user
+    const { error: updatePostError } = await supabase
+      .from('posts')
+      .update({
+        fixed_by: userId,
+        fixed_by_is_anonymous: false, // Now associated with a user
+      })
+      .eq('id', postId)
+    
+    if (updatePostError) {
+      console.error('Error updating post:', updatePostError)
+      return { success: false, error: 'Failed to update post' }
+    }
+    
+    // Credit the user's balance
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('balance, fixed_issues_count')
+      .eq('id', userId)
+      .single()
+    
+    if (profileError || !profile) {
+      return { success: false, error: 'User profile not found' }
+    }
+    
+    const newBalance = (profile.balance || 0) + post.reward
+    const newFixedCount = (profile.fixed_issues_count || 0) + 1
+    
+    const { error: balanceError } = await supabase
+      .from('profiles')
+      .update({
+        balance: newBalance,
+        fixed_issues_count: newFixedCount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+    
+    if (balanceError) {
+      console.error('Error updating balance:', balanceError)
+      return { success: false, error: 'Failed to credit reward' }
+    }
+    
+    // Create activity record
+    await supabase.from('activities').insert({
+      user_id: userId,
+      type: 'fix',
+      related_id: postId,
+      related_table: 'posts',
+      timestamp: new Date().toISOString(),
+      metadata: { title: post.title, sats: post.reward },
+    })
+    
+    console.log(`Claimed anonymous reward: ${post.reward} sats for user ${userId}`)
+    return { success: true, amount: post.reward }
+  } catch (error) {
+    console.error('Error in claimAnonymousRewardAction:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'An unexpected error occurred',
+    }
+  }
+}

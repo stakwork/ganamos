@@ -42,6 +42,32 @@ export default function AuthCallbackPage() {
             data.session ? new Date(data.session.expires_at! * 1000).toISOString() : "No session",
           )
 
+          // Check for pending anonymous rewards and claim them
+          if (typeof window !== 'undefined' && data.session?.user) {
+            const pendingRewardPost = localStorage.getItem('pending_anonymous_reward_post')
+            
+            if (pendingRewardPost) {
+              console.log("Found pending anonymous reward for post:", pendingRewardPost)
+              
+              try {
+                // Import and call the claim action
+                const { claimAnonymousRewardAction } = await import('@/app/actions/post-actions')
+                const result = await claimAnonymousRewardAction(pendingRewardPost, data.session.user.id)
+                
+                if (result.success) {
+                  console.log("Successfully claimed anonymous reward!")
+                  // Clear the pending reward from localStorage
+                  localStorage.removeItem('pending_anonymous_reward_post')
+                  localStorage.removeItem('pending_anonymous_reward_amount')
+                } else {
+                  console.error("Failed to claim anonymous reward:", result.error)
+                }
+              } catch (error) {
+                console.error("Error claiming anonymous reward:", error)
+              }
+            }
+          }
+
           // Redirect to the specified path or dashboard
           router.push(redirect)
         } else {
