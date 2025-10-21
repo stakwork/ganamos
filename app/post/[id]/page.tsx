@@ -77,9 +77,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         }
       }
     } else {
-      // Always use clipboard on desktop - include full text with URL
+      // Always use clipboard on desktop - just the URL
       try {
-        await navigator.clipboard.writeText(shareText)
+        await navigator.clipboard.writeText(shareUrl)
         toast({
           title: "Link copied!",
           description: "Post link copied to clipboard",
