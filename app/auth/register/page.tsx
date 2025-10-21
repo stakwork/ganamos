@@ -44,9 +44,9 @@ export default function RegisterPage() {
       await signUpWithEmail(email, password, name)
       toast({
         title: "Registration successful",
-        description: "Welcome to Ganamos! Your account has been created.",
+        description: "Please check your email to confirm your account before signing in.",
       })
-      router.push("/dashboard")
+      // Don't redirect immediately - user needs to confirm email first
     } catch (error) {
       toast({
         title: "Registration failed",

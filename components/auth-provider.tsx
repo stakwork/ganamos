@@ -371,7 +371,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(null);
       setMainAccountProfile(null);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
       setSession(session);
       setUser(session?.user || null);
@@ -379,6 +379,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       if (session?.user) {
         loadProfileWithActiveAccount(session.user.id);
+        
+        // Check for pending anonymous rewards and claim them
+        if (typeof window !== 'undefined') {
+          const pendingRewardPost = localStorage.getItem('pending_anonymous_reward_post')
+          
+          if (pendingRewardPost) {
+            console.log("Found pending anonymous reward for post:", pendingRewardPost)
+            
+            try {
+              // Import and call the claim action
+              const { claimAnonymousRewardAction } = await import('@/app/actions/post-actions')
+              const result = await claimAnonymousRewardAction(pendingRewardPost, session.user.id)
+              
+              if (result.success) {
+                console.log("Successfully claimed anonymous reward!")
+                toast({
+                  title: "Reward Claimed!",
+                  description: `You've received ${result.amount} sats for your anonymous fix.`,
+                  variant: "default",
+                })
+                // Clear the pending reward from localStorage
+                localStorage.removeItem('pending_anonymous_reward_post')
+                localStorage.removeItem('pending_anonymous_reward_amount')
+                // Refresh profile to show updated balance
+                setTimeout(() => {
+                  refreshProfile()
+                }, 1000)
+              } else {
+                console.error("Failed to claim anonymous reward:", result.error)
+                toast({
+                  title: "Reward Claim Failed",
+                  description: result.error || "Unable to claim your anonymous reward.",
+                  variant: "destructive",
+                })
+              }
+            } catch (error) {
+              console.error("Error claiming anonymous reward:", error)
+              toast({
+                title: "Reward Claim Error",
+                description: "There was an error claiming your anonymous reward.",
+                variant: "destructive",
+              })
+            }
+          }
+        }
       } else {
         setProfile(null);
         setMainAccountProfile(null);
