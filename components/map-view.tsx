@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { X, RefreshCw, AlertCircle, Heart, Plus, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -60,7 +58,7 @@ declare global {
 }
 
 // Update the function parameters to include userLocation
-export function MapView({
+function MapViewComponent({
   posts,
   centerPost,
   center,
@@ -1106,3 +1104,29 @@ export function MapView({
     </div>
   )
 }
+
+// Memoize MapView to prevent unnecessary re-renders when props haven't changed
+export const MapView = React.memo(MapViewComponent, (prevProps, nextProps) => {
+  // Return true if props are equal (component should NOT re-render)
+  // Return false if props changed (component SHOULD re-render)
+  
+  // Compare posts array by reference (already memoized in parent)
+  if (prevProps.posts !== nextProps.posts) return false
+  
+  // Compare centerPost by ID
+  if (prevProps.centerPost?.id !== nextProps.centerPost?.id) return false
+  
+  // Compare loading state
+  if (prevProps.isLoading !== nextProps.isLoading) return false
+  
+  // Compare user location coordinates
+  if (prevProps.userLocation?.lat !== nextProps.userLocation?.lat ||
+      prevProps.userLocation?.lng !== nextProps.userLocation?.lng) return false
+  
+  // Compare center coordinates
+  if (prevProps.center?.lat !== nextProps.center?.lat ||
+      prevProps.center?.lng !== nextProps.center?.lng) return false
+  
+  // If all comparisons passed, props are equal - don't re-render
+  return true
+})
