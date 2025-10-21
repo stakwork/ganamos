@@ -208,29 +208,12 @@ export function MapView({
     setIsDonationModalOpen(true)
   }
 
-  // Debug log for posts prop
-  console.log("MapView received posts:", posts)
-
   // Filter posts that have location data - memoized to prevent recalculation on every render
   const postsWithLocation = useMemo(() => {
     return allPosts.filter(
       (post) => post.latitude && post.longitude && !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
     )
   }, [allPosts])
-
-  // Debug log for filtered posts - only when postsWithLocation actually changes
-  useEffect(() => {
-    console.log("Posts with location data:", postsWithLocation.length)
-    postsWithLocation.forEach((post, index) => {
-      console.log(`Post ${index} location:`, {
-        id: post.id,
-        lat: post.latitude,
-        lng: post.longitude,
-        type: typeof post.latitude,
-        isValid: !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
-      })
-    })
-  }, [postsWithLocation])
 
   // Format date for preview card
   const formatPostDate = (post: Post) => {
@@ -248,7 +231,6 @@ export function MapView({
   useEffect(() => {
     if (mapInitialized) return
 
-    console.log("Map view mounted, starting initialization...")
     setIsLoading(true)
     setLocationError(null)
 
@@ -265,7 +247,6 @@ export function MapView({
       return null
     }
 
-    console.log("Creating PostMarker class...")
 
     // Custom PostMarker class that extends OverlayView
     return class PostMarker extends window.google.maps.OverlayView {
@@ -294,7 +275,6 @@ export function MapView({
         this.isClickable = isClickable
         this.animationDelay = animationDelay * 100 // 100ms stagger between markers
         this.hasAnimated = false // Initialize animation flag
-        console.log(`Creating marker for post ${post.id} at ${post.latitude},${post.longitude}`)
 
         this.position = new window.google.maps.LatLng(Number(post.latitude), Number(post.longitude))
         this.isSelected = isSelected
@@ -318,19 +298,16 @@ export function MapView({
         if (this.isClickable) {
           this.containerDiv.addEventListener("click", (e) => {
             e.stopPropagation()
-            console.log(`Marker ${post.id} clicked`)
             this.onClick(this.post)
           })
         }
 
         // Set the overlay's map
-        console.log(`Setting map for marker ${post.id}`)
         this.setMap(map)
       }
 
       // Called when the overlay is added to the map
       onAdd() {
-        console.log(`onAdd called for marker ${this.markerId}`)
         // Create the marker content
         this.updateContent()
 
@@ -344,12 +321,10 @@ export function MapView({
         // Use overlayMouseTarget for all markers to ensure visibility
         const targetPane = panes.overlayMouseTarget
         targetPane.appendChild(this.containerDiv)
-        console.log(`Marker ${this.markerId} added to DOM in overlayMouseTarget`)
       }
 
       // Called when the overlay's position should be drawn
       draw() {
-        console.log(`draw called for marker ${this.markerId}`)
         // Transform the position to pixel coordinates
         const projection = this.getProjection()
         if (!projection) {
@@ -359,7 +334,6 @@ export function MapView({
 
         const point = projection.fromLatLngToDivPixel(this.position)
         if (point) {
-          console.log(`Positioning marker ${this.markerId} at pixel coordinates:`, point)
           // Adjust positioning to center the marker (44px width / 2 = 22px)
           this.containerDiv.style.left = point.x - 22 + "px" // Center horizontally (44px / 2)
           this.containerDiv.style.top = point.y - 22 + "px" // Center vertically (44px / 2)
@@ -373,16 +347,13 @@ export function MapView({
 
       // Called when the overlay is removed from the map
       onRemove() {
-        console.log(`onRemove called for marker ${this.markerId}`)
         if (this.containerDiv.parentElement) {
           this.containerDiv.parentElement.removeChild(this.containerDiv)
-          console.log(`Marker ${this.markerId} removed from DOM`)
         }
       }
 
       // Update the marker's selected state
       setSelected(isSelected: boolean) {
-        console.log(`Setting marker ${this.markerId} selected state to ${isSelected}`)
         this.isSelected = isSelected
         this.updateSelection()
       }
@@ -521,7 +492,6 @@ export function MapView({
 `
         // Mark that this marker has been animated
         this.hasAnimated = true
-        console.log(`Marker ${this.markerId} content updated with drop-in animation`)
       }
     }
   }
@@ -529,21 +499,17 @@ export function MapView({
   // Load Google Maps with better error handling
   const loadGoogleMaps = async () => {
     try {
-      console.log("Starting Google Maps loading process...")
 
       // Check if already loaded
       if (window.google && window.google.maps) {
-        console.log("Google Maps already loaded")
 
         // Create PostMarker class
         PostMarkerClassRef.current = createPostMarkerClass()
-        console.log("PostMarker class created:", !!PostMarkerClassRef.current)
         initializeMap()
         return
       }
 
       // Load Google Maps JavaScript API
-      console.log("Loading Google Maps JavaScript API...")
 
       await new Promise<void>((resolve, reject) => {
         // Check if script already exists
@@ -558,14 +524,11 @@ export function MapView({
         script.defer = true
 
         script.onload = () => {
-          console.log("Google Maps script loaded successfully")
           // Give it a moment to initialize
           setTimeout(() => {
             if (window.google && window.google.maps) {
-              console.log("Google Maps is available")
               // Create PostMarker class
               PostMarkerClassRef.current = createPostMarkerClass()
-              console.log("PostMarker class created:", !!PostMarkerClassRef.current)
               resolve()
             } else {
               console.error("Google Maps loaded but not available")
@@ -585,10 +548,8 @@ export function MapView({
         }, 10000)
 
         document.head.appendChild(script)
-        console.log("Google Maps script element added to DOM")
       })
 
-      console.log("Google Maps loaded, initializing map...")
 
       initializeMap()
     } catch (error) {
@@ -600,7 +561,6 @@ export function MapView({
 
   // Initialize the map
   const initializeMap = () => {
-    console.log("Initializing map...")
 
     if (!window.google || !window.google.maps) {
       console.error("Google Maps is not available")
@@ -617,12 +577,10 @@ export function MapView({
     }
 
     if (mapInstance) {
-      console.log("Map instance already exists")
       return
     }
 
     try {
-      console.log("Creating map instance...")
 
       // Determine center location
       let defaultCenter = { lat: 37.7749, lng: -122.4194 } // Default fallback
@@ -630,15 +588,12 @@ export function MapView({
       // If we have a centerPost, use its location
       if (centerPost && centerPost.latitude && centerPost.longitude) {
         defaultCenter = { lat: Number(centerPost.latitude), lng: Number(centerPost.longitude) }
-        console.log("Centering map on specific post:", defaultCenter)
       } else if (center) {
         defaultCenter = center
-        console.log("Centering map on custom location:", defaultCenter)
       } else if (postsWithLocation.length > 0) {
         // Otherwise use first post with location
         const firstPost = postsWithLocation[0]
         defaultCenter = { lat: Number(firstPost.latitude), lng: Number(firstPost.longitude) }
-        console.log("Centering map on first post with location:", defaultCenter)
       }
 
       // Create map instance
@@ -655,7 +610,6 @@ export function MapView({
         gestureHandling: "greedy",
       })
 
-      console.log("Map instance created")
 
       setMapInstance(map)
       setMapInitialized(true)
@@ -676,12 +630,10 @@ export function MapView({
 
       // If bounds are provided, fit the map to those bounds
       if (bounds) {
-        console.log("Fitting map to provided bounds")
         map.fitBounds(bounds)
       } else if (centerPost) {
         // If centering on a specific post, use higher zoom
         map.setZoom(15)
-        console.log("Setting zoom to 15 for centerPost")
       }
 
       // In the initializeMap function, after creating the map instance but before adding markers,
@@ -689,7 +641,6 @@ export function MapView({
 
       // Handle user location if provided
       if (userLocation) {
-        console.log("User location provided:", userLocation)
 
         // Set the map center to user location
         const userLatLng = {
@@ -700,7 +651,6 @@ export function MapView({
 
         // If city bounds are provided, use them for smart zooming
         if (cityBounds) {
-          console.log("Fitting map to city bounds")
           const bounds: any = new (window as any).google.maps.LatLngBounds(
             { lat: cityBounds.south, lng: cityBounds.west },
             { lat: cityBounds.north, lng: cityBounds.east },
@@ -717,7 +667,6 @@ export function MapView({
       }
 
       // Skip user location and go straight to adding post markers
-      console.log("About to add post markers...")
       addPostMarkers(map)
       
       // Add user location marker with pulsing dot
@@ -844,14 +793,10 @@ export function MapView({
 
     userLocationMarkerRef.current = userMarker
 
-    console.log('Added user location marker with pulsing dot')
   }
 
   // Add markers for posts with location data
   const addPostMarkers = (map: google.maps.Map) => {
-    console.log("addPostMarkers called with map:", !!map)
-    console.log("Google Maps available:", !!window.google)
-    console.log("PostMarker class available:", !!PostMarkerClassRef.current)
 
     if (!map || !window.google) {
       console.error("Map or Google Maps not available for adding post markers")
@@ -867,15 +812,12 @@ export function MapView({
       }
     }
 
-    console.log(`Adding ${postsWithLocation.length} post markers...`)
 
     if (postsWithLocation.length === 0) {
-      console.log("No posts with location data")
       return
     }
 
     // Clear existing markers
-    console.log("Clearing existing markers:", Object.keys(markersRef.current).length)
     Object.values(markersRef.current).forEach((marker) => {
       if (marker && typeof marker.setMap === "function") {
         marker.setMap(null)
@@ -889,7 +831,6 @@ export function MapView({
     // Add markers for all posts with location
     postsWithLocation.forEach((post, index) => {
       const isSelected = selectedPost && post.id === selectedPost.id
-      console.log(`Creating marker ${index + 1} for post:`, post.id)
 
       try {
         // Create a new marker for this post with animation delay
@@ -900,7 +841,6 @@ export function MapView({
           (clickedPost: Post) => {
             // Handle marker click (only if clickable)
             if (markersClickable) {
-              console.log("Marker clicked:", clickedPost.id)
               setSelectedPost(clickedPost)
 
               // Update all marker styles
@@ -915,13 +855,11 @@ export function MapView({
 
         // Store reference to marker
         markersRef.current[post.id] = marker
-        console.log(`Marker ${index + 1} created and stored for post: ${post.id}`)
       } catch (error) {
         console.error(`Error creating marker for post ${post.id}:`, error)
       }
     })
 
-    console.log("Total markers created:", Object.keys(markersRef.current).length)
   }
 
   // Handle search input
@@ -988,7 +926,6 @@ export function MapView({
 
   // Retry loading the map
   const retryMapLoad = () => {
-    console.log("Retrying map load...")
     setIsLoading(true)
     setLocationError(null)
     setMapInitialized(false)
@@ -1000,7 +937,6 @@ export function MapView({
   // Update marker styles when selectedPost changes
   useEffect(() => {
     if (mapInstance && mapInitialized && PostMarkerClassRef.current) {
-      console.log("Updating marker selection states due to selectedPost change")
       // Update marker selection states
       Object.entries(markersRef.current).forEach(([id, marker]) => {
         marker.setSelected(selectedPost && id === selectedPost.id)
@@ -1011,7 +947,6 @@ export function MapView({
   // Clean up markers when component unmounts
   useEffect(() => {
     return () => {
-      console.log("Cleaning up markers on unmount")
       Object.values(markersRef.current).forEach((marker) => {
         if (marker && typeof marker.setMap === "function") {
           marker.setMap(null)
@@ -1029,7 +964,6 @@ export function MapView({
   useEffect(() => {
     if (cityName && cityName !== searchQuery && !userCleared) {
       setSearchQuery(cityName)
-      console.log("MapView: Updated searchQuery with cityName:", cityName)
     }
   }, [cityName, userCleared])
 
