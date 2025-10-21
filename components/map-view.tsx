@@ -251,15 +251,8 @@ export function MapView({
     loadGoogleMaps()
   }, [mapInitialized])
 
-  // Add a separate effect to update markers when posts change
-  useEffect(() => {
-    if (mapInstance && mapInitialized && PostMarkerClassRef.current && postsWithLocation.length > 0) {
-      console.log("Posts changed, updating markers...")
-      addPostMarkers(mapInstance)
-      // Also update user location marker when posts change
-      addUserLocationMarker(mapInstance)
-    }
-  }, [allPosts, mapInstance, mapInitialized])
+  // Removed the problematic useEffect that was causing multiple marker redraws
+  // Markers are now only added once during map initialization (line ~723)
 
   // Create PostMarker class after Google Maps is loaded
   const createPostMarkerClass = () => {
