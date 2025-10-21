@@ -1180,6 +1180,15 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                     <span className="mx-2">•</span>
                   </>
                 )}
+                {!post.fixed && !post.under_review && (
+                  <>
+                    <div className="flex items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
+                      <span>Open</span>
+                    </div>
+                    <span className="mx-2">•</span>
+                  </>
+                )}
                 {!post.fixed && post.created_by && (
                   <>
                     <span>Created by {post.created_by}</span>
