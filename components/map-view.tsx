@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { X, RefreshCw, AlertCircle, Heart, Plus, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -211,22 +211,26 @@ export function MapView({
   // Debug log for posts prop
   console.log("MapView received posts:", posts)
 
-  // Filter posts that have location data
-  const postsWithLocation = allPosts.filter(
-    (post) => post.latitude && post.longitude && !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
-  )
+  // Filter posts that have location data - memoized to prevent recalculation on every render
+  const postsWithLocation = useMemo(() => {
+    return allPosts.filter(
+      (post) => post.latitude && post.longitude && !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
+    )
+  }, [allPosts])
 
-  // Debug log for filtered posts
-  console.log("Posts with location data:", postsWithLocation)
-  postsWithLocation.forEach((post, index) => {
-    console.log(`Post ${index} location:`, {
-      id: post.id,
-      lat: post.latitude,
-      lng: post.longitude,
-      type: typeof post.latitude,
-      isValid: !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
+  // Debug log for filtered posts - only when postsWithLocation actually changes
+  useEffect(() => {
+    console.log("Posts with location data:", postsWithLocation.length)
+    postsWithLocation.forEach((post, index) => {
+      console.log(`Post ${index} location:`, {
+        id: post.id,
+        lat: post.latitude,
+        lng: post.longitude,
+        type: typeof post.latitude,
+        isValid: !isNaN(Number(post.latitude)) && !isNaN(Number(post.longitude)),
+      })
     })
-  })
+  }, [postsWithLocation])
 
   // Format date for preview card
   const formatPostDate = (post: Post) => {
