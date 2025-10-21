@@ -1,10 +1,10 @@
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Ganamos! Fix your community, earn Bitcoin",
+  title: "Ganamos!",
   description: "Fix your community, earn Bitcoin",
   openGraph: {
-    title: "Ganamos! Fix your community, earn Bitcoin",
+    title: "Ganamos!",
     description: "Fix your community, earn Bitcoin",
     type: "website",
     url: "https://ganamos.earth/map",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ganamos! Fix your community, earn Bitcoin",
+    title: "Ganamos!",
     description: "Fix your community, earn Bitcoin",
     images: ["/og-map.jpg"],
   },
