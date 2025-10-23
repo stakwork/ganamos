@@ -6,6 +6,7 @@ import { LoadingSpinner } from "@/components/loading-spinner";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,8 +111,18 @@ export default function ProfilePage() {
   const [fixedIssues, setFixedIssues] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isActivityLoading, setIsActivityLoading] = useState(false);
-  const [bitcoinPrice, setBitcoinPrice] = useState<number | null>(null);
-  const [isPriceLoading, setIsPriceLoading] = useState(true);
+  const [bitcoinPrice, setBitcoinPrice] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const cached = localStorage.getItem(CACHE_KEYS.BITCOIN_PRICE);
+      if (cached) {
+        const { price, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 5 * 60 * 1000) return price;
+      }
+    } catch (e) {}
+    return null;
+  });
+  const [isPriceLoading, setIsPriceLoading] = useState(false);
   const supabase = createBrowserSupabaseClient();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
@@ -146,6 +157,7 @@ export default function ProfilePage() {
     AVATAR: 'ganamos_avatar',
     PET: 'ganamos_pet',
     CONNECTED_ACCOUNTS: 'ganamos_connected_accounts',
+    FAMILY_COUNT: 'ganamos_family_count',
   };
 
   // Helper function to get pet icon
@@ -190,10 +202,11 @@ export default function ProfilePage() {
 
   // Cached data for instant display (stale-while-revalidate pattern)
   // Initialize from localStorage SYNCHRONOUSLY during first render
+  // Use the stored active user ID from AuthProvider's localStorage key
   const [cachedBalance, setCachedBalance] = useState<number | null>(() => {
     if (typeof window === 'undefined') return null;
     try {
-      const userId = activeUserId || user?.id;
+      const userId = localStorage.getItem('ganamos_active_user_id');
       if (!userId) return null;
       const cached = localStorage.getItem(`${CACHE_KEYS.BALANCE}_${userId}`);
       if (cached) {
@@ -207,7 +220,7 @@ export default function ProfilePage() {
   const [cachedAvatar, setCachedAvatar] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null;
     try {
-      const userId = activeUserId || user?.id;
+      const userId = localStorage.getItem('ganamos_active_user_id');
       if (!userId) return null;
       return localStorage.getItem(`${CACHE_KEYS.AVATAR}_${userId}`);
     } catch (e) {}
@@ -217,7 +230,7 @@ export default function ProfilePage() {
   const [cachedPet, setCachedPet] = useState<any>(() => {
     if (typeof window === 'undefined') return null;
     try {
-      const userId = activeUserId || user?.id;
+      const userId = localStorage.getItem('ganamos_active_user_id');
       if (!userId) return null;
       const cached = localStorage.getItem(`${CACHE_KEYS.PET}_${userId}`);
       if (cached) {
@@ -231,7 +244,7 @@ export default function ProfilePage() {
   const [cachedHasConnectedAccounts, setCachedHasConnectedAccounts] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     try {
-      const userId = activeUserId || user?.id;
+      const userId = localStorage.getItem('ganamos_active_user_id');
       if (!userId) return false;
       const cached = localStorage.getItem(`${CACHE_KEYS.CONNECTED_ACCOUNTS}_${userId}`);
       if (cached) {
@@ -240,6 +253,20 @@ export default function ProfilePage() {
       }
     } catch (e) {}
     return false;
+  });
+
+  const [cachedFamilyCount, setCachedFamilyCount] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    try {
+      const userId = localStorage.getItem('ganamos_active_user_id');
+      if (!userId) return 0;
+      const cached = localStorage.getItem(`${CACHE_KEYS.FAMILY_COUNT}_${userId}`);
+      if (cached) {
+        const { count, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 60 * 60 * 1000) return count;
+      }
+    } catch (e) {}
+    return 0;
   });
 
   // Load cached data instantly on mount (run immediately, even before user is loaded)
@@ -297,12 +324,21 @@ export default function ProfilePage() {
     }
   }, [activeUserId, user?.id]);
 
-  // Clear cached data when switching accounts
+  // Clear cached data when switching accounts (but not on initial load)
+  const prevUserId = useRef<string | null>(null);
   useEffect(() => {
-    setCachedBalance(null);
-    setCachedAvatar(null);
-    setCachedPet(null);
-    setCachedHasConnectedAccounts(false);
+    const currentUserId = activeUserId || user?.id;
+    
+    // Only clear if we're switching FROM one user TO another (not null -> user)
+    if (prevUserId.current && currentUserId && prevUserId.current !== currentUserId) {
+      setCachedBalance(null);
+      setCachedAvatar(null);
+      setCachedPet(null);
+      setCachedHasConnectedAccounts(false);
+      setCachedFamilyCount(0);
+    }
+    
+    prevUserId.current = currentUserId || null;
   }, [activeUserId, user?.id]);
 
   // Add session guard with useEffect
@@ -374,6 +410,16 @@ export default function ProfilePage() {
         hasAccounts: connectedAccounts.length > 0,
         timestamp: Date.now()
       }));
+      
+      // Also cache family count
+      const familyCountKey = `${CACHE_KEYS.FAMILY_COUNT}_${userId}`;
+      const cacheData = {
+        count: connectedAccounts.length,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(familyCountKey, JSON.stringify(cacheData));
+      setCachedFamilyCount(connectedAccounts.length);
+      console.log('[ProfilePage] Saved family count cache:', familyCountKey, cacheData);
     }
   }, [connectedAccounts, activeUserId, user?.id]);
 
@@ -403,18 +449,6 @@ export default function ProfilePage() {
       fetchConnectedDevices();
     }
   }, [user, activeUserId, fetchConnectedDevices]);
-
-  // Load cached bitcoin price on mount
-  useEffect(() => {
-    const cached = localStorage.getItem(CACHE_KEYS.BITCOIN_PRICE);
-    if (cached) {
-      const { price, timestamp } = JSON.parse(cached);
-      // Use cache if less than 5 minutes old
-      if (Date.now() - timestamp < 5 * 60 * 1000) {
-        setBitcoinPrice(price);
-      }
-    }
-  }, []);
 
   // Fetch the current Bitcoin price - memoized to prevent unnecessary re-creation
   const fetchBitcoinPrice = useCallback(async () => {
@@ -1196,7 +1230,7 @@ export default function ProfilePage() {
 
   return (
     <div className="container px-4 pt-6 mx-auto max-w-md">
-      <Card className="mb-6 border dark:border-gray-800">
+      <Card className="mb-6 border dark:border-gray-800" style={{ minHeight: '394px' }}>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -1788,12 +1822,10 @@ export default function ProfilePage() {
                   </p>
                 </div>
                 <p
-                  className={`text-xs text-muted-foreground mt-0.5 transition-opacity duration-500 ${
-                    isPriceLoading || !bitcoinPrice ? "opacity-0" : "opacity-100"
-                  }`}
+                  className="text-xs text-muted-foreground mt-0.5"
                   style={{ minHeight: "1.25rem" }} // Reserve space to prevent layout shift
                 >
-                  {!isPriceLoading && bitcoinPrice && calculateUsdValue(profile?.balance ?? cachedBalance ?? 0) &&
+                  {bitcoinPrice && calculateUsdValue(profile?.balance ?? cachedBalance ?? 0) &&
                     `$${calculateUsdValue(profile?.balance ?? cachedBalance ?? 0)} USD`}
                 </p>
               </div>
@@ -1852,7 +1884,10 @@ export default function ProfilePage() {
           </div>
 
           {/* Family Section */}
-          <FamilySection onAddAccount={() => setShowAddAccountDialog(true)} />
+          <FamilySection 
+                onAddAccount={() => setShowAddAccountDialog(true)} 
+                cachedFamilyCount={cachedFamilyCount}
+              />
         </CardContent>
       </Card>
 
@@ -2318,21 +2353,6 @@ export default function ProfilePage() {
 }
 
 function ActivityCard({ activity }: { activity: ActivityItem }) {
-  const router = useRouter();
-
-  const handleClick = () => {
-    // Only link if we have a related_id and a known type
-    if (
-      ["post", "fix", "reward"].includes(activity.type) &&
-      activity.related_id
-    ) {
-      router.push(`/post/${activity.related_id}`);
-      return;
-    }
-    // Optionally, donations could link to a donation details page if you have one
-    // For now, do nothing for donations
-  };
-
   // Format the date safely
   const formatDate = () => {
     try {
@@ -2353,14 +2373,15 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
   const sats = activity.metadata?.reward || activity.amount;
   const location = activity.locationName;
 
-  return (
+  // Check if this activity should be clickable
+  const isClickable = ["post", "fix", "reward"].includes(activity.type) && activity.related_id;
+  const href = isClickable ? `/post/${activity.related_id}` : undefined;
+
+  const cardContent = (
     <Card
       className={`hover:bg-muted/50 border dark:border-gray-800 ${
-        ["post", "fix", "reward"].includes(activity.type) && activity.related_id
-          ? "cursor-pointer hover:ring-2 hover:ring-blue-400"
-          : ""
+        isClickable ? "cursor-pointer hover:ring-2 hover:ring-blue-400" : ""
       }`}
-      onClick={handleClick}
     >
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
@@ -2458,6 +2479,17 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
       </CardContent>
     </Card>
   );
+
+  // Wrap in Link if clickable, otherwise return card directly
+  if (isClickable && href) {
+    return (
+      <Link href={href} prefetch={true}>
+        {cardContent}
+      </Link>
+    );
+  }
+
+  return cardContent;
 }
 
 function ActivityTitle({ activity }: { activity: ActivityItem }) {
