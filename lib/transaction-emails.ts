@@ -29,6 +29,9 @@ export async function sendBitcoinReceivedEmail(params: {
   const formattedAmount = formatSatsValue(amountSats)
   const btcAmount = (amountSats / 100000000).toFixed(8)
 
+  // Get first name only
+  const firstName = userName.split(' ')[0]
+
   // Determine the source text
   const sourceText = transactionType === 'internal' && fromName 
     ? `from ${fromName}` 
@@ -85,6 +88,7 @@ export async function sendBitcoinReceivedEmail(params: {
           justify-content: space-between;
           padding: 8px 0;
           border-bottom: 1px solid #e5e7eb;
+          gap: 16px;
         }
         .detail-row:last-child {
           border-bottom: none;
@@ -92,6 +96,7 @@ export async function sendBitcoinReceivedEmail(params: {
         .detail-label {
           font-weight: 600;
           color: #6b7280;
+          flex-shrink: 0;
         }
         .detail-value {
           color: #111827;
@@ -100,12 +105,15 @@ export async function sendBitcoinReceivedEmail(params: {
         .cta-button {
           display: inline-block;
           background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: #ffffff;
+          color: #ffffff !important;
           text-decoration: none;
           padding: 12px 30px;
           border-radius: 6px;
           font-weight: 600;
           margin: 20px 0;
+        }
+        a.cta-button {
+          color: #ffffff !important;
         }
         .footer {
           text-align: center;
@@ -126,10 +134,10 @@ export async function sendBitcoinReceivedEmail(params: {
         </div>
         <div class="content">
           <div class="greeting">
-            Hello ${userName},
+            Hello ${firstName},
           </div>
           <p>
-            You received Bitcoin ${sourceText} on Ganamos!
+            You received Bitcoin ${sourceText}.
           </p>
           <div class="details">
             <div class="detail-row">
@@ -196,6 +204,9 @@ export async function sendBitcoinSentEmail(params: {
   const formattedAmount = formatSatsValue(amountSats)
   const btcAmount = (amountSats / 100000000).toFixed(8)
 
+  // Get first name only
+  const firstName = userName.split(' ')[0]
+
   // Determine the destination text
   const destinationText = transactionType === 'internal' && toName 
     ? `to ${toName}` 
@@ -252,6 +263,7 @@ export async function sendBitcoinSentEmail(params: {
           justify-content: space-between;
           padding: 8px 0;
           border-bottom: 1px solid #e5e7eb;
+          gap: 16px;
         }
         .detail-row:last-child {
           border-bottom: none;
@@ -259,6 +271,7 @@ export async function sendBitcoinSentEmail(params: {
         .detail-label {
           font-weight: 600;
           color: #6b7280;
+          flex-shrink: 0;
         }
         .detail-value {
           color: #111827;
@@ -267,12 +280,15 @@ export async function sendBitcoinSentEmail(params: {
         .cta-button {
           display: inline-block;
           background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: #ffffff;
+          color: #ffffff !important;
           text-decoration: none;
           padding: 12px 30px;
           border-radius: 6px;
           font-weight: 600;
           margin: 20px 0;
+        }
+        a.cta-button {
+          color: #ffffff !important;
         }
         .footer {
           text-align: center;
@@ -293,10 +309,10 @@ export async function sendBitcoinSentEmail(params: {
         </div>
         <div class="content">
           <div class="greeting">
-            Hello ${userName},
+            Hello ${firstName},
           </div>
           <p>
-            You sent Bitcoin ${destinationText} from Ganamos.
+            You sent Bitcoin ${destinationText}.
           </p>
           <div class="details">
             <div class="detail-row">
@@ -363,6 +379,9 @@ export async function sendIssueFixedEmail(params: {
   // Format reward
   const formattedReward = formatSatsValue(rewardAmount)
 
+  // Get first name only
+  const firstName = userName.split(' ')[0]
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -422,6 +441,7 @@ export async function sendIssueFixedEmail(params: {
           justify-content: space-between;
           padding: 8px 0;
           border-bottom: 1px solid #e5e7eb;
+          gap: 16px;
         }
         .detail-row:last-child {
           border-bottom: none;
@@ -429,6 +449,7 @@ export async function sendIssueFixedEmail(params: {
         .detail-label {
           font-weight: 600;
           color: #6b7280;
+          flex-shrink: 0;
         }
         .detail-value {
           color: #111827;
@@ -437,12 +458,15 @@ export async function sendIssueFixedEmail(params: {
         .cta-button {
           display: inline-block;
           background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: #ffffff;
+          color: #ffffff !important;
           text-decoration: none;
           padding: 12px 30px;
           border-radius: 6px;
           font-weight: 600;
           margin: 20px 0;
+        }
+        a.cta-button {
+          color: #ffffff !important;
         }
         .footer {
           text-align: center;
@@ -463,7 +487,7 @@ export async function sendIssueFixedEmail(params: {
         </div>
         <div class="content">
           <div class="greeting">
-            Hello ${userName},
+            Hello ${firstName},
           </div>
           <p>
             Great news! ${fixerName} submitted a fix for your issue.
