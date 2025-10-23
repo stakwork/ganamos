@@ -63,6 +63,66 @@ export function generateNostrKeyPair() {
 }
 
 /**
+ * Set up the Ganamos Nostr profile (name and avatar)
+ * This should be called once to establish the profile
+ */
+export async function setupGanamosProfile() {
+  try {
+    const sk = getGanamosNostrKey()
+    const pk = getPublicKey(sk)
+    
+    // Create profile metadata
+    const profileData = {
+      name: 'Ganamos!',
+      about: 'Fix your city, earn Bitcoin. Report and fix local issues to earn sats on Ganamos.',
+      picture: 'https://www.ganamos.earth/images/ganamos-logo.png', // Update with actual logo URL
+      website: 'https://www.ganamos.earth',
+      lud16: 'ganamos@ganamos.earth', // Lightning address if available
+    }
+    
+    const content = JSON.stringify(profileData)
+    
+    // Create the profile event (kind 0)
+    const eventTemplate = {
+      kind: 0, // Profile metadata
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [],
+      content,
+    }
+    
+    // Sign the event
+    const signedEvent = finalizeEvent(eventTemplate, sk)
+    
+    console.log('[NOSTR] Publishing profile to relays:', signedEvent.id)
+    
+    // Publish to relays
+    const publishPool = getPool()
+    const publishPromises = publishPool.publish(RELAYS, signedEvent)
+    
+    // Wait for at least one relay to confirm
+    const results = await Promise.allSettled(publishPromises)
+    
+    const successful = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.filter(r => r.status === 'rejected').length
+    
+    console.log(`[NOSTR] Profile published to ${successful}/${RELAYS.length} relays (${failed} failed)`)
+    
+    return {
+      success: successful > 0,
+      eventId: signedEvent.id,
+      relaysPublished: successful,
+      relaysFailed: failed,
+    }
+  } catch (error) {
+    console.error('[NOSTR] Error publishing profile:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
+/**
  * Post a Ganamos issue to Nostr
  */
 export async function postToNostr(params: {
@@ -85,12 +145,11 @@ export async function postToNostr(params: {
     
     // Format the post content
     const locationText = city || location || 'Unknown location'
-    const content = `🏙️ New issue reported in ${locationText}!
+    const content = `🏙️ New issue posted in ${locationText}!
 
-"${title}"
+${title}
 
 ${description}
-
 💰 Reward: ${reward.toLocaleString()} sats
 📍 ${locationText}
 
