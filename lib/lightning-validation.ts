@@ -62,16 +62,16 @@ export function extractInvoiceAmount(invoice: string): number | null {
       return null
     }
 
-    // For amount-less invoices, the format is typically:
-    // lnbc1p... (where 1p indicates amount-less)
-    // lnbc... (where there are no digits at the start)
+    // For BOLT11 invoices, the amount is encoded at the beginning
+    // Amount-less invoices don't have a numeric amount at the start
+    // They typically start with a character that's not a digit
     
-    // Check if this is an amount-less invoice
-    if (withoutPrefix.startsWith('1p') || withoutPrefix.startsWith('1')) {
-      return null // Amount-less invoice
+    // Check if the first character is a digit (indicating an amount)
+    if (!/^\d/.test(withoutPrefix)) {
+      return null // No amount specified (amount-less invoice)
     }
 
-    // Extract amount (digits at the beginning, but not if it starts with '1p')
+    // Extract amount (digits at the beginning)
     const amountMatch = withoutPrefix.match(/^(\d+)/)
     if (!amountMatch) {
       return null // No amount specified (amount-less invoice)
