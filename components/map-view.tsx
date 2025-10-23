@@ -77,6 +77,7 @@ function MapViewComponent({
   const [locationError, setLocationError] = useState<string | null>(null)
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null)
   const [mapInitialized, setMapInitialized] = useState(false)
+  const [mapLoaded, setMapLoaded] = useState(false) // Track when map is visually loaded
   const [selectedPost, setSelectedPost] = useState<Post | null>(centerPost || null)
   const markersRef = useRef<{ [key: string]: any }>({})
   const PostMarkerClassRef = useRef<any>(null)
@@ -618,6 +619,13 @@ function MapViewComponent({
       setAutocompleteService(autoService)
       setPlacesService(placeService)
 
+      // Set mapLoaded to true when map tiles are ready
+      window.google.maps.event.addListenerOnce(map, 'tilesloaded', () => {
+        setTimeout(() => {
+          setMapLoaded(true)
+        }, 100) // Small delay to ensure map is visually rendered
+      })
+
       // Add click listener to map to deselect markers (only if not in modal)
       if (!isModal) {
         map.addListener("click", () => {
@@ -967,9 +975,9 @@ function MapViewComponent({
 
   return (
     <div className={containerClasses}>
-      {/* Search Bar with Donation Button - Adjust position if in modal */}
+      {/* Search Bar with Donation Button - Adjust position if in modal - Fade in after map loads */}
       <div
-        className={`absolute ${isModal ? "top-2" : "top-4"} left-1/2 transform -translate-x-1/2 z-50 w-80 max-w-[calc(100%-1rem)]`}
+        className={`absolute ${isModal ? "top-2" : "top-4"} left-1/2 transform -translate-x-1/2 z-50 w-80 max-w-[calc(100%-1rem)] transition-opacity duration-300 ${mapLoaded ? 'opacity-100' : 'opacity-0'}`}
       >
         <div className="relative flex items-center gap-2">
           <div className="relative flex-1">

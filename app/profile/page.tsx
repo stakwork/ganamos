@@ -139,6 +139,15 @@ export default function ProfilePage() {
   const [isDevicesLoading, setIsDevicesLoading] = useState(true);
   const [isRemoveMode, setIsRemoveMode] = useState(false);
 
+  // Cache keys for localStorage
+  const CACHE_KEYS = {
+    BITCOIN_PRICE: 'ganamos_bitcoin_price',
+    BALANCE: 'ganamos_balance',
+    AVATAR: 'ganamos_avatar',
+    PET: 'ganamos_pet',
+    CONNECTED_ACCOUNTS: 'ganamos_connected_accounts',
+  };
+
   // Helper function to get pet icon
   const getPetIcon = (petType: string, size: number = 24) => {
     const iconProps = { size, className: "text-white" }
@@ -153,7 +162,10 @@ export default function ProfilePage() {
 
   // Helper function to format balance with k notation
   const formatBalanceWithK = (balance: number) => {
-    if (balance > 999) {
+    if (balance >= 100000) {
+      // For 100k and above, round down to nearest thousand (no decimal)
+      return Math.floor(balance / 1000) + 'k';
+    } else if (balance > 999) {
       return (balance / 1000).toFixed(1) + 'k';
     }
     return balance.toString();
@@ -175,6 +187,123 @@ export default function ProfilePage() {
 
   // Add a ref to track the current post page for activities
   const activitiesPostPage = useRef(1);
+
+  // Cached data for instant display (stale-while-revalidate pattern)
+  // Initialize from localStorage SYNCHRONOUSLY during first render
+  const [cachedBalance, setCachedBalance] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const userId = activeUserId || user?.id;
+      if (!userId) return null;
+      const cached = localStorage.getItem(`${CACHE_KEYS.BALANCE}_${userId}`);
+      if (cached) {
+        const { balance, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 60 * 60 * 1000) return balance;
+      }
+    } catch (e) {}
+    return null;
+  });
+  
+  const [cachedAvatar, setCachedAvatar] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const userId = activeUserId || user?.id;
+      if (!userId) return null;
+      return localStorage.getItem(`${CACHE_KEYS.AVATAR}_${userId}`);
+    } catch (e) {}
+    return null;
+  });
+  
+  const [cachedPet, setCachedPet] = useState<any>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const userId = activeUserId || user?.id;
+      if (!userId) return null;
+      const cached = localStorage.getItem(`${CACHE_KEYS.PET}_${userId}`);
+      if (cached) {
+        const { pet, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 60 * 60 * 1000) return pet;
+      }
+    } catch (e) {}
+    return null;
+  });
+  
+  const [cachedHasConnectedAccounts, setCachedHasConnectedAccounts] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const userId = activeUserId || user?.id;
+      if (!userId) return false;
+      const cached = localStorage.getItem(`${CACHE_KEYS.CONNECTED_ACCOUNTS}_${userId}`);
+      if (cached) {
+        const { hasAccounts, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 60 * 60 * 1000) return hasAccounts;
+      }
+    } catch (e) {}
+    return false;
+  });
+
+  // Load cached data instantly on mount (run immediately, even before user is loaded)
+  useEffect(() => {
+    const userId = activeUserId || user?.id;
+    if (!userId) return;
+    
+    const cacheKey = `${CACHE_KEYS.BALANCE}_${userId}`;
+    const avatarKey = `${CACHE_KEYS.AVATAR}_${userId}`;
+    
+    const cachedData = localStorage.getItem(cacheKey);
+    if (cachedData) {
+      try {
+        const { balance, timestamp } = JSON.parse(cachedData);
+        // Use cache if less than 1 hour old
+        if (Date.now() - timestamp < 60 * 60 * 1000) {
+          setCachedBalance(balance);
+        }
+      } catch (e) {
+        // Invalid cache, ignore
+      }
+    }
+    
+    const avatar = localStorage.getItem(avatarKey);
+    if (avatar) {
+      setCachedAvatar(avatar);
+    }
+    
+    // Load cached pet - CRITICAL for instant display
+    const petKey = `${CACHE_KEYS.PET}_${userId}`;
+    const petData = localStorage.getItem(petKey);
+    if (petData) {
+      try {
+        const { pet, timestamp } = JSON.parse(petData);
+        if (Date.now() - timestamp < 60 * 60 * 1000) {
+          setCachedPet(pet);
+        }
+      } catch (e) {
+        // Invalid cache
+      }
+    }
+    
+    // Load cached connected accounts status
+    const connectedKey = `${CACHE_KEYS.CONNECTED_ACCOUNTS}_${userId}`;
+    const connectedData = localStorage.getItem(connectedKey);
+    if (connectedData) {
+      try {
+        const { hasAccounts, timestamp } = JSON.parse(connectedData);
+        if (Date.now() - timestamp < 60 * 60 * 1000) {
+          setCachedHasConnectedAccounts(hasAccounts);
+        }
+      } catch (e) {
+        // Invalid cache
+      }
+    }
+  }, [activeUserId, user?.id]);
+
+  // Clear cached data when switching accounts
+  useEffect(() => {
+    setCachedBalance(null);
+    setCachedAvatar(null);
+    setCachedPet(null);
+    setCachedHasConnectedAccounts(false);
+  }, [activeUserId, user?.id]);
 
   // Add session guard with useEffect
   useEffect(() => {
@@ -205,6 +334,49 @@ export default function ProfilePage() {
     }
   }, [activeUserId, user?.id]);
 
+  // Cache profile data (balance, avatar) when it changes
+  useEffect(() => {
+    if (profile?.id) {
+      const cacheKey = `${CACHE_KEYS.BALANCE}_${profile.id}`;
+      const avatarKey = `${CACHE_KEYS.AVATAR}_${profile.id}`;
+      
+      if (profile.balance !== undefined) {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          balance: profile.balance,
+          timestamp: Date.now()
+        }));
+      }
+      
+      if (profile.avatar_url) {
+        localStorage.setItem(avatarKey, profile.avatar_url);
+      }
+    }
+  }, [profile?.balance, profile?.avatar_url, profile?.id]);
+
+  // Cache pet data when it changes
+  useEffect(() => {
+    if ((activeUserId || user?.id) && connectedDevices.length > 0) {
+      const userId = activeUserId || user?.id;
+      const petKey = `${CACHE_KEYS.PET}_${userId}`;
+      localStorage.setItem(petKey, JSON.stringify({
+        pet: connectedDevices[0],
+        timestamp: Date.now()
+      }));
+    }
+  }, [connectedDevices, activeUserId, user?.id]);
+
+  // Cache connected accounts status when it changes
+  useEffect(() => {
+    if (activeUserId || user?.id) {
+      const userId = activeUserId || user?.id;
+      const connectedKey = `${CACHE_KEYS.CONNECTED_ACCOUNTS}_${userId}`;
+      localStorage.setItem(connectedKey, JSON.stringify({
+        hasAccounts: connectedAccounts.length > 0,
+        timestamp: Date.now()
+      }));
+    }
+  }, [connectedAccounts, activeUserId, user?.id]);
+
   // Fetch connected devices
   const fetchConnectedDevices = useCallback(async () => {
     if (!user) return;
@@ -232,6 +404,18 @@ export default function ProfilePage() {
     }
   }, [user, activeUserId, fetchConnectedDevices]);
 
+  // Load cached bitcoin price on mount
+  useEffect(() => {
+    const cached = localStorage.getItem(CACHE_KEYS.BITCOIN_PRICE);
+    if (cached) {
+      const { price, timestamp } = JSON.parse(cached);
+      // Use cache if less than 5 minutes old
+      if (Date.now() - timestamp < 5 * 60 * 1000) {
+        setBitcoinPrice(price);
+      }
+    }
+  }, []);
+
   // Fetch the current Bitcoin price - memoized to prevent unnecessary re-creation
   const fetchBitcoinPrice = useCallback(async () => {
     if (bitcoinPriceFetched.current) return;
@@ -245,6 +429,11 @@ export default function ProfilePage() {
         const data = await response.json();
         if (data.price && typeof data.price === 'number') {
           setBitcoinPrice(data.price);
+          // Cache the price with timestamp
+          localStorage.setItem(CACHE_KEYS.BITCOIN_PRICE, JSON.stringify({
+            price: data.price,
+            timestamp: Date.now()
+          }));
           bitcoinPriceFetched.current = true;
         } else {
           console.warn("Bitcoin price API returned invalid price data");
@@ -1043,7 +1232,7 @@ export default function ProfilePage() {
               </div>
               <div className="flex items-center gap-2">
                 {/* Account Switcher Dropdown - Only show if there are connected accounts */}
-                {connectedAccounts.length > 0 ? (
+                {(connectedAccounts.length > 0 || cachedHasConnectedAccounts) ? (
                   <DropdownMenu
                     onOpenChange={(open) => {
                       if (!open) {
@@ -1595,7 +1784,7 @@ export default function ProfilePage() {
                     />
                   </div>
                   <p className="text-xl font-bold">
-                    {formatBalanceWithK(profile.balance)}
+                    {formatBalanceWithK(profile?.balance ?? cachedBalance ?? 0)}
                   </p>
                 </div>
                 <p
@@ -1604,8 +1793,8 @@ export default function ProfilePage() {
                   }`}
                   style={{ minHeight: "1.25rem" }} // Reserve space to prevent layout shift
                 >
-                  {!isPriceLoading && bitcoinPrice && calculateUsdValue(profile.balance) &&
-                    `$${calculateUsdValue(profile.balance)} USD`}
+                  {!isPriceLoading && bitcoinPrice && calculateUsdValue(profile?.balance ?? cachedBalance ?? 0) &&
+                    `$${calculateUsdValue(profile?.balance ?? cachedBalance ?? 0)} USD`}
                 </p>
               </div>
             </div>
@@ -1621,8 +1810,8 @@ export default function ProfilePage() {
             <div 
               className="p-3 text-center border rounded-lg min-h-[104px] dark:border-gray-800 cursor-pointer hover:bg-accent transition-colors"
               onClick={() => {
-                if (isDevicesLoading) return; // Don't allow click while loading
-                if (connectedDevices.length > 0) {
+                const hasPet = connectedDevices.length > 0 || cachedPet;
+                if (hasPet) {
                   router.push('/pet-settings')
                 } else {
                   router.push('/connect-pet')
@@ -1630,21 +1819,21 @@ export default function ProfilePage() {
               }}
             >
               <p className="text-sm text-muted-foreground mb-2">Pet</p>
-              {!isDevicesLoading && connectedDevices.length > 0 ? (
+              {(connectedDevices.length > 0 || cachedPet) ? (
                 <>
                   <div className="flex items-center justify-center" style={{ height: "32px" }}>
                     <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-blue-500 rounded-full flex items-center justify-center">
-                      {getPetIcon(connectedDevices[0].pet_type, 16)}
+                      {getPetIcon((connectedDevices[0]?.pet_type || cachedPet?.pet_type), 16)}
                     </div>
                   </div>
                   <p
                     className="text-xs text-muted-foreground mt-0.5"
                     style={{ minHeight: "1.25rem" }}
                   >
-                    {connectedDevices[0].pet_name}
+                    {connectedDevices[0]?.pet_name || cachedPet?.pet_name}
                   </p>
                 </>
-              ) : !isDevicesLoading ? (
+              ) : (
                 <>
                   <div className="flex items-center justify-center" style={{ height: "32px" }}>
                     <div className="w-8 h-8 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center">
@@ -1655,13 +1844,8 @@ export default function ProfilePage() {
                     className="text-xs text-muted-foreground mt-0.5"
                     style={{ minHeight: "1.25rem" }}
                   >
-                    Not Connected
+                    Get pet
                   </p>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center justify-center" style={{ height: "32px" }}></div>
-                  <div className="mt-0.5" style={{ minHeight: "1.25rem" }}></div>
                 </>
               )}
             </div>
