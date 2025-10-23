@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase"
 import { createInvoice, checkInvoice, payInvoice } from "@/lib/lightning"
 import { revalidatePath } from "next/cache"
 import { v4 as uuidv4 } from "uuid"
+import { sendBitcoinReceivedEmail } from "@/lib/transaction-emails"
 
 // Dynamic import for cookies to avoid issues with pages directory
 async function getCookieStore() {
@@ -331,6 +332,27 @@ export async function checkDepositStatus(rHash: string, userId: string) {
         timestamp: new Date().toISOString(),
         metadata: { amount: actualAmountPaid, status: "completed" },
       })
+
+      // Send email notification (only if user has verified email)
+      const { data: recipientProfile } = await adminSupabase
+        .from("profiles")
+        .select("email, name")
+        .eq("id", effectiveUserId)
+        .single()
+
+      if (recipientProfile?.email && !recipientProfile.email.includes('@ganamos.app')) {
+        // Send email asynchronously (don't block on email sending)
+        sendBitcoinReceivedEmail({
+          toEmail: recipientProfile.email,
+          userName: recipientProfile.name || "User",
+          amountSats: actualAmountPaid,
+          date: new Date(),
+          transactionType: 'deposit'
+        }).catch(error => {
+          console.error("Error sending Bitcoin received email:", error)
+          // Don't fail the transaction if email fails
+        })
+      }
 
       return {
         success: true,

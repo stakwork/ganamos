@@ -28,6 +28,7 @@ import { v4 as uuidv4 } from "uuid"
 import dynamic from "next/dynamic"
 import PostDetailSkeleton from "@/components/post-detail-skeleton"
 import { StaticMapWidget } from "@/components/static-map-widget"
+import { sendIssueFixedEmail } from "@/lib/transaction-emails"
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
   // const { id } = useParams() // params.id is used directly
@@ -529,6 +530,31 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 ai_confidence: verificationResult.confidence 
               },
             })
+
+            // Send email notification to post owner (only if they have verified email and it's not their own fix)
+            if (post?.user_id && post.user_id !== (activeUserId || user?.id)) {
+              const { data: ownerProfile } = await supabase
+                .from("profiles")
+                .select("email, name")
+                .eq("id", post.user_id)
+                .single()
+
+              if (ownerProfile?.email && !ownerProfile.email.includes('@ganamos.app')) {
+                // Send email asynchronously (don't block on email sending)
+                sendIssueFixedEmail({
+                  toEmail: ownerProfile.email,
+                  userName: ownerProfile.name || "User",
+                  issueTitle: post.title || "Your issue",
+                  fixerName: profile?.name || "Someone",
+                  rewardAmount: post.reward || 0,
+                  date: now,
+                  postId: post.id
+                }).catch(error => {
+                  console.error("Error sending issue fixed email:", error)
+                  // Don't fail the fix submission if email fails
+                })
+              }
+            }
           }
 
           // Update local state

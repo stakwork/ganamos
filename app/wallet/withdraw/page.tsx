@@ -291,11 +291,29 @@ function WithdrawPageContent() {
         const transferResult = result as { 
           success: boolean, 
           error?: string,
-          receiver_name?: string 
+          receiver_name?: string,
+          receiver_id?: string 
         }
         
         if (!transferResult.success) {
           throw new Error(transferResult.error || 'Transfer failed')
+        }
+
+        // Send email notifications asynchronously
+        if (transferResult.receiver_id) {
+          fetch('/api/email/transfer-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fromUserId: currentUserId,
+              toUserId: transferResult.receiver_id,
+              amount: satsAmount,
+              date: new Date().toISOString()
+            })
+          }).catch(error => {
+            console.error("Error sending transfer notification:", error)
+            // Don't fail the transaction if email fails
+          })
         }
 
         await refreshProfile()

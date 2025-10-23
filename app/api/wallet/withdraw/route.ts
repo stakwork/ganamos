@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase"
 import { payInvoice } from "@/lib/lightning"
 import { revalidatePath } from "next/cache"
 import { v4 as uuidv4 } from "uuid"
+import { sendBitcoinSentEmail } from "@/lib/transaction-emails"
 
 export async function POST(request: Request) {
   try {
@@ -119,6 +120,27 @@ export async function POST(request: Request) {
       timestamp: new Date().toISOString(),
       metadata: { amount, status: "completed" },
     })
+
+    // Send email notification (only if user has verified email)
+    const { data: senderProfile } = await adminSupabase
+      .from("profiles")
+      .select("email, name")
+      .eq("id", userId)
+      .single()
+
+    if (senderProfile?.email && !senderProfile.email.includes('@ganamos.app')) {
+      // Send email asynchronously (don't block on email sending)
+      sendBitcoinSentEmail({
+        toEmail: senderProfile.email,
+        userName: senderProfile.name || "User",
+        amountSats: amount,
+        date: new Date(),
+        transactionType: 'withdrawal'
+      }).catch(error => {
+        console.error("Error sending Bitcoin sent email:", error)
+        // Don't fail the transaction if email fails
+      })
+    }
 
     return NextResponse.json({
       success: true,
