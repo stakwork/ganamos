@@ -1195,36 +1195,36 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               <h2 className="text-xl font-bold mb-1">{post.title}</h2>
               <div className="flex flex-col gap-1">
               {/* First line: Status, Time ago, and Creator */}
-              <div className="flex items-center text-sm text-muted-foreground">
+              <div className="flex items-center text-sm text-muted-foreground flex-wrap gap-x-2">
                 {post.fixed && (
                   <>
-                    <div className="flex items-center">
+                    <div className="flex items-center whitespace-nowrap">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
                       <span>Fixed</span>
                     </div>
-                    <span className="mx-2">•</span>
+                    <span className="hidden sm:inline">•</span>
                   </>
                 )}
                 {post.under_review && (
                   <>
-                    <div className="flex items-center">
+                    <div className="flex items-center whitespace-nowrap">
                       <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mr-1.5"></span>
                       <span>Under Review</span>
                     </div>
-                    <span className="mx-2">•</span>
+                    <span className="hidden sm:inline">•</span>
                   </>
                 )}
                 {!post.fixed && !post.under_review && (
                   <>
-                    <div className="flex items-center">
+                    <div className="flex items-center whitespace-nowrap">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
                       <span>Open</span>
                     </div>
-                    <span className="mx-2">•</span>
+                    <span className="hidden sm:inline">•</span>
                   </>
                 )}
                 {/* Time ago */}
-                <span>
+                <span className="whitespace-nowrap">
                   {formatDistanceToNow(new Date(post.createdAt || post.created_at || Date.now()), { addSuffix: false })
                     .replace("about ", "")
                     .replace(" hours", " hrs")
@@ -1234,8 +1234,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 {/* Creator */}
                 {!post.fixed && post.created_by && (
                   <>
-                    <span className="mx-2">•</span>
-                    <span>Created by {post.created_by.split(' ').map((name, i, arr) => i === arr.length - 1 && arr.length > 1 ? name.charAt(0) : name).join(' ')}</span>
+                    <span className="hidden sm:inline">•</span>
+                    <span className="whitespace-nowrap">Created by {post.created_by.split(' ').map((name, i, arr) => i === arr.length - 1 && arr.length > 1 ? name.charAt(0) : name).join(' ')}</span>
                   </>
                 )}
               </div>
