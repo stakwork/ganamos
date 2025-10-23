@@ -98,13 +98,12 @@ Fix it and earn Bitcoin on Ganamos!
 
 https://www.ganamos.earth/post/${postId}
 
-#Ganamos #Bitcoin #CivicTech #FixYourCity`
+#Ganamos #Bitcoin #FixYourCity`
 
     // Build tags
     const tags: string[][] = [
       ['t', 'ganamos'],
       ['t', 'bitcoin'],
-      ['t', 'civictech'],
       ['r', `https://www.ganamos.earth/post/${postId}`], // reference URL
     ]
     
