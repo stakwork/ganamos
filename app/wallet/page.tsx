@@ -200,7 +200,7 @@ export default function WalletPage() {
   }, [profile, loading, user, router, fetchBitcoinPrice])
 
   if (isLoading) {
-    return <LoadingSpinner message="Loading wallet..." />
+    return <LoadingSpinner message="Loading..." />
   }
 
   // If not authenticated, show login prompt

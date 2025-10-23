@@ -54,7 +54,7 @@ export function BottomNav() {
   return (
     <div id="bottom-nav" className="fixed bottom-0 left-0 z-50 w-full h-[82px] bg-white/80 backdrop-blur-md dark:bg-gray-900/80 pb-6">
       <div className="relative w-full max-w-md mx-auto h-full">
-        <div className="grid grid-cols-5 items-center h-full w-full px-6">
+        <div className="flex items-center justify-between h-full w-full px-8">
           {/* Home icon */}
           <Link
             href="/dashboard"

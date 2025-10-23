@@ -81,12 +81,21 @@ export async function POST(request: Request) {
       })
     }
 
-    // Continue using the regular client for non-admin operations
+    // Generate a user-friendly username from the display name
+    // Convert to lowercase, replace spaces with hyphens, remove special characters
+    const defaultUsername = username
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .substring(0, 20) // Limit to 20 characters
+
+    // Use regular client with proper RLS policies
     // Use upsert instead of insert to handle cases where the profile might already exist
     const { error: profileError } = await supabase.from("profiles").upsert(
       {
         id: childUserId,
         name: username,
+        username: defaultUsername,
         email: childEmail,
         avatar_url: avatarUrl,
         balance: 0,

@@ -9,3 +9,5 @@ ON CONFLICT DO NOTHING;
 -- Verify it was inserted
 SELECT * FROM get_latest_bitcoin_price('USD');
 
+
+

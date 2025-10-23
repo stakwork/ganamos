@@ -37,11 +37,12 @@ export default function UserProfilePage({ params }: { params: { id: string } }) 
     const fetchProfileAndPosts = async () => {
       setIsLoading(true)
       try {
-        // Fetch profile data
+        // Fetch profile data (exclude deleted accounts)
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("id, name, email, avatar_url")
           .eq("id", userId)
+          .neq("status", "deleted")
           .single()
 
         if (profileError) {

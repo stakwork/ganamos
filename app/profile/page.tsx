@@ -57,7 +57,9 @@ type ActivityItem = {
     | "fix_review_needed"
     | "donation"
     | "withdrawal"
-    | "deposit";
+    | "deposit"
+    | "internal"
+    | "transaction";
   postId?: string;
   postTitle?: string;
   postFixed?: boolean;
@@ -73,6 +75,12 @@ type ActivityItem = {
   donorName?: string;
   message?: string;
   related_id?: string;
+  metadata?: {
+    amount?: number;
+    memo?: string;
+    status?: string;
+    [key: string]: any;
+  };
 };
 
 export default function ProfilePage() {
@@ -254,6 +262,12 @@ export default function ProfilePage() {
     }
   }, []);
 
+  // Prefetch pet routes for instant navigation
+  useEffect(() => {
+    router.prefetch("/pet-settings");
+    router.prefetch("/connect-pet");
+  }, [router]);
+
   // Calculate USD value from satoshis
   const calculateUsdValue = (sats: number) => {
     if (!bitcoinPrice) return null;
@@ -408,8 +422,19 @@ export default function ProfilePage() {
         return { activities: [], hasMore: false };
       }
       
+      // Filter out deposit activities with 0 amount
+      const filteredData = (data || []).filter((activity: any) => {
+        if (activity.type === "deposit" && activity.metadata?.amount) {
+          const amount = typeof activity.metadata.amount === 'string' 
+            ? parseInt(activity.metadata.amount) 
+            : activity.metadata.amount;
+          return amount > 0;
+        }
+        return true;
+      });
+      
       // For post-related activities, fetch the post data
-      const postRelatedActivities = (data || []).filter((activity: any) => 
+      const postRelatedActivities = filteredData.filter((activity: any) => 
         ["post", "fix", "reward"].includes(activity.type) && activity.related_id
       );
       
@@ -423,7 +448,7 @@ export default function ProfilePage() {
         const postsMap = new Map((posts || []).map(p => [p.id, p]));
         
         // Transform activities to include post info
-        const transformedActivities = (data || []).map((activity: any) => {
+        const transformedActivities = filteredData.map((activity: any) => {
           const post = postsMap.get(activity.related_id);
           if (post && ["post", "fix", "reward"].includes(activity.type)) {
             return {
@@ -444,7 +469,7 @@ export default function ProfilePage() {
       }
       
       return {
-        activities: data || [],
+        activities: filteredData,
         hasMore: count ? to + 1 < count : false,
       };
     },
@@ -2137,7 +2162,7 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
 
   // Extract metadata fields
   const description = activity.message || activity.postTitle || "";
-  const sats = activity.amount;
+  const sats = activity.metadata?.reward || activity.amount;
   const location = activity.locationName;
 
   return (
@@ -2150,121 +2175,96 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
       onClick={handleClick}
     >
       <CardContent className="p-4">
-        <div className="flex items-start">
-          <ActivityIcon type={activity.type} />
-          <div className="ml-3 flex-1 min-w-0">
+        <div className="flex items-start gap-3">
+          {/* Left side: Icon */}
+          <ActivityIcon type={activity.type} activity={activity} />
+          
+          {/* Middle: Title and metadata */}
+          <div className="flex-1 min-w-0">
             <ActivityTitle activity={activity} />
             
-            {/* Metadata line: status, location, and timestamp */}
+            {/* Metadata line: bitcoin reward for posts, or bitcoin details for transactions */}
             <div className="flex items-center mt-1 text-xs text-muted-foreground min-w-0">
-              <div className="flex items-center shrink-0">
-                {["post", "fix", "reward"].includes(activity.type) && (
-                  <>
-                    <ActivityStatus activity={activity} />
-                    <span className="mx-2">·</span>
-                  </>
-                )}
-              </div>
-              {(activity as any).postLocation && (
+              {/* Post/fix metadata: bitcoin reward and location */}
+              {(["post", "fix", "reward"].includes(activity.type)) && (
                 <>
-                  <span className="truncate flex-shrink min-w-0">{(activity as any).postLocation}</span>
-                  <span className="mx-2 shrink-0">·</span>
+                  <div className="w-3 h-3 relative mr-1 flex-shrink-0">
+                    <Image
+                      src="/images/bitcoin-logo.png"
+                      alt="Bitcoin"
+                      width={12}
+                      height={12}
+                      className="object-contain"
+                    />
+                  </div>
+                  <span className="flex-shrink-0">
+                    {formatSatsValue(sats || 0)}
+                  </span>
+                  {(activity as any).postLocation && (
+                    <>
+                      <span className="mx-2 flex-shrink-0">·</span>
+                      <MapPin className="w-3 h-3 mr-1 flex-shrink-0" />
+                      <span className="truncate flex-shrink min-w-0">{(activity as any).postLocation}</span>
+                    </>
+                  )}
                 </>
               )}
-              <span className="shrink-0 whitespace-nowrap">{formatDate()}</span>
+              
+              {/* Deposit metadata: amount */}
+              {activity.type === "deposit" && activity.metadata && activity.metadata.amount && (
+                <>
+                  <div className="w-3 h-3 relative mr-1 flex-shrink-0">
+                    <Image
+                      src="/images/bitcoin-logo.png"
+                      alt="Bitcoin"
+                      width={12}
+                      height={12}
+                      className="object-contain"
+                    />
+                  </div>
+                  <span className="flex-shrink-0">
+                    {formatSatsValue(typeof activity.metadata.amount === 'string' ? parseInt(activity.metadata.amount) : activity.metadata.amount)}
+                  </span>
+                </>
+              )}
+              
+              {/* Internal/transaction metadata: amount and recipient/sender */}
+              {(activity.type === "internal" || activity.type === "transaction") && activity.metadata && (
+                <>
+                  <div className="w-3 h-3 relative mr-1 flex-shrink-0">
+                    <Image
+                      src="/images/bitcoin-logo.png"
+                      alt="Bitcoin"
+                      width={12}
+                      height={12}
+                      className="object-contain"
+                    />
+                  </div>
+                  <span className="mr-1.5 flex-shrink-0">
+                    {formatSatsValue(Math.abs(activity.metadata.amount || 0))}
+                  </span>
+                  <span className="mx-1 flex-shrink-0">·</span>
+                  <span className="truncate">
+                    {activity.metadata.amount && activity.metadata.amount < 0 ? (
+                      // Send transaction - extract recipient from memo
+                      <>
+                        To {activity.metadata.memo?.match(/Transfer to @?([^:]+)/)?.[1]?.trim() || "someone"}
+                      </>
+                    ) : (
+                      // Receive transaction - extract sender from memo
+                      <>
+                        From {activity.metadata.memo?.match(/Transfer from @?([^:]+)/)?.[1]?.trim() || "someone"}
+                      </>
+                    )}
+                  </span>
+                </>
+              )}
             </div>
-            
-            {/* Additional info for different activity types */}
-            <div className="mt-1">
-              {activity.type === "reward" && (
-                  <div className="flex items-center mt-1 text-sm text-muted-foreground">
-                    {sats && (
-                      <Badge
-                        variant="outline"
-                        className="mr-1.5 flex items-center gap-1 bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-800/30"
-                      >
-                        <div className="w-3 h-3 relative">
-                          <Image
-                            src="/images/bitcoin-logo.png"
-                            alt="Bitcoin"
-                            width={12}
-                            height={12}
-                            className="object-contain"
-                          />
-                        </div>
-                        {formatSatsValue(sats)}
-                      </Badge>
-                    )}
-                    <span>{description}</span>
-                  </div>
-                )}
-                {activity.type === "donation" && (
-                  <div className="flex items-center mt-1 text-sm text-muted-foreground">
-                    {sats && (
-                      <Badge
-                        variant="outline"
-                        className="mr-1.5 flex items-center gap-1 bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-800/30"
-                      >
-                        <div className="w-3 h-3 relative">
-                          <Image
-                            src="/images/bitcoin-logo.png"
-                            alt="Bitcoin"
-                            width={12}
-                            height={12}
-                            className="object-contain"
-                          />
-                        </div>
-                        {formatSatsValue(sats)}
-                      </Badge>
-                    )}
-                    <span className="mr-1.5">to</span>
-                    <MapPin className="w-3 h-3 mr-1" />
-                    <span>{location}</span>
-                  </div>
-                )}
-                {activity.type === "withdrawal" && (
-                  <div className="flex items-center mt-1 text-sm text-muted-foreground">
-                    {sats && (
-                      <Badge
-                        variant="outline"
-                        className="mr-1.5 flex items-center gap-1 bg-red-50 text-red-800 border-red-200 dark:bg-red-950/50 dark:text-red-200 dark:border-red-800/30"
-                      >
-                        <div className="w-3 h-3 relative">
-                          <Image
-                            src="/images/bitcoin-logo.png"
-                            alt="Bitcoin"
-                            width={12}
-                            height={12}
-                            className="object-contain"
-                          />
-                        </div>
-                        {formatSatsValue(sats)}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-                {activity.type === "deposit" && (
-                  <div className="flex items-center mt-1 text-sm text-muted-foreground">
-                    {sats && (
-                      <Badge
-                        variant="outline"
-                        className="mr-1.5 flex items-center gap-1 bg-green-50 text-green-800 border-green-200 dark:bg-green-950/50 dark:text-green-200 dark:border-green-800/30"
-                      >
-                        <div className="w-3 h-3 relative">
-                          <Image
-                            src="/images/bitcoin-logo.png"
-                            alt="Bitcoin"
-                            width={12}
-                            height={12}
-                            className="object-contain"
-                          />
-                        </div>
-                        {formatSatsValue(sats)}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-            </div>
+          </div>
+          
+          {/* Right side: Timestamp */}
+          <div className="flex-shrink-0 text-xs text-muted-foreground whitespace-nowrap">
+            {formatDate()}
           </div>
         </div>
       </CardContent>
@@ -2277,7 +2277,11 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
   
   switch (activity.type) {
     case "post":
-      return <p className="font-medium truncate overflow-hidden whitespace-nowrap">{postTitle || "You posted a new issue"}</p>;
+      return (
+        <p className="truncate overflow-hidden whitespace-nowrap">
+          <span className="font-medium">You posted</span> {postTitle || "a new issue"}
+        </p>
+      );
     case "fix":
       return <p className="font-medium truncate overflow-hidden whitespace-nowrap">{postTitle ? `You fixed: ${postTitle}` : "You fixed an issue"}</p>;
     case "reward":
@@ -2300,6 +2304,16 @@ function ActivityTitle({ activity }: { activity: ActivityItem }) {
       return <p className="font-medium truncate overflow-hidden whitespace-nowrap">You withdrew Bitcoin</p>;
     case "deposit":
       return <p className="font-medium truncate overflow-hidden whitespace-nowrap">You deposited Bitcoin</p>;
+    case "internal":
+    case "transaction": {
+      const amount = activity.metadata?.amount || 0;
+      if (amount < 0) {
+        return <p className="font-medium truncate overflow-hidden whitespace-nowrap">You sent Bitcoin</p>;
+      } else if (amount > 0) {
+        return <p className="font-medium truncate overflow-hidden whitespace-nowrap">You received Bitcoin</p>;
+      }
+      return <p className="font-medium truncate overflow-hidden whitespace-nowrap">Transfer</p>;
+    }
     default:
       return null;
   }
@@ -2337,7 +2351,54 @@ function ActivityStatus({ activity }: { activity: ActivityItem }) {
   );
 }
 
-function ActivityIcon({ type }: { type: string }) {
+function ActivityIcon({ type, activity }: { type: string; activity?: ActivityItem }) {
+  // For internal transfers, determine send vs receive based on amount
+  if ((type === "internal" || type === "transaction") && activity?.metadata?.amount) {
+    const amount = activity.metadata.amount;
+    
+    if (amount < 0) {
+      // Send - Red up arrow
+      return (
+        <div className="p-2 bg-red-100 rounded-full dark:bg-red-950/50">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-red-600 dark:text-red-400"
+          >
+            <path d="M12 19V5M5 12l7-7 7 7" />
+          </svg>
+        </div>
+      );
+    } else if (amount > 0) {
+      // Receive - Green down arrow
+      return (
+        <div className="p-2 bg-green-100 rounded-full dark:bg-green-950/50">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-green-600 dark:text-green-400"
+          >
+            <path d="M12 5v14M19 12l-7 7-7-7" />
+          </svg>
+        </div>
+      );
+    }
+  }
+  
   switch (type) {
     case "post":
       return (

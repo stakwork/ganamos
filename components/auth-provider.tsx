@@ -80,10 +80,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         userData.user?.user_metadata?.name || 
                         (userPhone ? `User ${userPhone.slice(-4)}` : "User")
         
+        // Generate a default username
+        const defaultUsername = userName
+          .toLowerCase()
+          .replace(/\s+/g, '-')
+          .replace(/[^a-z0-9-]/g, '')
+          .substring(0, 20)
+
         const newProfile = {
           id: userId,
           email: userEmail || null, // Allow null for phone-only users
           name: userName,
+          username: defaultUsername,
           avatar_url: userData.user?.user_metadata?.avatar_url || null,
           balance: 0, // Starting balance
           created_at: new Date().toISOString(),
@@ -181,10 +189,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Connected user IDs:', userIds)
         
         // Fetch all profiles in a single query using IN clause (much faster)
+        // Filter out deleted accounts (status = 'deleted')
         const { data: profiles, error: profilesError } = await supabase
           .from("profiles")
           .select("*")
           .in("id", userIds)
+          .neq("status", "deleted")
         
         console.log('Bulk profile fetch results:', profiles, profilesError)
         

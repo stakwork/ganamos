@@ -409,6 +409,13 @@ export async function markPostFixedAnonymouslyAction(
     // This might involve generating a claim code or a pre-image for a LNURL-withdraw.
 
     if (!error) {
+      // Fetch the post to get title and reward for metadata
+      const { data: postData } = await supabase
+        .from("posts")
+        .select("title, reward")
+        .eq("id", postId)
+        .single();
+      
       await supabase.from("activities").insert({
         id: uuidv4(),
         user_id: null, // Anonymous fix
@@ -416,7 +423,15 @@ export async function markPostFixedAnonymouslyAction(
         related_id: postId,
         related_table: "posts",
         timestamp: now,
-        metadata: { fixImageUrl, fixerNote, aiConfidence, aiAnalysis },
+        metadata: { 
+          title: postData?.title,
+          reward: postData?.reward,
+          fixed: true,
+          fixImageUrl, 
+          fixerNote, 
+          aiConfidence, 
+          aiAnalysis 
+        },
       });
     }
 

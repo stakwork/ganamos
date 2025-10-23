@@ -171,8 +171,8 @@ export function CameraCapture({
         .camera-preview-container {
           width: 100%;
           max-width: 100%;
-          height: 100vh;
-          min-height: 100vh;
+          height: 100dvh;
+          min-height: 100dvh;
           margin: 0;
           position: fixed;
           top: 0;
@@ -188,8 +188,8 @@ export function CameraCapture({
         }
         @media (max-width: 768px) {
           .camera-preview-container {
-            height: 100vh;
-            min-height: 100vh;
+            height: 100dvh;
+            min-height: 100dvh;
           }
         }
         .camera-preview-video {
@@ -198,6 +198,7 @@ export function CameraCapture({
           object-fit: cover;
           border-radius: 0;
           background: #111;
+          transform: translateZ(0);
         }
         .camera-capture-btn {
           position: absolute;
@@ -244,6 +245,7 @@ export function CameraCapture({
                 ref={videoRef}
                 autoPlay
                 playsInline
+                webkit-playsinline="true"
                 muted
                 className="camera-preview-video"
               />

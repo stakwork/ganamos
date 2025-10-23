@@ -124,7 +124,7 @@ export function QRScanner({ onScan, onClose, isOpen }: QRScannerProps) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-black">
+    <div className="fixed inset-0 z-[60] bg-black">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 bg-black/50">
         <h2 className="text-white text-lg font-semibold">Scan QR Code</h2>

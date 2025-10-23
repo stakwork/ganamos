@@ -5,7 +5,7 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = createRouteHandlerClient({ cookies })
 
@@ -25,11 +25,36 @@ export async function GET() {
       )
     }
 
-    // Get all devices for this user
+    // Get activeUserId from query params (for viewing child accounts)
+    const { searchParams } = new URL(request.url)
+    const activeUserId = searchParams.get('activeUserId') || user.id
+
+    // Verify the user has permission to view this account's devices
+    // Allow if it's their own account OR if they're the primary user of a connected account
+    if (activeUserId !== user.id) {
+      const { data: connection } = await supabase
+        .from('connected_accounts')
+        .select('primary_user_id')
+        .eq('connected_user_id', activeUserId)
+        .eq('primary_user_id', user.id)
+        .single()
+
+      if (!connection) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Unauthorized to view this account's devices",
+          },
+          { status: 403 }
+        )
+      }
+    }
+
+    // Get all devices for the active user (not the authenticated user)
     const { data: devices, error: devicesError } = await supabase
       .from("devices")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", activeUserId)
       .order("created_at", { ascending: false })
 
     if (devicesError) {

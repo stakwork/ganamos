@@ -42,3 +42,5 @@ SELECT
 FROM bitcoin_prices;
 RESET ROLE;
 
+
+

@@ -1,6 +1,6 @@
 export function LoadingSpinner({ message = "Loading..." }: { message?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
+    <div className="fixed inset-0 flex flex-col items-center justify-center">
       <div className="mb-4">
         <svg
           className="animate-spin h-10 w-10 text-primary"

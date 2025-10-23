@@ -195,7 +195,7 @@ export default function ProfileCameraPage() {
             </div>
           ) : (
             <div className="relative">
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-[80vh] object-cover" />
+              <video ref={videoRef} autoPlay playsInline webkit-playsinline="true" muted className="w-full h-[80vh] object-cover" style={{ transform: 'translateZ(0)' }} />
               <div className="absolute inset-0 pointer-events-none border-4 border-white border-opacity-50 rounded-full m-4"></div>
 
               {/* Overlay controls on the camera view */}

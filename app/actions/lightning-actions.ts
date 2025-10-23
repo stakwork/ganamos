@@ -117,9 +117,10 @@ export async function createDepositInvoice(amount: number, userId: string) {
     }
 
     // Create a memo for the invoice
-    const memo = `Deposit ${amount} sats to Ganamos!`
+    const memo = amount > 0 ? `Deposit ${amount} sats to Ganamos!` : `Deposit to Ganamos!`
 
     // Create the invoice using the Lightning API
+    // If amount is 0, create a no-value invoice that allows sender to specify amount
     const invoiceResult = await createInvoice(amount, memo)
 
     if (!invoiceResult.success) {
@@ -212,6 +213,7 @@ export async function checkDepositStatus(rHash: string, userId: string) {
     // If the invoice is settled, update the transaction and user balance
     if (invoiceStatus.settled && invoiceStatus.settled === true) {
       console.log("Invoice is settled! Processing payment for user:", effectiveUserId)
+      console.log("Actual amount paid:", invoiceStatus.amountPaid, "sats")
 
       // Use service role key for admin access to bypass RLS
       const adminSupabase = createServerSupabaseClient({
@@ -227,11 +229,44 @@ export async function checkDepositStatus(rHash: string, userId: string) {
         .single()
 
       if (!transaction) {
-        console.log("Transaction not found or already processed")
+        console.log("Transaction not found or already processed - checking if it was already completed")
+        
+        // Check if transaction was already completed
+        const { data: completedTransaction } = await adminSupabase
+          .from("transactions")
+          .select("*")
+          .eq("r_hash_str", rHash)
+          .eq("status", "completed")
+          .single()
+          
+        if (completedTransaction) {
+          console.log("Transaction was already completed successfully")
+          return { 
+            success: true, 
+            settled: true, 
+            amount: completedTransaction.amount,
+            newBalance: null // Don't update balance again
+          }
+        }
+        
         return { success: false, error: "Transaction not found or already processed" }
       }
 
-      console.log("Found transaction:", transaction.id, "Amount:", transaction.amount)
+      // CRITICAL: Use the actual amount paid, not the pre-specified amount
+      const actualAmountPaid = parseInt(invoiceStatus.amountPaid || transaction.amount)
+      console.log("Found transaction:", transaction.id, "Pre-specified amount:", transaction.amount, "Actual amount paid:", actualAmountPaid)
+      
+      
+      // SECURITY: Log amount mismatches for monitoring
+      if (transaction.amount !== actualAmountPaid) {
+        console.warn("SECURITY ALERT: Amount mismatch detected!", {
+          transactionId: transaction.id,
+          preSpecifiedAmount: transaction.amount,
+          actualAmountPaid: actualAmountPaid,
+          userId: effectiveUserId,
+          rHash: rHash
+        })
+      }
 
       // Get the user's current balance
       const { data: profile } = await adminSupabase
@@ -245,8 +280,8 @@ export async function checkDepositStatus(rHash: string, userId: string) {
         return { success: false, error: "User profile not found" }
       }
 
-      console.log("Current balance:", profile.balance)
-      const newBalance = profile.balance + transaction.amount
+      console.log("Current balance:", profile.balance, "Type:", typeof profile.balance)
+      const newBalance = parseInt(profile.balance) + actualAmountPaid
       console.log("New balance will be:", newBalance)
 
       // Update transaction status
@@ -294,13 +329,13 @@ export async function checkDepositStatus(rHash: string, userId: string) {
         related_id: transaction.id,
         related_table: "transactions",
         timestamp: new Date().toISOString(),
-        metadata: { amount: transaction.amount, status: "completed" },
+        metadata: { amount: actualAmountPaid, status: "completed" },
       })
 
       return {
         success: true,
         settled: true,
-        amount: transaction.amount,
+        amount: actualAmountPaid,
         newBalance,
       }
     }

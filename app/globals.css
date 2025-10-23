@@ -128,6 +128,20 @@ body {
   z-index: -1;
 }
 
+/* Fade-in animation for pet card */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
 /* Ensure content has proper z-index and positioning */
 .relative.z-10 {
   position: relative;

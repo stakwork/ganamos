@@ -67,6 +67,11 @@ function WithdrawPageContent() {
     fetchBitcoinPrice()
   }, [fetchBitcoinPrice])
 
+  // Prefetch profile route for instant X button navigation
+  useEffect(() => {
+    router.prefetch("/profile")
+  }, [router])
+
   // Calculate USD value
   const calculateUsdValue = (sats: number) => {
     if (!bitcoinPrice) return null
@@ -375,14 +380,12 @@ function WithdrawPageContent() {
             <ArrowLeft className="h-5 w-5" />
         </Button>
           
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Balance: {formatSatsValue(profile?.balance || 0)}
-      </div>
+          <h1 className="text-lg font-semibold">Send Bitcoin</h1>
 
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push("/wallet")}
+            onClick={() => router.push("/profile")}
           >
             <X className="h-5 w-5" />
           </Button>
@@ -390,7 +393,7 @@ function WithdrawPageContent() {
 
         <div className="p-4 space-y-4">
           {/* Recipient Info */}
-          <div className="flex flex-col items-center space-y-4 py-4">
+          <div className="flex flex-col items-center space-y-2">
             {!recipient ? (
               /* Dotted Box for Recipient Selection */
               <button
@@ -439,9 +442,12 @@ function WithdrawPageContent() {
               <span className="text-2xl text-gray-500">sats</span>
             </div>
             {!isPriceLoading && bitcoinPrice && calculateUsdValue(parseInt(amount) || 0) ? (
-              <p className="text-sm text-muted-foreground">${calculateUsdValue(parseInt(amount) || 0)} USD</p>
+              <p className="text-sm text-gray-500">${calculateUsdValue(parseInt(amount) || 0)} USD</p>
             ) : (
-              <p className="text-sm text-muted-foreground opacity-0">$0.00 USD</p>
+              <p className="text-sm text-gray-500 opacity-0">$0.00 USD</p>
+            )}
+            {parseInt(amount) > (profile?.balance || 0) && (
+              <p className="text-sm text-red-500">Insufficient balance</p>
             )}
           </div>
 
@@ -735,7 +741,9 @@ function QRScannerCamera({
               ref={videoRef}
               className="w-full h-full object-cover"
               playsInline
+              webkit-playsinline="true"
               muted
+              style={{ transform: 'translateZ(0)' }}
             />
             
             {/* Scanning overlay */}

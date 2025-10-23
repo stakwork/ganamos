@@ -18,6 +18,259 @@ function getSupabaseClient() {
   return supabase
 }
 
+async function checkVoltageAPI(): Promise<{
+  status: 'online' | 'offline' | 'error'
+  nodeBalance: number
+  discrepancy: number
+  error?: string
+}> {
+  console.log('[API HEALTH] Checking Voltage API...')
+  
+  try {
+    // Get node balance from Voltage
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                   (process.env.NODE_ENV === 'production' ? 'https://www.ganamos.earth' : 'http://localhost:3457')
+    
+    const response = await fetch(`${appUrl}/api/admin/node-balance`)
+    
+    if (!response.ok) {
+      return {
+        status: 'error',
+        nodeBalance: 0,
+        discrepancy: 0,
+        error: `HTTP ${response.status}: ${response.statusText}`
+      }
+    }
+    
+    const nodeData = await response.json()
+    
+    if (!nodeData.success) {
+      return {
+        status: 'error',
+        nodeBalance: 0,
+        discrepancy: 0,
+        error: nodeData.error || 'Unknown error'
+      }
+    }
+    
+    const nodeBalance = nodeData.balances.total_balance
+    
+    // Get app total balance for comparison
+    const supabaseClient = getSupabaseClient()
+    const { data: profiles } = await supabaseClient
+      .from('profiles')
+      .select('balance')
+      .neq('status', 'deleted')
+      
+    const appTotalBalance = profiles?.reduce((sum, profile) => sum + profile.balance, 0) || 0
+    const discrepancy = nodeBalance - appTotalBalance
+    
+    console.log(`[API HEALTH] Voltage API: Online`)
+    console.log(`[API HEALTH] Node Balance: ${nodeBalance.toLocaleString()} sats`)
+    console.log(`[API HEALTH] App Balance: ${appTotalBalance.toLocaleString()} sats`)
+    console.log(`[API HEALTH] Discrepancy: ${discrepancy.toLocaleString()} sats`)
+    
+    return {
+      status: 'online',
+      nodeBalance,
+      discrepancy
+    }
+    
+  } catch (error) {
+    console.error('[API HEALTH] Voltage API error:', error)
+    return {
+      status: 'offline',
+      nodeBalance: 0,
+      discrepancy: 0,
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+}
+
+async function checkGroqAPI(): Promise<{
+  status: 'online' | 'offline' | 'error'
+  error?: string
+}> {
+  console.log('[API HEALTH] Checking Groq API...')
+  
+  try {
+    // Test Groq API with a simple request
+    const { Groq } = await import('groq-sdk')
+    
+    if (!process.env.GROQ_API_KEY) {
+      return {
+        status: 'error',
+        error: 'GROQ_API_KEY not configured'
+      }
+    }
+    
+    const groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY,
+    })
+    
+    // Make a simple test request
+    const response = await groq.chat.completions.create({
+      messages: [
+        {
+          role: "user",
+          content: "Hello, this is a health check. Please respond with 'OK'."
+        }
+      ],
+      model: "llama-3.1-8b-instant",
+      max_completion_tokens: 10,
+      temperature: 0
+    })
+    
+    const content = response.choices[0]?.message?.content || ""
+    
+    console.log(`[API HEALTH] Groq API: Online`)
+    console.log(`[API HEALTH] Response: ${content}`)
+    
+    return {
+      status: 'online'
+    }
+    
+  } catch (error) {
+    console.error('[API HEALTH] Groq API error:', error)
+    return {
+      status: 'offline',
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+}
+
+async function checkResendAPI(): Promise<{
+  status: 'online' | 'offline' | 'error'
+  error?: string
+}> {
+  console.log('[API HEALTH] Checking Resend API...')
+  
+  try {
+    if (!process.env.RESEND_API_KEY) {
+      return {
+        status: 'error',
+        error: 'RESEND_API_KEY not configured'
+      }
+    }
+    
+    // Test Resend API with a simple validation request
+    const { Resend } = await import('resend')
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    
+    // Make a simple test request to validate the API key
+    // We'll try to get the API key info or make a minimal request
+    const response = await resend.domains.list()
+    
+    console.log(`[API HEALTH] Resend API: Online`)
+    console.log(`[API HEALTH] Domains count: ${response.data?.length || 0}`)
+    
+    return {
+      status: 'online'
+    }
+    
+  } catch (error) {
+    console.error('[API HEALTH] Resend API error:', error)
+    return {
+      status: 'offline',
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+}
+
+async function performBalanceAudit(): Promise<{
+  status: 'passed' | 'failed'
+  totalUsers: number
+  usersWithDiscrepancies: number
+  totalDiscrepancy: number
+  discrepancies: Array<{
+    email: string
+    profileBalance: number
+    calculatedBalance: number
+    difference: number
+  }>
+}> {
+  console.log('[BALANCE AUDIT] Starting balance audit...')
+  const supabaseClient = getSupabaseClient()
+  
+  // Get all active profiles (exclude deleted accounts)
+  const { data: profiles, error: profilesError } = await supabaseClient
+    .from('profiles')
+    .select('id, email, balance')
+    .neq('status', 'deleted')
+    .order('created_at', { ascending: false })
+
+  if (profilesError) {
+    console.error('[BALANCE AUDIT] Error fetching profiles:', profilesError)
+    return {
+      status: 'failed',
+      totalUsers: 0,
+      usersWithDiscrepancies: 0,
+      totalDiscrepancy: 0,
+      discrepancies: []
+    }
+  }
+
+  const discrepancies: Array<{
+    email: string
+    profileBalance: number
+    calculatedBalance: number
+    difference: number
+  }> = []
+
+  let totalDiscrepancy = 0
+
+  for (const profile of profiles || []) {
+    // Calculate balance from transactions
+    const { data: transactions, error: txError } = await supabaseClient
+      .from('transactions')
+      .select('amount, type')
+      .eq('user_id', profile.id)
+      .eq('status', 'completed')
+
+    if (txError) {
+      console.error(`[BALANCE AUDIT] Error fetching transactions for ${profile.email}:`, txError)
+      continue
+    }
+
+    // Calculate balance from transactions
+    const calculatedBalance = transactions?.reduce((sum, tx) => {
+      if (tx.type === 'deposit' || tx.type === 'internal') {
+        return sum + tx.amount
+      } else if (tx.type === 'withdrawal') {
+        return sum - tx.amount
+      }
+      return sum
+    }, 0) || 0
+
+    const difference = profile.balance - calculatedBalance
+
+    if (difference !== 0) {
+      discrepancies.push({
+        email: profile.email,
+        profileBalance: profile.balance,
+        calculatedBalance: calculatedBalance,
+        difference: difference
+      })
+      totalDiscrepancy += Math.abs(difference)
+    }
+  }
+
+  const status = discrepancies.length === 0 ? 'passed' : 'failed'
+  
+  console.log(`[BALANCE AUDIT] Audit complete: ${status}`)
+  console.log(`[BALANCE AUDIT] Total users: ${profiles?.length || 0}`)
+  console.log(`[BALANCE AUDIT] Users with discrepancies: ${discrepancies.length}`)
+  console.log(`[BALANCE AUDIT] Total discrepancy: ${totalDiscrepancy}`)
+
+  return {
+    status,
+    totalUsers: profiles?.length || 0,
+    usersWithDiscrepancies: discrepancies.length,
+    totalDiscrepancy,
+    discrepancies
+  }
+}
+
 export interface DailySummaryData {
   nodeBalance: {
     channel_balance: number
@@ -26,6 +279,34 @@ export interface DailySummaryData {
     total_balance: number
   }
   appTotalBalance: number
+  balanceAudit: {
+    status: 'passed' | 'failed'
+    totalUsers: number
+    usersWithDiscrepancies: number
+    totalDiscrepancy: number
+    discrepancies: Array<{
+      email: string
+      profileBalance: number
+      calculatedBalance: number
+      difference: number
+    }>
+  }
+  apiHealth: {
+    voltage: {
+      status: 'online' | 'offline' | 'error'
+      nodeBalance: number
+      discrepancy: number
+      error?: string
+    }
+    groq: {
+      status: 'online' | 'offline' | 'error'
+      error?: string
+    }
+    resend: {
+      status: 'online' | 'offline' | 'error'
+      error?: string
+    }
+  }
   last24Hours: {
     transactions: {
       count: number
@@ -127,9 +408,25 @@ export async function getDailySummaryData(): Promise<DailySummaryData> {
 
   const activeUsers = activeUserIds?.length || 0
 
+  // Perform balance audit
+  const balanceAudit = await performBalanceAudit()
+
+  // Check API health
+  const [voltageHealth, groqHealth, resendHealth] = await Promise.all([
+    checkVoltageAPI(),
+    checkGroqAPI(),
+    checkResendAPI()
+  ])
+
   return {
     nodeBalance: nodeBalanceData.balances,
     appTotalBalance,
+    balanceAudit,
+    apiHealth: {
+      voltage: voltageHealth,
+      groq: groqHealth,
+      resend: resendHealth
+    },
     last24Hours: {
       transactions: {
         count: transactionsCount
@@ -192,6 +489,62 @@ export function generateEmailHTML(data: DailySummaryData): string {
     <ul>
       <li><strong>Active Users:</strong> ${data.last24Hours.activeUsers}</li>
     </ul>
+
+    <h3>Balance Audit</h3>
+    ${data.balanceAudit.status === 'passed' 
+      ? '<p style="color: green; font-weight: bold;">✅ Balance audit check confirmed</p>'
+      : `
+        <p style="color: red; font-weight: bold;">⚠️ Balance discrepancies detected!</p>
+        <ul>
+          <li><strong>Total Users:</strong> ${data.balanceAudit.totalUsers}</li>
+          <li><strong>Users with Discrepancies:</strong> ${data.balanceAudit.usersWithDiscrepancies}</li>
+          <li><strong>Total Discrepancy:</strong> ${data.balanceAudit.totalDiscrepancy.toLocaleString()} sats</li>
+        </ul>
+        ${data.balanceAudit.discrepancies.length > 0 ? `
+          <h4>Discrepancies:</h4>
+          <ul>
+            ${data.balanceAudit.discrepancies.map(d => 
+              `<li><strong>${d.email}:</strong> Profile: ${d.profileBalance.toLocaleString()} sats, Calculated: ${d.calculatedBalance.toLocaleString()} sats, Difference: ${d.difference.toLocaleString()} sats</li>`
+            ).join('')}
+          </ul>
+        ` : ''}
+      `
+    }
+
+    <h3>API Health Checks</h3>
+    
+    <h4>Voltage Lightning Node</h4>
+    ${data.apiHealth.voltage.status === 'online' 
+      ? `
+        <p style="color: green; font-weight: bold;">✅ Voltage API: Online</p>
+        <ul>
+          <li><strong>Node Balance:</strong> ${data.apiHealth.voltage.nodeBalance.toLocaleString()} sats</li>
+          <li><strong>Balance Discrepancy:</strong> ${data.apiHealth.voltage.discrepancy.toLocaleString()} sats</li>
+        </ul>
+      `
+      : `
+        <p style="color: red; font-weight: bold;">❌ Voltage API: ${data.apiHealth.voltage.status.toUpperCase()}</p>
+        ${data.apiHealth.voltage.error ? `<p style="color: red;">Error: ${data.apiHealth.voltage.error}</p>` : ''}
+      `
+    }
+    
+    <h4>Groq AI API</h4>
+    ${data.apiHealth.groq.status === 'online' 
+      ? '<p style="color: green; font-weight: bold;">✅ Groq API: Online</p>'
+      : `
+        <p style="color: red; font-weight: bold;">❌ Groq API: ${data.apiHealth.groq.status.toUpperCase()}</p>
+        ${data.apiHealth.groq.error ? `<p style="color: red;">Error: ${data.apiHealth.groq.error}</p>` : ''}
+      `
+    }
+    
+    <h4>Resend Email API</h4>
+    ${data.apiHealth.resend.status === 'online' 
+      ? '<p style="color: green; font-weight: bold;">✅ Resend API: Online</p>'
+      : `
+        <p style="color: red; font-weight: bold;">❌ Resend API: ${data.apiHealth.resend.status.toUpperCase()}</p>
+        ${data.apiHealth.resend.error ? `<p style="color: red;">Error: ${data.apiHealth.resend.error}</p>` : ''}
+      `
+    }
 
     <hr>
     <p><small>Generated at ${new Date().toLocaleString()}</small></p>

@@ -62,7 +62,23 @@ export async function POST(request: Request) {
     // Create admin client for auth operations
     const adminSupabase = createServerSupabaseClient()
 
-    // Delete the connection first
+    // SOFT DELETE: Mark the profile as deleted instead of hard deleting
+    const { error: softDeleteError } = await supabase
+      .from("profiles")
+      .update({
+        status: 'deleted',
+        deleted_at: new Date().toISOString(),
+        deleted_by: userId,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", childAccountId)
+
+    if (softDeleteError) {
+      console.error("Error soft deleting profile:", softDeleteError)
+      return NextResponse.json({ error: "Failed to delete profile" }, { status: 500 })
+    }
+
+    // Delete the connection (this is safe since it's just a relationship)
     const { error: deleteConnectionError } = await supabase
       .from("connected_accounts")
       .delete()
@@ -70,29 +86,17 @@ export async function POST(request: Request) {
 
     if (deleteConnectionError) {
       console.error("Error deleting connection:", deleteConnectionError)
-      return NextResponse.json({ error: "Failed to delete connection" }, { status: 500 })
+      // Don't fail the request since the profile is already soft deleted
     }
 
-    // Delete the profile
-    const { error: deleteProfileError } = await supabase.from("profiles").delete().eq("id", childAccountId)
+    // Note: We do NOT delete the auth user - this preserves the ability to restore
+    // and maintains referential integrity for transactions
 
-    if (deleteProfileError) {
-      console.error("Error deleting profile:", deleteProfileError)
-      return NextResponse.json({ error: "Failed to delete profile" }, { status: 500 })
-    }
-
-    // Delete the auth user
-    const { error: deleteUserError } = await adminSupabase.auth.admin.deleteUser(childAccountId)
-
-    if (deleteUserError) {
-      console.error("Error deleting auth user:", deleteUserError)
-      return NextResponse.json({ 
-        error: "Failed to delete auth user", 
-        details: deleteUserError.message 
-      }, { status: 500 })
-    }
-
-    return NextResponse.json({ success: true, message: "Child account deleted successfully" })
+    return NextResponse.json({ 
+      success: true, 
+      message: "Child account deleted successfully",
+      note: "Account data is preserved and can be restored if needed"
+    })
   } catch (error) {
     console.error("Error in delete-child-account route:", error)
     return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 })

@@ -184,6 +184,14 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     }
   }, [showCamera, showBeforeAfter])
 
+  // Cleanup: ensure body scroll is restored when component unmounts
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = 'unset'
+      document.body.classList.remove("camera-active")
+    }
+  }, [])
+
   useEffect(() => {
     const fetchPost = async () => {
       try {
@@ -513,7 +521,13 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               related_id: post?.id,
               related_table: "posts",
               timestamp: nowIso,
-              metadata: { fixerNote, ai_confidence: verificationResult.confidence },
+              metadata: { 
+                title: post?.title,
+                reward: post?.reward,
+                fixed: true,
+                fixerNote, 
+                ai_confidence: verificationResult.confidence 
+              },
             })
           }
 
@@ -674,26 +688,19 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           variant: "success",
         })
 
-        // Add activity for approve
+        // Add single activity for fix (includes reward info)
         await supabase.from("activities").insert({
           id: uuidv4(),
           user_id: post.submitted_fix_by_id,
-          type: "approve",
+          type: "fix",
           related_id: post.id,
           related_table: "posts",
           timestamp: nowIso,
-          metadata: { reward: post.reward },
-        })
-
-        // Also record reward earned
-        await supabase.from("activities").insert({
-          id: uuidv4(),
-          user_id: post.submitted_fix_by_id,
-          type: "reward",
-          related_id: post.id,
-          related_table: "posts",
-          timestamp: nowIso,
-          metadata: { amount: post.reward },
+          metadata: { 
+            title: post.title,
+            reward: post.reward,
+            fixed: true
+          },
         })
       }
     } catch (error) {
@@ -803,7 +810,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
       <div className="relative w-screen h-screen bg-black">
         <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-50">
           <div className="bg-black/50 text-white/70 px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
-            Take photo of fix
+            Take a photo
           </div>
         </div>
         <CameraCapture onCapture={handleCaptureFixImage} />
@@ -1157,71 +1164,55 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               </div>
             </div>
           )}
-          <div className="mb-8 flex gap-3">
-            {/* Left column: Title and metadata */}
-            <div className="flex-1">
+          <div className="mb-8 flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
               <h2 className="text-xl font-bold mb-1">{post.title}</h2>
               <div className="flex flex-col gap-1">
-                {/* First line: Status and Creator */}
-                <div className="flex items-center text-sm text-muted-foreground">
-                  {post.fixed && (
-                    <>
-                      <div className="flex items-center">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
-                        <span>Fixed</span>
-                      </div>
-                      <span className="mx-2">•</span>
-                    </>
-                  )}
-                  {post.under_review && (
-                    <>
-                      <div className="flex items-center">
-                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mr-1.5"></span>
-                        <span>Under Review</span>
-                      </div>
-                      <span className="mx-2">•</span>
-                    </>
-                  )}
-                  {!post.fixed && !post.under_review && (
-                    <>
-                      <div className="flex items-center">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
-                        <span>Open</span>
-                      </div>
-                      <span className="mx-2">•</span>
-                    </>
-                  )}
-                  {!post.fixed && post.created_by && (
-                    <>
-                      <span>Created by {post.created_by}</span>
-                    </>
-                  )}
-                </div>
-                
-                {/* Second line: Timestamp */}
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mr-1"
-                  >
-                    <circle cx="12" cy="12" r="10" /> <polyline points="12 6 12 12 16 14" />
-                  </svg>
-                  <span>
-                    {formatDistanceToNow(new Date(post.createdAt || post.created_at || Date.now()), { addSuffix: false })
-                      .replace("about ", "")
-                      .replace(" hours", " hrs")
-                      .replace(" minutes", " mins")}{" "}
-                    ago
-                  </span>
-                </div>
+              {/* First line: Status, Time ago, and Creator */}
+              <div className="flex items-center text-sm text-muted-foreground">
+                {post.fixed && (
+                  <>
+                    <div className="flex items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+                      <span>Fixed</span>
+                    </div>
+                    <span className="mx-2">•</span>
+                  </>
+                )}
+                {post.under_review && (
+                  <>
+                    <div className="flex items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mr-1.5"></span>
+                      <span>Under Review</span>
+                    </div>
+                    <span className="mx-2">•</span>
+                  </>
+                )}
+                {!post.fixed && !post.under_review && (
+                  <>
+                    <div className="flex items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
+                      <span>Open</span>
+                    </div>
+                    <span className="mx-2">•</span>
+                  </>
+                )}
+                {/* Time ago */}
+                <span>
+                  {formatDistanceToNow(new Date(post.createdAt || post.created_at || Date.now()), { addSuffix: false })
+                    .replace("about ", "")
+                    .replace(" hours", " hrs")
+                    .replace(" minutes", " mins")}{" "}
+                  ago
+                </span>
+                {/* Creator */}
+                {!post.fixed && post.created_by && (
+                  <>
+                    <span className="mx-2">•</span>
+                    <span>Created by {post.created_by.split(' ').map((name, i, arr) => i === arr.length - 1 && arr.length > 1 ? name.charAt(0) : name).join(' ')}</span>
+                  </>
+                )}
+              </div>
               </div>
               {post.under_review && post.submitted_fix_by_name && (
                 <div className="flex items-center mt-1 text-sm text-muted-foreground">
@@ -1230,8 +1221,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               )}
             </div>
             
-            {/* Right column: Bitcoin badge */}
-            <div style={{ position: "relative", width: "48px", height: "48px", flexShrink: 0 }}>
+            {/* Bitcoin Map Marker with Sats Reward on the right - EXACT copy from dashboard */}
+            <div style={{ position: "relative", width: "48px", height: "48px" }}>
               <div
                 className="marker-container"
                 style={{
@@ -1254,6 +1245,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                   style={{ zIndex: 1 }}
                 />
               </div>
+              {/* Badge absolutely positioned over the coin */}
               <div
                 style={{
                   position: "absolute",
@@ -1288,11 +1280,44 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 })()}
               </div>
             </div>
+            
+            <style jsx>{`
+              .marker-container {
+                position: relative;
+                overflow: hidden;
+              }
+              .marker-container::before {
+                content: '';
+                position: absolute;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                background: linear-gradient(
+                  120deg,
+                  rgba(255, 255, 255, 0) 30%,
+                  rgba(255, 255, 255, 0.5) 50%,
+                  rgba(255, 255, 255, 0) 70%
+                );
+                transform: rotate(0deg);
+                animation: shine 2.5s infinite ease-in-out;
+                z-index: 2;
+                pointer-events: none;
+              }
+              @keyframes shine {
+                0% {
+                  transform: translate(-100%, -100%) rotate(25deg);
+                }
+                100% {
+                  transform: translate(100%, 100%) rotate(25deg);
+                }
+              }
+            `}</style>
           </div>
           
           {/* Map Widget - shows location of the issue */}
           {post.latitude && post.longitude && (
-            <div className="mb-6">
+            <div className="mb-4">
               <StaticMapWidget
                 latitude={Number(post.latitude)}
                 longitude={Number(post.longitude)}
@@ -1473,7 +1498,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             }}
           />
           {!post.fixed && !post.under_review && (
-            <Button className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold" onClick={() => setShowCamera(true)}>Submit Fix</Button>
+            <Button className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold" onClick={() => setShowCamera(true)}>Submit</Button>
           )}
           </div>
         )}

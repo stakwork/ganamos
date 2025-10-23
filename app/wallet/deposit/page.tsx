@@ -13,6 +13,7 @@ import { useAuth } from "@/components/auth-provider"
 import { formatSatsValue } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase"
 import Image from "next/image"
+import { AmountInputModal } from "@/components/amount-input-modal"
 
 export default function DepositPage() {
   const router = useRouter()
@@ -23,6 +24,9 @@ export default function DepositPage() {
   const [checking, setChecking] = useState<boolean>(false)
   const [settled, setSettled] = useState<boolean>(false)
   const [copied, setCopied] = useState<boolean>(false)
+  const [showAmountModal, setShowAmountModal] = useState<boolean>(false)
+  const [showFullInvoice, setShowFullInvoice] = useState<boolean>(false)
+  const [receivedAmount, setReceivedAmount] = useState<number | null>(null)
   const { toast } = useToast()
   const supabase = createBrowserSupabaseClient()
 
@@ -51,7 +55,7 @@ export default function DepositPage() {
     }
   }, [user])
 
-  const handleCreateInvoice = async () => {
+  const handleCreateInvoice = async (overrideAmount?: string) => {
     if (!user) {
       toast({
         title: "Error",
@@ -66,10 +70,10 @@ export default function DepositPage() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 500))
 
-      // If amount is provided, use it, otherwise create invoice without amount
-      const satsAmount = amount && amount !== "" ? parseInt(amount) : undefined
+      // If amount is provided, use it, otherwise create no-value invoice
+      const satsAmount = overrideAmount ? parseInt(overrideAmount) : (amount && amount !== "" ? parseInt(amount) : 0)
 
-      if (satsAmount && satsAmount < 100) {
+      if (satsAmount > 0 && satsAmount < 100) {
         toast({
           title: "Invalid amount",
           description: "Minimum deposit is 100 sats",
@@ -79,7 +83,7 @@ export default function DepositPage() {
         return
       }
 
-      const result = await createDepositInvoice(satsAmount || 0, user.id)
+      const result = await createDepositInvoice(satsAmount, user.id)
       if (result.success) {
         setInvoice(result.paymentRequest)
         setRHash(result.rHash)
@@ -170,8 +174,10 @@ export default function DepositPage() {
 
         if (!profile) return
 
-        const satsAmount = amount && amount !== "" ? parseInt(amount) : result.amount || 1000
-        const newBalance = profile.balance + satsAmount
+        // CRITICAL: Always use the actual amount received, not the pre-specified amount
+        const satsAmount = parseInt(result.amount) || 1000
+        setReceivedAmount(satsAmount)
+        const newBalance = parseInt(profile.balance) + satsAmount
 
         try {
           const { error: balanceError } = await supabase
@@ -183,30 +189,34 @@ export default function DepositPage() {
             console.error("Error updating balance:", balanceError)
           }
 
-          const { error: txError } = await supabase.from("transactions").insert({
-            user_id: user.id,
-            type: "deposit",
-            amount: satsAmount,
-            status: "completed",
-            memo: `Deposit of ${satsAmount} sats`,
-          })
+          // Update the existing transaction instead of creating a new one
+          const { error: txError } = await supabase
+            .from("transactions")
+            .update({ 
+              status: "completed",
+              updated_at: new Date().toISOString()
+            })
+            .eq("r_hash_str", rHash)
+            .eq("user_id", user.id)
+            .eq("status", "pending")
 
           if (txError) {
-            console.error("Error creating transaction:", txError)
+            console.error("Error updating transaction:", txError)
           }
 
           await refreshProfile()
 
-          toast({
-            title: "Payment received!",
-            description: `${satsAmount} sats added to your balance`,
-            variant: "default",
-            duration: 2000,
-          })
+          // Don't show toast here since we have a success screen
+          // toast({
+          //   title: "Payment received!",
+          //   description: `${satsAmount} sats added to your balance`,
+          //   variant: "default",
+          //   duration: 2000,
+          // })
 
           setTimeout(() => {
             router.push("/profile")
-          }, 2000)
+          }, 3000)
         } catch (error) {
           console.error("Error handling successful payment:", error)
         }
@@ -229,8 +239,10 @@ export default function DepositPage() {
     setSettled(true)
     setChecking(false)
 
+    // For simulated payments, use the pre-specified amount since it's a test
     const satsAmount = amount && amount !== "" ? parseInt(amount) : 1000
-    const newBalance = profile.balance + satsAmount
+    setReceivedAmount(satsAmount)
+    const newBalance = parseInt(profile.balance) + satsAmount
     console.log("Simulating payment received. Current balance:", profile.balance, "New balance:", newBalance)
 
     try {
@@ -258,16 +270,17 @@ export default function DepositPage() {
 
       await refreshProfile()
 
-      toast({
-        title: "Payment received! (Simulated)",
-        description: `${satsAmount} sats added to your balance`,
-        variant: "default",
-        duration: 2000,
-      })
+      // Don't show toast here since we have a success screen
+      // toast({
+      //   title: "Payment received! (Simulated)",
+      //   description: `${satsAmount} sats added to your balance`,
+      //   variant: "default",
+      //   duration: 2000,
+      // })
 
       setTimeout(() => {
         router.push("/profile")
-      }, 2000)
+      }, 3000)
     } catch (error) {
       console.error("Error simulating payment:", error)
     }
@@ -306,7 +319,7 @@ export default function DepositPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
 
-          <div className="w-10"></div>
+          <h1 className="text-lg font-semibold">Deposit Bitcoin</h1>
 
           <Button variant="ghost" size="icon" onClick={() => router.push("/wallet")}>
             <X className="h-5 w-5" />
@@ -316,7 +329,7 @@ export default function DepositPage() {
         {/* Content */}
         <div className="px-6 pb-6 space-y-6">
           {loading && !invoice ? (
-            <div className="flex flex-col items-center justify-center py-12">
+            <div className="flex flex-col items-center justify-center min-h-[80vh]">
               <LoadingSpinner />
               <p className="text-muted-foreground mt-4">Generating invoice...</p>
             </div>
@@ -327,7 +340,7 @@ export default function DepositPage() {
               </div>
               <h3 className="text-lg font-medium text-green-700 dark:text-green-300">Payment Received!</h3>
               <p className="text-green-600 dark:text-green-400 mt-2">
-                {amount && amount !== "" ? `${parseInt(amount)} sats` : "Sats"} added to your balance
+                {receivedAmount ? `${formatSatsValue(receivedAmount)}` : "Sats"} added to your balance
               </p>
               <p className="text-sm text-green-500 dark:text-green-400 mt-1">Redirecting to your profile...</p>
             </div>
@@ -372,19 +385,41 @@ export default function DepositPage() {
                 </div>
           </div>
 
+              {/* Amount Input */}
+              <div className="flex items-center space-x-2">
+                <Button
+                  onClick={() => setShowAmountModal(true)}
+                  className="flex-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                >
+                  {amount ? `${formatSatsValue(parseInt(amount))}` : "Add an amount"}
+                </Button>
+              </div>
+
               {/* Invoice String with Copy */}
               <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Input 
-                    value={invoice} 
+                <div className="flex items-start space-x-2">
+                  <textarea 
+                    value={showFullInvoice ? invoice : (invoice.length > 50 ? `${invoice.substring(0, 20)}...${invoice.substring(invoice.length - 20)}` : invoice)} 
                     readOnly 
-                    className="text-xs font-mono bg-muted"
+                    className="flex-1 text-xs font-mono bg-muted cursor-pointer resize-none border rounded-md px-3 py-2 min-h-[40px] flex items-center justify-center"
+                    onClick={() => {
+                      // Toggle full invoice display when clicked
+                      setShowFullInvoice(!showFullInvoice)
+                    }}
+                    rows={showFullInvoice ? Math.ceil(invoice.length / 50) : 1}
+                    style={{ 
+                      height: showFullInvoice ? 'auto' : '40px',
+                      minHeight: showFullInvoice ? `${Math.ceil(invoice.length / 50) * 20 + 20}px` : '40px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      lineHeight: '1.2'
+                    }}
                   />
             <Button
                     onClick={copyToClipboard} 
                 variant="outline"
                     size="icon"
-                    className="shrink-0"
+                    className="shrink-0 mt-1"
                   >
                     {copied ? (
                       <Check className="h-4 w-4 text-green-500" />
@@ -393,30 +428,34 @@ export default function DepositPage() {
                     )}
               </Button>
                 </div>
+                {showFullInvoice && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Click to collapse
+                  </p>
+                )}
           </div>
-
-              {/* Amount Input */}
-              <div className="flex items-center space-x-2">
-                <Input
-                  type="number"
-                  placeholder="Add invoice amount"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="flex-1 text-sm placeholder:text-xs"
-                  min="100"
-                />
-                <Button 
-                  onClick={handleRegenerateWithAmount} 
-                  className={`${!amount || amount === "" ? "bg-gray-400" : "bg-green-600 hover:bg-green-700"} text-white`}
-                  disabled={loading || !amount || amount === ""}
-                >
-                  Regenerate
-                </Button>
-              </div>
             </>
           ) : null}
         </div>
       </div>
+
+      {/* Amount Input Modal */}
+      <AmountInputModal
+        open={showAmountModal}
+        onOpenChange={setShowAmountModal}
+        onAmountSet={(newAmount) => {
+          setAmount(newAmount)
+          // Clear existing invoice and regenerate (whether amount is set or cleared)
+          setInvoice(null)
+          setRHash(null)
+          setChecking(false)
+          setSettled(false)
+          setShowFullInvoice(false)
+          // Generate new invoice (no-value if amount is empty, or with amount if specified)
+          handleCreateInvoice(newAmount)
+        }}
+        currentAmount={amount}
+      />
     </div>
   )
 }
