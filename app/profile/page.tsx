@@ -273,6 +273,10 @@ export default function ProfilePage() {
     if (!bitcoinPrice) return null;
     const btcAmount = sats / 100000000;
     const usdValue = btcAmount * bitcoinPrice;
+    // Round down to nearest whole number if over $100
+    if (usdValue >= 100) {
+      return Math.floor(usdValue).toString();
+    }
     return usdValue.toFixed(2);
   };
 

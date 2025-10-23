@@ -10,6 +10,10 @@ export function formatSatsValue(sats: number): string {
   if (sats >= 1000000) {
     const millions = sats / 1000000
     return millions % 1 === 0 ? `${millions}M sats` : `${millions.toFixed(1)}M sats`
+  } else if (sats >= 100000) {
+    // For 100k and above, round down to nearest thousand (no decimal)
+    const thousands = Math.floor(sats / 1000)
+    return `${thousands}k sats`
   } else if (sats >= 1000) {
     const thousands = sats / 1000
     return thousands % 1 === 0 ? `${thousands}k sats` : `${thousands.toFixed(1)}k sats`
