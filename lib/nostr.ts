@@ -98,7 +98,7 @@ Fix it and earn Bitcoin on Ganamos!
 
 https://www.ganamos.earth/post/${postId}
 
-#Ganamos #Bitcoin #FixYourCity`
+#Ganamos #Bitcoin`
 
     // Build tags
     const tags: string[][] = [
