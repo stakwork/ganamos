@@ -50,7 +50,7 @@ export function extractInvoiceAmount(invoice: string): number | null {
   try {
     const trimmed = invoice.trim().toLowerCase()
 
-    // Remove prefix
+    // Remove prefix and get the part after it
     let withoutPrefix = ""
     if (trimmed.startsWith("lnbc")) {
       withoutPrefix = trimmed.substring(4)
@@ -62,7 +62,16 @@ export function extractInvoiceAmount(invoice: string): number | null {
       return null
     }
 
-    // Extract amount (digits at the beginning)
+    // For amount-less invoices, the format is typically:
+    // lnbc1p... (where 1p indicates amount-less)
+    // lnbc... (where there are no digits at the start)
+    
+    // Check if this is an amount-less invoice
+    if (withoutPrefix.startsWith('1p') || withoutPrefix.startsWith('1')) {
+      return null // Amount-less invoice
+    }
+
+    // Extract amount (digits at the beginning, but not if it starts with '1p')
     const amountMatch = withoutPrefix.match(/^(\d+)/)
     if (!amountMatch) {
       return null // No amount specified (amount-less invoice)
