@@ -346,7 +346,7 @@ export async function createFundedAnonymousPostAction(postDetails: {
         metadata: { title: postDetails.description.substring(0, 50) },
       });
 
-      // Publish to Nostr asynchronously (don't block on this)
+      // Publish to Nostr asynchronously (anonymous posts are always public, so publish to Nostr)
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
                      (process.env.NODE_ENV === 'production' ? 'https://www.ganamos.earth' : 'http://localhost:3457')
       
