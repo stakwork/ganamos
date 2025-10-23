@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Plus, User } from "lucide-react"
@@ -11,11 +11,46 @@ import type { Profile } from "@/lib/database.types"
 
 interface FamilySectionProps {
   onAddAccount: () => void
+  cachedFamilyCount?: number
 }
 
-export function FamilySection({ onAddAccount }: FamilySectionProps) {
+export function FamilySection({ onAddAccount, cachedFamilyCount: propCachedFamilyCount = 0 }: FamilySectionProps) {
   const { connectedAccounts, isConnectedAccount, user, mainAccountProfile, activeUserId, profile } = useAuth()
   const router = useRouter()
+  const [hasLoadedAccounts, setHasLoadedAccounts] = useState(false)
+  
+  // Load cached family count directly from localStorage
+  const [cachedFamilyCount, setCachedFamilyCount] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    try {
+      const userId = localStorage.getItem('ganamos_active_user_id');
+      if (!userId) return 0;
+      const cached = localStorage.getItem(`ganamos_family_count_${userId}`);
+      if (cached) {
+        const { count, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 60 * 60 * 1000) return count;
+      }
+    } catch (e) {}
+    return 0;
+  });
+  
+  // Track when accounts have been loaded at least once
+  // Set to true when we have accounts OR after 800ms (to handle no-accounts case)
+  useEffect(() => {
+    if (connectedAccounts && connectedAccounts.length > 0) {
+      setHasLoadedAccounts(true)
+      // Update cached count when real accounts load
+      if (cachedFamilyCount === 0) {
+        setCachedFamilyCount(connectedAccounts.length);
+      }
+    } else if (connectedAccounts) {
+      // If connectedAccounts exists but is empty, wait before showing Add button
+      const timer = setTimeout(() => {
+        setHasLoadedAccounts(true)
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [connectedAccounts, cachedFamilyCount])
 
   // Handle child account tap - navigate to send sats page
   const handleChildAccountTap = (childAccount: Profile) => {
@@ -60,32 +95,41 @@ export function FamilySection({ onAddAccount }: FamilySectionProps) {
   const sortedAccounts = getAccountsToShow()
     .sort((a, b) => (b.balance || 0) - (a.balance || 0))
 
-  // Always render the section, even if no accounts (to show the Add button)
+  // Only show Add button after accounts have loaded
+  const showAddButton = hasLoadedAccounts;
+
+  console.log('[FamilySection]', {
+    cachedFamilyCount,
+    hasLoadedAccounts,
+    connectedAccountsLength: connectedAccounts?.length,
+    sortedAccountsLength: sortedAccounts.length,
+    showAddButton
+  });
 
   return (
-    <div className="mt-4">
+    <div className="mt-4" style={{ minHeight: '110px' }}>
       <p className="text-sm text-muted-foreground mb-3">Family</p>
       <div className="relative overflow-hidden">
         {/* Horizontal scrolling container */}
         <div 
-          className="flex space-x-4 overflow-x-auto scrollbar-hide pb-2" 
+          className="flex space-x-4 overflow-x-auto scrollbar-hide" 
           style={{ 
             scrollbarWidth: 'none', 
             msOverflowStyle: 'none'
           }}
         >
-          {sortedAccounts.map((account) => (
+          {sortedAccounts.map((account, index) => (
             <button
               key={account.id}
               onClick={() => handleChildAccountTap(account)}
-              className="flex flex-col items-center space-y-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none flex-shrink-0 min-w-[68px]"
+              className="flex flex-col items-center space-y-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none flex-shrink-0 min-w-[68px] animate-in fade-in duration-500"
             >
               {/* Avatar */}
               <Avatar className="w-12 h-12">
                 <AvatarImage 
                   src={account.avatar_url ?? undefined} 
                   alt={account.name || "Family member"}
-                  className="object-cover"
+                  className="object-cover transition-opacity duration-300"
                 />
                 <AvatarFallback>
                   <User className="h-5 w-5" />
@@ -112,24 +156,26 @@ export function FamilySection({ onAddAccount }: FamilySectionProps) {
             </button>
           ))}
           
-          {/* Add Family Member Button */}
-          <button
-            onClick={onAddAccount}
-            className="flex flex-col items-center space-y-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none flex-shrink-0 min-w-[68px]"
-          >
-            {/* Dotted Circle with Plus */}
-            <div className="relative w-12 h-12 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
-              <Plus className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-            </div>
-            
-            {/* Add text */}
-            <div className="text-sm font-medium text-center text-gray-500 dark:text-gray-400">
-              Add
-            </div>
-            
-            {/* Empty space for balance alignment */}
-            <div className="h-4"></div>
-          </button>
+          {/* Add Family Member Button - hide during initial load if we expect family members */}
+          {showAddButton && (
+            <button
+              onClick={onAddAccount}
+              className="flex flex-col items-center space-y-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none flex-shrink-0 min-w-[68px]"
+            >
+              {/* Dotted Circle with Plus */}
+              <div className="relative w-12 h-12 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
+                <Plus className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+              </div>
+              
+              {/* Add text */}
+              <div className="text-sm font-medium text-center text-gray-500 dark:text-gray-400">
+                Add
+              </div>
+              
+              {/* Empty space for balance alignment */}
+              <div className="h-4"></div>
+            </button>
+          )}
         </div>
         
         {/* Fade overlay positioned absolutely over the content */}
