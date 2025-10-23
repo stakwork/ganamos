@@ -654,6 +654,34 @@ export default function NewPostPage() {
         updateBalance(profile.balance - reward)
       }
 
+      // Publish to Nostr asynchronously (don't block on this)
+      fetch('/api/nostr/publish-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: description.substring(0, 50),
+          description,
+          location: currentLocation?.name,
+          city: currentLocation?.displayName || currentLocation?.name,
+          latitude: currentLocation?.lat,
+          longitude: currentLocation?.lng,
+          reward,
+          postId,
+          imageUrl: finalImageUrl
+        })
+      }).then(response => response.json())
+        .then(result => {
+          if (result.success) {
+            console.log('[NOSTR] Post published to Nostr:', result.eventId)
+          } else {
+            console.error('[NOSTR] Failed to publish to Nostr:', result.error)
+          }
+        })
+        .catch(error => {
+          console.error('[NOSTR] Error publishing to Nostr:', error)
+          // Don't fail the post creation if Nostr publishing fails
+        })
+
       const successToast = toast({
         title: "🎉 Post created!",
         description: "Your issue has been posted successfully ✅",

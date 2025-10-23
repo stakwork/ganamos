@@ -345,6 +345,29 @@ export async function createFundedAnonymousPostAction(postDetails: {
         timestamp: now.toISOString(),
         metadata: { title: postDetails.description.substring(0, 50) },
       });
+
+      // Publish to Nostr asynchronously (don't block on this)
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                     (process.env.NODE_ENV === 'production' ? 'https://www.ganamos.earth' : 'http://localhost:3457')
+      
+      fetch(`${appUrl}/api/nostr/publish-post`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: postDetails.description.substring(0, 50),
+          description: postDetails.description,
+          location: postDetails.location,
+          city: postDetails.city,
+          latitude: postDetails.latitude,
+          longitude: postDetails.longitude,
+          reward: postDetails.reward,
+          postId: data.id,
+          imageUrl: postDetails.image_url
+        })
+      }).catch(error => {
+        console.error('[NOSTR] Error publishing anonymous post to Nostr:', error)
+        // Don't fail the post creation if Nostr publishing fails
+      })
     }
 
     return { success: true, postId: data.id }
