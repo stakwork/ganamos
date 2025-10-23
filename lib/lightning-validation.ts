@@ -62,12 +62,14 @@ export function extractInvoiceAmount(invoice: string): number | null {
       return null
     }
 
-    // For BOLT11 invoices, the amount is encoded at the beginning
-    // Amount-less invoices don't have a numeric amount at the start
-    // They typically start with a character that's not a digit
+    // For BOLT11 invoices, amount-less invoices don't have amount suffixes
+    // Look for amount suffixes: u (micro), m (milli), n (nano), p (pico)
+    // If no amount suffix is found, it's an amount-less invoice
     
-    // Check if the first character is a digit (indicating an amount)
-    if (!/^\d/.test(withoutPrefix)) {
+    // Check if the invoice has an amount by looking for amount suffixes
+    const hasAmountSuffix = /[umnp]$/.test(withoutPrefix) || /[umnp][a-z0-9]/.test(withoutPrefix)
+    
+    if (!hasAmountSuffix) {
       return null // No amount specified (amount-less invoice)
     }
 
