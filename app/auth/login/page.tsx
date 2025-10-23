@@ -223,7 +223,7 @@ export default function LoginPage() {
             <div className="text-center space-y-2 pt-4">
               <p className="text-sm text-muted-foreground">
                 Don't have an account?{" "}
-                <Link href="/auth/register" className="text-emerald-600 hover:underline">
+                <Link href="/auth/register" data-testid="register-link" className="text-emerald-600 hover:underline">
                   Sign up
                 </Link>
               </p>

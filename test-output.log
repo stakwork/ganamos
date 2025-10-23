@@ -1,0 +1,74 @@
+
+Running 2 tests using 2 workers
+
+[1A[2K[1/2] [chromium] › tests/e2e/user-journey.spec.ts:10:7 › User Journey - Home to Register › should navigate from homepage to login to register and verify content
+[1A[2K[2/2] [chromium] › tests/e2e/user-journey.spec.ts:40:7 › User Journey - Home to Register › should have all expected elements on register page
+[1A[2K  1) [chromium] › tests/e2e/user-journey.spec.ts:40:7 › User Journey - Home to Register › should have all expected elements on register page 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+
+    Locator:  getByTestId('register-heading')
+    Expected: visible
+    Received: <element(s) not found>
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('register-heading')[22m
+
+
+      46 |
+      47 |     // Verify all key elements are visible
+    > 48 |     await expect(registerPage.heading).toBeVisible()
+         |                                        ^
+      49 |     await expect(registerPage.description).toBeVisible()
+      50 |     await expect(registerPage.googleSignUpButton).toBeVisible()
+      51 |     await expect(registerPage.emailSignUpButton).toBeVisible()
+        at /workspaces/ganamos/tests/e2e/user-journey.spec.ts:48:40
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/user-journey-User-Journey--3c181-d-elements-on-register-page-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/user-journey-User-Journey--3c181-d-elements-on-register-page-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/user-journey-User-Journey--3c181-d-elements-on-register-page-chromium/error-context.md
+
+
+[1A[2K  2) [chromium] › tests/e2e/user-journey.spec.ts:10:7 › User Journey - Home to Register › should navigate from homepage to login to register and verify content 
+
+    TimeoutError: locator.waitFor: Timeout 10000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('login-button') to be visible[22m
+
+
+       at page-objects/home-page.ts:39
+
+      37 |     await this.page.waitForURL('/')
+      38 |     // Also wait for the login button to be visible (indicates page is fully loaded)
+    > 39 |     await this.loginButton.waitFor({ state: 'visible', timeout: 10000 })
+         |                            ^
+      40 |   }
+      41 | }
+      42 |
+        at HomePage.verifyPageLoaded (/workspaces/ganamos/tests/e2e/page-objects/home-page.ts:39:28)
+        at /workspaces/ganamos/tests/e2e/user-journey.spec.ts:18:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/user-journey-User-Journey--25f78-register-and-verify-content-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/user-journey-User-Journey--25f78-register-and-verify-content-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/user-journey-User-Journey--25f78-register-and-verify-content-chromium/error-context.md
+
+
+[1A[2K  2 failed
+    [chromium] › tests/e2e/user-journey.spec.ts:10:7 › User Journey - Home to Register › should navigate from homepage to login to register and verify content 
+    [chromium] › tests/e2e/user-journey.spec.ts:40:7 › User Journey - Home to Register › should have all expected elements on register page 
+
+  Serving HTML report at http://localhost:9323. Press Ctrl+C to quit.

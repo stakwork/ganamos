@@ -75,8 +75,8 @@ export default function RegisterPage() {
       <div className="w-full max-w-md px-4 z-10">
         <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm p-8 rounded-lg shadow-lg space-y-6">
           <div className="space-y-4 text-center">
-            <h1 className="app-title">Ganamos!</h1>
-            <p className="text-muted-foreground">Join Ganamos to start posting issues and earning rewards</p>
+            <h1 className="app-title" data-testid="register-heading">Ganamos!</h1>
+            <p className="text-muted-foreground" data-testid="register-description">Join Ganamos to start posting issues and earning rewards</p>
           </div>
 
           {isLoading && !showEmailForm ? (
