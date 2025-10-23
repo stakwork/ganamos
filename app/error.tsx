@@ -18,23 +18,23 @@ export default function GlobalError({
   return (
     <html>
       <body>
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-          <Card className="max-w-md w-full shadow-2xl">
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <Card className="max-w-md w-full">
             <CardContent className="pt-8 pb-8">
               <div className="text-center space-y-6">
                 {/* Error Icon */}
-                <div className="w-20 h-20 mx-auto bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900 dark:to-red-800 rounded-full flex items-center justify-center">
+                <div className="w-16 h-16 mx-auto bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="40"
-                    height="40"
+                    width="32"
+                    height="32"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="text-red-600 dark:text-red-300"
+                    className="text-red-600 dark:text-red-400"
                   >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" x2="12" y1="8" y2="12" />
@@ -44,11 +44,11 @@ export default function GlobalError({
 
                 {/* Error Message */}
                 <div className="space-y-2">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Oops! Something went wrong
-                  </h1>
-                  <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed px-4">
-                    Don't worry, this happens sometimes. Try refreshing the page to get back on track.
+                  <h2 className="text-xl font-bold">
+                    Something went wrong
+                  </h2>
+                  <p className="text-muted-foreground text-sm">
+                    We encountered an error. Try refreshing the page to continue.
                   </p>
                 </div>
 
@@ -56,13 +56,12 @@ export default function GlobalError({
                 <div className="space-y-3 pt-2">
                   <Button
                     onClick={() => window.location.reload()}
-                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-6 rounded-lg shadow-lg hover:shadow-xl transition-all"
-                    size="lg"
+                    className="w-full"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
+                      width="16"
+                      height="16"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -82,17 +81,11 @@ export default function GlobalError({
                   <Button
                     onClick={() => reset()}
                     variant="outline"
-                    className="w-full py-6 rounded-lg"
-                    size="lg"
+                    className="w-full"
                   >
                     Try Again
                   </Button>
                 </div>
-
-                {/* Help Text */}
-                <p className="text-xs text-gray-500 dark:text-gray-400 pt-4">
-                  If this problem persists, please contact support
-                </p>
               </div>
             </CardContent>
           </Card>
