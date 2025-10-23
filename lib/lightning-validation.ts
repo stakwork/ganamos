@@ -49,6 +49,7 @@ export function validateLightningInvoice(invoice: string): boolean {
 export function extractInvoiceAmount(invoice: string): number | null {
   try {
     const trimmed = invoice.trim().toLowerCase()
+    console.log('[LIGHTNING DEBUG] Processing invoice:', trimmed.substring(0, 20) + '...')
 
     // Remove prefix and get the part after it
     let withoutPrefix = ""
@@ -59,8 +60,11 @@ export function extractInvoiceAmount(invoice: string): number | null {
     } else if (trimmed.startsWith("lnbcrt")) {
       withoutPrefix = trimmed.substring(6)
     } else {
+      console.log('[LIGHTNING DEBUG] Invalid prefix')
       return null
     }
+
+    console.log('[LIGHTNING DEBUG] Without prefix:', withoutPrefix.substring(0, 20) + '...')
 
     // For BOLT11 invoices, amount-less invoices don't have amount suffixes
     // Look for amount suffixes: u (micro), m (milli), n (nano), p (pico)
@@ -68,23 +72,30 @@ export function extractInvoiceAmount(invoice: string): number | null {
     
     // Check if the invoice has an amount by looking for amount suffixes
     const hasAmountSuffix = /[umnp]$/.test(withoutPrefix) || /[umnp][a-z0-9]/.test(withoutPrefix)
+    console.log('[LIGHTNING DEBUG] Has amount suffix:', hasAmountSuffix)
     
     if (!hasAmountSuffix) {
+      console.log('[LIGHTNING DEBUG] No amount suffix found - treating as amount-less invoice')
       return null // No amount specified (amount-less invoice)
     }
 
     // Extract amount (digits at the beginning)
     const amountMatch = withoutPrefix.match(/^(\d+)/)
+    console.log('[LIGHTNING DEBUG] Amount match:', amountMatch)
     if (!amountMatch) {
+      console.log('[LIGHTNING DEBUG] No amount digits found')
       return null // No amount specified (amount-less invoice)
     }
 
     const amountStr = amountMatch[1]
     const amount = Number.parseInt(amountStr, 10)
+    console.log('[LIGHTNING DEBUG] Parsed amount:', amount)
 
     // The amount in Lightning invoices is in millisatoshis for lnbc
     // Convert to satoshis by dividing by 1000
-    return Math.floor(amount / 1000)
+    const result = Math.floor(amount / 1000)
+    console.log('[LIGHTNING DEBUG] Final amount in sats:', result)
+    return result
   } catch (error) {
     console.error("Error extracting invoice amount:", error)
     return null
@@ -98,13 +109,18 @@ export function extractInvoiceAmount(invoice: string): number | null {
  * @returns boolean indicating if amounts match (or if invoice has no amount)
  */
 export function validateInvoiceAmount(invoice: string, expectedAmount: number): boolean {
+  console.log('[LIGHTNING DEBUG] Validating invoice amount. Expected:', expectedAmount)
   const invoiceAmount = extractInvoiceAmount(invoice)
+  console.log('[LIGHTNING DEBUG] Extracted invoice amount:', invoiceAmount)
 
   // If invoice has no amount specified, it's valid (amount-less invoice)
   if (invoiceAmount === null) {
+    console.log('[LIGHTNING DEBUG] Amount-less invoice detected - validation passes')
     return true
   }
 
   // Allow for small rounding differences (within 1 sat)
-  return Math.abs(invoiceAmount - expectedAmount) <= 1
+  const isValid = Math.abs(invoiceAmount - expectedAmount) <= 1
+  console.log('[LIGHTNING DEBUG] Amount validation result:', isValid, '(difference:', Math.abs(invoiceAmount - expectedAmount), ')')
+  return isValid
 }
